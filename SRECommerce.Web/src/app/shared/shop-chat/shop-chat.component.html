@@ -1,0 +1,31 @@
+<div class="shop-chat" [class.open]="open()">
+  <button class="chat-fab" type="button" (click)="open.set(!open())">
+    {{ open() ? 'Close' : 'Chat' }}
+  </button>
+
+  <section class="chat-panel" *ngIf="open()">
+    <header>
+      <strong>{{ auth.isStaff() ? 'Commerce Assistant' : 'Shopping Assistant' }}</strong>
+      <span>{{ auth.isStaff() ? 'Dashboard and catalog help' : 'Live catalog help' }}</span>
+    </header>
+
+    <div class="chat-messages">
+      <div *ngFor="let m of messages()" [class]="'chat-msg ' + m.from">
+        {{ m.text }}
+      </div>
+    </div>
+
+    <div class="chat-quick">
+      <button type="button" (click)="quick('budget phone')">Budget phone</button>
+      <button type="button" (click)="quick('best laptop')">Best laptop</button>
+      <button type="button" (click)="quick('home decor')">Home decor</button>
+      <button type="button" *ngIf="auth.isStaff()" (click)="quick('orders and sales summary')">Sales summary</button>
+      <button type="button" *ngIf="auth.isStaff()" (click)="quick('employee access')">Employee access</button>
+    </div>
+
+    <form (ngSubmit)="send()" class="chat-input">
+      <input class="form-control" [(ngModel)]="input" name="chatInput" placeholder="Ask for product or dashboard help" />
+      <button class="btn-primary" type="submit">Send</button>
+    </form>
+  </section>
+</div>

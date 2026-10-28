@@ -1,0 +1,18 @@
+{
+  "/api": {
+    "target": "http://localhost:5027",
+    "secure": true,
+    "changeOrigin": true,
+    "timeout": 15000,
+    "proxyTimeout": 15000,
+    "logLevel": "debug"
+  },
+  "/uploads": {
+    "target": "http://localhost:5027",
+    "secure": true,
+    "changeOrigin": true,
+    "timeout": 15000,
+    "proxyTimeout": 15000,
+    "logLevel": "debug"
+  }
+}

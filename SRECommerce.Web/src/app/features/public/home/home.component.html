@@ -1,0 +1,111 @@
+<div class="storefront">
+  <section class="commerce-hero shop-hero">
+    <aside class="hero-departments">
+      <div class="panel-title">Departments</div>
+      <a *ngFor="let c of departmentCategories(); trackBy: trackById" [routerLink]="['/c', c.slug]">
+        <img [src]="c.imageUrl || placeholder" [alt]="c.name" />
+        <span>{{ c.name }}</span>
+      </a>
+      <a routerLink="/products">
+        <span class="dept-dot"></span>
+        <span>All products</span>
+      </a>
+    </aside>
+
+    <div class="hero-copy">
+      <p class="eyebrow">BABY PINK MULTI-PRODUCT STORE</p>
+      <h1>Shop everything from one dynamic storefront.</h1>
+      <p>
+        Manage banners, product shelves, categories, and design settings from the dashboard while customers browse a high-volume catalog.
+      </p>
+      <div class="hero-actions">
+        <a routerLink="/products" class="btn-primary">Shop now</a>
+        <a routerLink="/admin" class="btn-outline">Manage design</a>
+      </div>
+      <div class="hero-metrics">
+        <div><strong>1000+</strong><span>Seeded products</span></div>
+        <div><strong>{{ categoryCount() }}</strong><span>Departments</span></div>
+        <div><strong>Live</strong><span>Dashboard design</span></div>
+      </div>
+    </div>
+
+    <a class="hero-product" *ngIf="heroProduct() as hero" [routerLink]="['/p', hero.slug]">
+      <span class="badge">Deal of the day</span>
+      <div class="hero-product-image" [style.backgroundImage]="'url(' + (hero.imageUrl || placeholder) + ')'"></div>
+      <div>
+        <h2>{{ hero.name }}</h2>
+        <p>Rs. {{ (hero.price - (hero.discount || 0)) | number:'1.0-0' }}</p>
+      </div>
+    </a>
+  </section>
+
+  <section class="benefit-strip">
+    <div><strong>Fast checkout</strong><span>Cart, account, and order flow</span></div>
+    <div><strong>Admin control</strong><span>Products, banners, sections, users</span></div>
+    <div><strong>Smart assistant</strong><span>Chatbot helps buyers decide</span></div>
+    <div><strong>Multi-category</strong><span>Electronics, fashion, home, beauty</span></div>
+  </section>
+
+  <div *ngIf="loading()" class="alert">Loading storefront...</div>
+  <div *ngIf="error()" class="alert">{{ error() }}</div>
+  <div *ngIf="!loading() && !error() && orderedBlocks().length === 0" class="alert">
+    No home sections configured yet.
+  </div>
+
+  <ng-container *ngFor="let b of orderedBlocks(); trackBy: trackById">
+    <section [class]="sectionClass(b)" [ngStyle]="sectionStyle(b)" *ngIf="b.type === 1">
+      <div class="sec-head">
+        <div>
+          <p class="eyebrow">SHOP BY DEPARTMENT</p>
+          <h2>{{ b.title || 'Categories' }}</h2>
+        </div>
+        <span class="text-muted">{{ asCategories(b).length }} items</span>
+      </div>
+
+      <div class="category-grid" [ngStyle]="gridStyle(b.cardsPerRow)">
+        <a class="category-tile" *ngFor="let c of asCategories(b); trackBy: trackById" [routerLink]="['/c', c.slug]">
+          <div class="thumb" [style.backgroundImage]="'url(' + (c.imageUrl || placeholder) + ')'"></div>
+          <div class="tile-meta">
+            <div>{{ c.name }}</div>
+            <span>View deals</span>
+          </div>
+        </a>
+      </div>
+    </section>
+
+    <section [class]="sectionClass(b)" [ngStyle]="sectionStyle(b)" *ngIf="b.type === 2">
+      <div class="sec-head">
+        <div>
+          <p class="eyebrow">CAMPAIGNS</p>
+          <h2>{{ b.title || 'Banners' }}</h2>
+        </div>
+      </div>
+      <app-banner-slider [banners]="asBanners(b)" [autoSlide]="true"></app-banner-slider>
+    </section>
+
+    <section [class]="sectionClass(b)" [ngStyle]="sectionStyle(b)" *ngIf="b.type === 3">
+      <div class="sec-head">
+        <div>
+          <p class="eyebrow">{{ b.sourceKey || 'MERCHANDISE' }}</p>
+          <h2>{{ b.title || 'Products' }}</h2>
+        </div>
+        <a class="section-link" routerLink="/products">View all</a>
+      </div>
+
+      <div class="product-grid" [ngStyle]="gridStyle(b.cardsPerRow)">
+        <a class="product-card" *ngFor="let p of asProducts(b); trackBy: trackById" [routerLink]="['/p', p.slug]">
+          <span class="discount-badge" *ngIf="salePercent(p)">{{ salePercent(p) }}% off</span>
+          <div class="thumb" [style.backgroundImage]="'url(' + (p.imageUrl || placeholder) + ')'"></div>
+          <div class="meta">
+            <div class="name">{{ p.name }}</div>
+            <div class="sku">SKU {{ p.sku }}</div>
+            <div class="price-row">
+              <span class="price">Rs. {{ (p.price - (p.discount || 0)) | number:'1.0-0' }}</span>
+              <span class="text-muted" *ngIf="p.discount">Save {{ p.discount | number:'1.0-0' }}</span>
+            </div>
+          </div>
+        </a>
+      </div>
+    </section>
+  </ng-container>
+</div>

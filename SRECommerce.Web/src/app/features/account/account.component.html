@@ -1,0 +1,33 @@
+<main class="container" style="padding: 24px 0;">
+  <h1 style="font-size: 22px; font-weight: 700; margin-bottom: 8px;">
+    My Account
+  </h1>
+  <p class="text-muted">Welcome, {{ auth.userName || 'Customer' }}</p>
+
+  <section class="card p-3 mt-3">
+    <h2 class="m-0 mb-3">My Orders</h2>
+    <div *ngIf="loading()" class="text-muted">Loading orders...</div>
+    <div *ngIf="!loading() && orders().length === 0" class="text-muted">No orders yet.</div>
+
+    <table class="table" *ngIf="orders().length > 0">
+      <thead>
+        <tr>
+          <th>Order</th>
+          <th>Status</th>
+          <th>Items</th>
+          <th>Total</th>
+          <th>Date</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let order of orders()">
+          <td>{{ order.orderNumber }}</td>
+          <td><span class="badge">{{ order.status }}</span></td>
+          <td>{{ order.items.length }}</td>
+          <td>Rs. {{ order.total | number:'1.0-0' }}</td>
+          <td>{{ order.createdAt | date:'mediumDate' }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+</main>

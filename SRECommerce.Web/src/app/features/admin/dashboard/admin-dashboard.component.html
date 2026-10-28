@@ -1,0 +1,110 @@
+﻿<div class="container">
+  <div class="d-flex items-center justify-between mb-3">
+    <h2 class="m-0">Admin Dashboard</h2>
+    <div class="d-flex items-center" style="gap:8px;">
+      <a class="btn-outline" routerLink="/admin/orders">Orders</a>
+      <a class="btn-primary" routerLink="/admin/home-sections">Manage Home Sections</a>
+    </div>
+  </div>
+
+  <div *ngIf="error()" class="alert alert-danger mb-3">
+    {{ error() }}
+  </div>
+
+  <div class="dashboard-metrics">
+    <div class="card p-3">
+      <div class="text-muted">Sales</div>
+      <div class="metric">Rs. {{ (summary()?.totalRevenue || 0) | number:'1.0-0' }}</div>
+    </div>
+
+    <div class="card p-3">
+      <div class="text-muted">Orders</div>
+      <div class="metric">{{ summary()?.totalOrders || 0 }}</div>
+      <small class="text-muted">{{ summary()?.pendingOrders || 0 }} pending</small>
+    </div>
+
+    <div class="card p-3">
+      <div class="text-muted">Products</div>
+      <div class="metric">{{ summary()?.totalProducts || 0 }}</div>
+      <small class="text-muted">{{ summary()?.totalStock || 0 }} units in stock</small>
+    </div>
+
+    <div class="card p-3">
+      <div class="text-muted">Inventory Purchase Value</div>
+      <div class="metric">Rs. {{ (summary()?.inventoryValue || 0) | number:'1.0-0' }}</div>
+    </div>
+
+    <div class="card p-3">
+      <div class="text-muted">Customers</div>
+      <div class="metric">{{ summary()?.totalCustomers || 0 }}</div>
+    </div>
+
+    <div class="card p-3">
+      <div class="text-muted">Employees</div>
+      <div class="metric">{{ summary()?.totalEmployees || 0 }}</div>
+      <a *ngIf="auth.isAdmin()" routerLink="/admin/users">Manage access</a>
+    </div>
+
+    <div class="card p-3">
+      <div class="text-muted">Home Sections</div>
+      <div class="metric">{{ enabledCount() }} / {{ sections().length }}</div>
+      <a routerLink="/admin/home-preview">Open preview</a>
+    </div>
+  </div>
+
+  <div class="admin-columns mt-3">
+    <div class="card p-3">
+      <div class="d-flex items-center justify-between">
+        <h3 class="m-0">Top Selling Products</h3>
+        <a routerLink="/admin/products">Products</a>
+      </div>
+      <table class="table mt-2">
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Sold</th>
+            <th>Revenue</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let p of summary()?.topProducts || []">
+            <td>{{ p.productName }}</td>
+            <td>{{ p.quantitySold }}</td>
+            <td>Rs. {{ p.revenue | number:'1.0-0' }}</td>
+          </tr>
+          <tr *ngIf="(summary()?.topProducts || []).length === 0">
+            <td colspan="3">No sales yet.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card p-3">
+      <div class="d-flex items-center justify-between">
+        <h3 class="m-0">Recent Orders</h3>
+        <a routerLink="/admin/orders">View all</a>
+      </div>
+      <table class="table mt-2">
+        <thead>
+          <tr>
+            <th>Order</th>
+            <th>Customer</th>
+            <th>Total</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let o of summary()?.recentOrders || []">
+            <td>{{ o.orderNumber }}</td>
+            <td>{{ o.customerName }}</td>
+            <td>Rs. {{ o.total | number:'1.0-0' }}</td>
+            <td><span class="badge">{{ o.status }}</span></td>
+          </tr>
+          <tr *ngIf="(summary()?.recentOrders || []).length === 0">
+            <td colspan="4">No orders yet.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

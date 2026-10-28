@@ -1,0 +1,63 @@
+<header class="hdr">
+  <div class="hdr-promo">
+    <div class="container promo-row">
+      <span>Baby Pink Mega Store: multi-category products, dashboard-controlled storefront.</span>
+      <span>Explore products across every department.</span>
+    </div>
+  </div>
+
+  <div class="container hdr-bar">
+    <a routerLink="/" class="hdr-brand">
+      <img src="/SR.png" alt="SR" />
+      <span>SR PinkMart</span>
+    </a>
+
+    <form (ngSubmit)="go()" class="hdr-search">
+      <input
+        [(ngModel)]="q"
+        name="q"
+        placeholder="Search mobiles, fashion, beauty, home..."
+        class="form-control"
+      />
+      <button class="btn-primary" type="submit">Search</button>
+    </form>
+
+    <nav class="hdr-links">
+      <ng-container *ngIf="auth.isLoggedIn(); else guest">
+        <span class="text-muted">Hi, {{ auth.userName || 'User' }}</span>
+        <a *ngIf="auth.isStaff()" routerLink="/admin">Dashboard</a>
+        <a routerLink="/account">Account</a>
+        <a class="cart-link" routerLink="/cart">Cart {{ cart.count() }}</a>
+        <button class="btn-outline" type="button" (click)="logout()">Logout</button>
+      </ng-container>
+      <ng-template #guest>
+        <a routerLink="/login">Login</a>
+        <a routerLink="/register">Sign up</a>
+        <a class="cart-link" routerLink="/cart">Cart {{ cart.count() }}</a>
+      </ng-template>
+    </nav>
+  </div>
+
+  <div class="hdr-nav">
+    <div class="container nav-row">
+      <div class="hdr-categories">
+        <button type="button" class="btn-outline" (click)="toggleCategories()">All Categories</button>
+        <div class="cat-dropdown" *ngIf="isCategoriesOpen">
+          <ul>
+            <li *ngFor="let cat of topCategories" (click)="goToCategory(cat)">
+              <a>
+                <img *ngIf="cat.imageUrl" [src]="cat.imageUrl" [alt]="cat.name" />
+                <span>{{ cat.name }}</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <a *ngFor="let cat of topCategories.slice(0, 8)" [routerLink]="['/c', cat.slug]">
+        {{ cat.name }}
+      </a>
+      <a routerLink="/products">All Products</a>
+    </div>
+  </div>
+</header>

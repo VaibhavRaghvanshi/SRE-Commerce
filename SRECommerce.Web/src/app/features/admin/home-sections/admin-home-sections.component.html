@@ -1,0 +1,192 @@
+﻿<div class="container" style="padding:16px;">
+  <div class="d-flex items-center justify-between mb-3">
+    <div>
+      <p class="eyebrow">DYNAMIC FRONTEND DESIGN</p>
+      <h2 class="m-0">Storefront Layout Manager</h2>
+      <p class="text-muted m-0">Control homepage shelves, display order, product source, and baby-pink section styling.</p>
+    </div>
+    <button class="btn-outline" type="button" (click)="load()" [disabled]="loading()">
+      {{ loading() ? 'Loading...' : 'Refresh' }}
+    </button>
+  </div>
+
+  <div *ngIf="error()" class="card p-3 mb-3" style="border:1px solid #ff6b6b;">
+    <b>Error:</b> {{ error() }}
+  </div>
+
+  <!-- FORM -->
+  <div class="card p-3 mb-4">
+    <div class="d-flex items-center justify-between" style="gap:12px;">
+      <h3 class="m-0">{{ editId() ? 'Edit Section' : 'Create Section' }}</h3>
+
+      <div class="d-flex" style="gap:8px;">
+        <button class="btn-outline" type="button" (click)="resetForm()">Reset</button>
+        <button class="btn-primary" type="button" (click)="save()" [disabled]="saving()">
+          {{ saving() ? 'Saving...' : (editId() ? 'Update' : 'Create') }}
+        </button>
+      </div>
+    </div>
+
+    <div class="grid" style="margin-top:12px; grid-template-columns: repeat(12, 1fr); gap:12px;">
+
+      <div style="grid-column: span 3;">
+        <label>Section Type</label>
+        <select class="form-control" [(ngModel)]="vm_type">
+          <option [ngValue]="1">Categories Grid</option>
+          <option [ngValue]="2">Banner Slider</option>
+          <option [ngValue]="3">Products Grid</option>
+        </select>
+      </div>
+
+      <div style="grid-column: span 5;">
+        <label>Title</label>
+        <input class="form-control" [(ngModel)]="vm_title" placeholder="e.g., New Arrivals" />
+      </div>
+
+      <div style="grid-column: span 2;">
+        <label>Enabled</label>
+        <div class="d-flex items-center" style="gap:8px; height:40px;">
+          <input type="checkbox" [(ngModel)]="vm_enabled" />
+          <span>{{ vm_enabled ? 'Yes' : 'No' }}</span>
+        </div>
+      </div>
+
+      <div style="grid-column: span 2;">
+        <label>Items To Show</label>
+        <input type="number" class="form-control" [(ngModel)]="vm_itemsToShow" />
+      </div>
+
+      <div style="grid-column: span 2;">
+        <label>Cards Per Row</label>
+        <input type="number" class="form-control" [(ngModel)]="vm_cardsPerRow" />
+      </div>
+
+      <div style="grid-column: span 4;">
+        <label>Source Key</label>
+        <input class="form-control" [(ngModel)]="vm_sourceKey" placeholder="deals, new-arrivals, mobiles, fashion..." />
+      </div>
+
+      <div style="grid-column: span 12;">
+        <label>Design JSON</label>
+        <div class="d-flex items-center mb-2" style="gap:8px; flex-wrap:wrap;">
+          <button class="btn-outline" type="button" (click)="applyDesignPreset('pink')">Pink tiles</button>
+          <button class="btn-outline" type="button" (click)="applyDesignPreset('sale')">Sale shelf</button>
+          <button class="btn-outline" type="button" (click)="applyDesignPreset('white')">Clean white</button>
+          <button class="btn-outline" type="button" (click)="applyDesignPreset('compact')">Compact blush</button>
+        </div>
+        <textarea class="form-control" rows="3" [(ngModel)]="vm_styleJson"
+          placeholder='{"variant":"sale","tone":"pink","bg":"#ffe4ef","accent":"#be185d"}'></textarea>
+      </div>
+
+      <div style="grid-column: span 12; opacity:0.75; font-size:13px;">
+        <b>Tip:</b> Product source keys can be category slugs like mobiles/fashion/home-decor or special shelves like deals, top-stock, low-stock.
+      </div>
+    </div>
+  </div>
+
+  <!-- ITEMS MANAGER -->
+  <div class="card p-3 mb-4" *ngIf="editId()">
+    <div class="d-flex items-center justify-between">
+      <h3 class="m-0">Manage Items</h3>
+      <div class="text-muted" *ngIf="itemsSaving()">Saving items...</div>
+    </div>
+
+    <div class="d-flex items-center mt-2" style="gap:8px; flex-wrap:wrap;">
+      <select class="form-control" style="min-width:260px;" [(ngModel)]="selectedEntityId">
+        <option [ngValue]="null">Select item</option>
+        <option *ngFor="let o of availableOptions()" [ngValue]="o.id">
+          {{ o.title }}
+        </option>
+      </select>
+      <button class="btn-primary" type="button" (click)="addItem()">Add</button>
+    </div>
+
+    <div class="text-muted mt-2" *ngIf="itemsLoading()">Loading items...</div>
+
+    <table class="table mt-3" *ngIf="!itemsLoading()">
+      <thead>
+        <tr>
+          <th>Order</th>
+          <th>Preview</th>
+          <th>Title</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let i of items()">
+          <td>{{ i.sortOrder }}</td>
+          <td>
+            <img [src]="itemImage(i)" style="width:54px;height:36px;border-radius:8px;object-fit:cover" />
+          </td>
+          <td>{{ itemTitle(i) }}</td>
+          <td>{{ i.isEnabled ? 'Enabled' : 'Disabled' }}</td>
+          <td>
+            <div class="d-flex" style="gap:6px; flex-wrap:wrap;">
+              <button type="button" class="btn-outline" (click)="moveItemUp(i)">Up</button>
+              <button type="button" class="btn-outline" (click)="moveItemDown(i)">Down</button>
+              <button type="button" class="btn-outline" (click)="toggleItem(i)">
+                {{ i.isEnabled ? 'Disable' : 'Enable' }}
+              </button>
+              <button type="button" class="btn-danger" (click)="removeItem(i)">Remove</button>
+            </div>
+          </td>
+        </tr>
+
+        <tr *ngIf="items().length === 0">
+          <td colspan="5" style="padding:12px; opacity:0.7;">No items yet. Add one above.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- LIST -->
+  <div class="card p-3">
+    <h3 class="m-0">Sections ({{ ordered().length }})</h3>
+
+    <table class="table mt-3" style="width:100%; border-collapse:collapse;">
+      <thead>
+        <tr>
+          <th style="text-align:left;padding:8px;">Order</th>
+          <th style="text-align:left;padding:8px;">Type</th>
+          <th style="text-align:left;padding:8px;">Title</th>
+          <th style="text-align:left;padding:8px;">Enabled</th>
+          <th style="text-align:left;padding:8px;">Items</th>
+          <th style="text-align:left;padding:8px;">Cards/Row</th>
+          <th style="text-align:left;padding:8px;">SourceKey</th>
+          <th style="text-align:left;padding:8px;">Actions</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        <tr *ngFor="let s of ordered()">
+          <td style="padding:8px;">{{ s.sortOrder }}</td>
+          <td style="padding:8px;">{{ typeLabel(s.type) }}</td>
+          <td style="padding:8px;">{{ s.title }}</td>
+          <td style="padding:8px;">{{ s.isEnabled ? 'ON' : 'OFF' }}</td>
+          <td style="padding:8px;">{{ s.itemsToShow }}</td>
+          <td style="padding:8px;">{{ s.cardsPerRow }}</td>
+          <td style="padding:8px;">{{ s.sourceKey || '-' }}</td>
+
+          <td style="padding:8px;">
+            <div class="d-flex" style="gap:6px; flex-wrap:wrap;">
+              <button type="button" class="btn-outline" (click)="moveUp(s)">Up</button>
+              <button type="button" class="btn-outline" (click)="moveDown(s)">Down</button>
+              <button type="button" class="btn-outline" (click)="toggle(s)">
+                {{ s.isEnabled ? 'Disable' : 'Enable' }}
+              </button>
+              <button type="button" class="btn-primary" (click)="edit(s)">Edit</button>
+              <button type="button" class="btn-danger" (click)="remove(s)">Delete</button>
+            </div>
+          </td>
+        </tr>
+
+        <tr *ngIf="ordered().length === 0">
+          <td colspan="8" style="padding:12px; opacity:0.7;">
+            No sections yet. Create one above.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>

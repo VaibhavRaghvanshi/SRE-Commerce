@@ -1,0 +1,96 @@
+﻿<div class="container">
+  <h2>Admin - Products</h2>
+
+  <!-- FORM -->
+  <div class="card p-3 mb-3">
+    <div class="grid-2">
+      <input class="form-control" placeholder="Name" [(ngModel)]="form.name" />
+      <input class="form-control" placeholder="Slug (optional)" [(ngModel)]="form.slug" />
+
+      <input class="form-control" placeholder="SKU" [(ngModel)]="form.sku" />
+      <input class="form-control" type="number" placeholder="Price" [(ngModel)]="form.price" />
+
+      <input class="form-control" type="number" placeholder="Discount" [(ngModel)]="form.discount" />
+      <input class="form-control" type="number" placeholder="Stock Qty" [(ngModel)]="form.stockQty" />
+
+      <select class="form-control" [(ngModel)]="form.categoryId">
+        <option [ngValue]="null">Select Category</option>
+        <option *ngFor="let c of categories()" [ngValue]="c.id">
+          {{ c.name }}
+        </option>
+      </select>
+
+      <input class="form-control" placeholder="Image URL" [(ngModel)]="form.imageUrl" />
+    </div>
+
+    <div class="mt-2 d-flex items-center" style="gap:8px;">
+      <input type="file" (change)="onFileSelected($event)" accept="image/*" />
+      <button class="btn-outline" type="button" (click)="uploadImage()" [disabled]="!selectedFile || uploading()">
+        {{ uploading() ? 'Uploading...' : 'Upload Image' }}
+      </button>
+    </div>
+
+    <div class="mt-2" *ngIf="form.imageUrl">
+      <small class="text-muted">Preview:</small><br />
+      <img [src]="form.imageUrl" style="width:140px;height:90px;object-fit:cover;border-radius:10px" />
+    </div>
+
+    <div class="mt-2">
+      <button class="btn-primary" (click)="save()">
+        {{ editingId ? 'Update' : 'Add' }} Product
+      </button>
+      <button *ngIf="editingId" class="btn-outline" (click)="cancel()">Cancel</button>
+    </div>
+  </div>
+
+  <div class="d-flex items-center justify-between mb-2">
+    <h3 class="m-0">Products</h3>
+    <div class="d-flex items-center" style="gap:8px;">
+      <input class="form-control" style="max-width:300px" placeholder="Search by name/sku/id/price" [(ngModel)]="search" />
+      <button class="btn-outline" type="button" (click)="searchProducts()">Search</button>
+    </div>
+  </div>
+
+  <!-- LIST -->
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Img</th>
+        <th>Name</th>
+        <th>Category</th>
+        <th>Price</th>
+        <th>Stock</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      <tr *ngFor="let p of filteredProducts()">
+        <td>
+          <img
+            [src]="p.imageUrl || '/assets/Images/categories/home-decor.jpg'"
+            style="width:48px;height:36px;border-radius:8px;object-fit:cover"
+          />
+        </td>
+        <td>{{ p.name }}</td>
+        <td>{{ categoryName(getCategoryId(p)) }}</td>
+        <td>Rs. {{ p.price }}</td>
+        <td>{{ getStockQty(p) ?? '-' }}</td>
+        <td>
+          <button class="btn-outline" (click)="edit(p)">Edit</button>
+          <button class="btn-danger" (click)="remove(p.id)">Delete</button>
+        </td>
+      </tr>
+      <tr *ngIf="filteredProducts().length === 0">
+        <td colspan="6" style="padding:12px; opacity:0.7;">No products found.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Pagination -->
+  <div class="d-flex items-center justify-between mt-3">
+    <button class="btn-outline" type="button" (click)="prev()" [disabled]="page() === 1">Prev</button>
+    <span>Page {{ page() }} - {{ total() }} products</span>
+    <button class="btn-outline" type="button" (click)="next()">Next</button>
+  </div>
+</div>

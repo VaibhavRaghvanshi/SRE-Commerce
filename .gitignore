@@ -1,0 +1,34 @@
+# Build outputs and local dependencies
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+**/.angular/
+**/out-tsc/
+**/coverage/
+**/TestResults/
+.vs/
+artifacts/
+
+# Local data, credentials, backups and logs
+**/App_Data/
+**/wwwroot/uploads/
+*.db
+*.db-shm
+*.db-wal
+*.bak
+*.mdf
+*.ldf
+*.log
+.env
+.env.*
+!.env.example
+**/appsettings.Local.json
+*.csproj.user
+*.suo
+*.lnk
+
+# Historical office/PDF deliverables stay in the local preservation archive.
+/SRECommerce.Web/public/*.pdf
+/SRECommerce.Web/public/*.docx
+/SRECommerce.Web/public/*.pptx

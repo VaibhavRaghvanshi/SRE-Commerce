@@ -1,0 +1,15 @@
+@use 'variables' as *;
+
+// spacing utilities (m/p 0..8)
+@each $k, $v in $space-scale {
+  .m-#{$k}{ margin: $v; } .p-#{$k}{ padding: $v; }
+  .mt-#{$k}{ margin-top:$v; } .mb-#{$k}{ margin-bottom:$v; }
+  .ml-#{$k}{ margin-left:$v; } .mr-#{$k}{ margin-right:$v; }
+  .pt-#{$k}{ padding-top:$v; } .pb-#{$k}{ padding-bottom:$v; }
+  .pl-#{$k}{ padding-left:$v; } .pr-#{$k}{ padding-right:$v; }
+}
+.d-flex{ display:flex; } .items-center{ align-items:center; } .justify-between{ justify-content:space-between; }
+.grid { display:grid; gap:16px; }
+.round { border-radius: var(--radius); }
+.shadow { box-shadow: var(--shadow); }
+.text-muted{ color: var(--color-muted); }

@@ -1,0 +1,49 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+
+.btn { border:0; border-radius: var(--radius); padding:10px 16px; }
+.btn-primary { @extend .btn; background: var(--color-primary); color:#fff; @include hover-lift; }
+.btn-outline { @extend .btn; background:#fff; color: var(--color-primary); border:1px solid var(--color-primary); }
+
+.card { background:#fff; border-radius: var(--radius); box-shadow: var(--shadow); }
+.badge { display:inline-block; padding:2px 8px; border-radius: 999px; font-size:12px; background:#eef2ff; color:#3730a3; }
+
+.form-control { width:100%; padding:10px 12px; border-radius: var(--radius); border:1px solid #e5e7eb; }
+
+.hdr {
+  background: #fff;
+  border-bottom: 1px solid #eee;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.hdr-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+  gap: 16px;
+}
+
+.hdr-brand {
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  text-decoration: none;
+  color: $text;
+}
+
+.hdr-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  max-width: 720px;
+  margin: 0 16px;
+}
+
+.hdr-links {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}

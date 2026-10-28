@@ -1,0 +1,45 @@
+﻿<div class="container catalog-page">
+  <div class="page-hero compact">
+    <div>
+      <p class="eyebrow">CATALOG</p>
+      <h1>{{ category()?.name || (slug() ? slug() : 'All Products') }}</h1>
+      <p>Filter, sort, and add products directly to cart.</p>
+    </div>
+  </div>
+
+  <div *ngIf="error()" class="alert mb-3">{{ error() }}</div>
+
+  <div class="catalog-toolbar">
+    <input class="form-control" [(ngModel)]="q" placeholder="Search in category" />
+
+    <select class="form-control" [(ngModel)]="sort">
+      <option value="newest">Newest</option>
+      <option value="price-asc">Price (Low to High)</option>
+      <option value="price-desc">Price (High to Low)</option>
+      <option value="name">Name</option>
+    </select>
+
+    <button class="btn-primary" type="button" (click)="reload()">Apply</button>
+  </div>
+
+  <div class="product-grid">
+    <div *ngFor="let p of products()" class="product-card">
+      <a [routerLink]="['/p', p.slug]" class="product-link">
+        <div class="thumb" [style.backgroundImage]="'url(' + (p.imageUrl || placeholder) + ')'"></div>
+      </a>
+
+      <div class="meta">
+        <a [routerLink]="['/p', p.slug]" class="product-link name">{{ p.name }}</a>
+        <div class="price">Rs. {{ (p.price - (p.discount || 0)) | number:'1.0-0' }}</div>
+        <div class="text-muted">Stock {{ p.stockQty }}</div>
+      </div>
+      <button class="btn-primary mt-2" type="button" (click)="cart.add(p)">Add to cart</button>
+    </div>
+  </div>
+
+  <div class="pager mt-3">
+    <button class="btn-outline" type="button" (click)="prev()" [disabled]="page() === 1">Prev</button>
+    <span>{{ page() }} / {{ totalPages() }}</span>
+    <button class="btn-outline" type="button" (click)="next()" [disabled]="page() === totalPages()">Next</button>
+  </div>
+</div>

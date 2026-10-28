@@ -1,0 +1,25 @@
+﻿<div class="container product-page" *ngIf="p() as prod">
+  <div class="product-detail-grid">
+    <div class="round product-detail-image" [style.backgroundImage]="'url(' + (prod.imageUrl || placeholder) + ')'"></div>
+
+    <div class="product-detail-info">
+      <p class="eyebrow">PRODUCT DETAIL</p>
+      <h2 class="mb-2">{{ prod.name }}</h2>
+      <div class="product-detail-price">
+        Rs. {{ (prod.price - (prod.discount || 0)) | number:'1.0-0' }}
+      </div>
+      <p *ngIf="prod.discount" class="text-muted">
+        You save Rs. {{ prod.discount | number:'1.0-0' }} today.
+      </p>
+      <button class="btn-primary mb-2" type="button" (click)="add(prod)">
+        Add to cart
+      </button>
+      <div *ngIf="added()" class="alert alert-ok mb-2">Added to cart.</div>
+      <div class="detail-specs">
+        <div><span>SKU</span><strong>{{ prod.sku }}</strong></div>
+        <div><span>Stock</span><strong>{{ prod.stockQty }}</strong></div>
+        <div><span>Category</span><strong>{{ prod.categoryId }}</strong></div>
+      </div>
+    </div>
+  </div>
+</div>

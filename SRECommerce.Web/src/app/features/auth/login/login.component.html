@@ -1,0 +1,42 @@
+<main class="auth-page">
+  <div class="auth-card">
+    <h1 class="auth-title">Welcome back 👋</h1>
+    <p class="auth-subtitle">Login to continue shopping on SR E-Commerce</p>
+
+    <form #f="ngForm" (ngSubmit)="submit(f)" novalidate>
+      <div class="form-group">
+        <label>Email</label>
+        <input
+          type="email"
+          name="email"
+          [(ngModel)]="model.email"
+          class="form-control"
+          required
+        />
+      </div>
+
+      <div class="form-group">
+        <label>Password</label>
+        <input
+          type="password"
+          name="password"
+          [(ngModel)]="model.password"
+          class="form-control"
+          required
+          minlength="4"
+        />
+      </div>
+
+      <p *ngIf="error" class="auth-error">{{ error }}</p>
+
+      <button class="btn-primary" type="submit" [disabled]="loading">
+        {{ loading ? 'Signing in…' : 'Login' }}
+      </button>
+    </form>
+
+    <p class="auth-footer">
+      New here?
+      <a routerLink="/register">Create an account</a>
+    </p>
+  </div>
+</main>

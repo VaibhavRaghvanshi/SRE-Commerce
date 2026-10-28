@@ -1,0 +1,57 @@
+<main class="auth-page">
+  <div class="auth-card">
+    <h1 class="auth-title">Create your account ✨</h1>
+    <p class="auth-subtitle">Join SR E-Commerce and start your journey</p>
+
+    <form #f="ngForm" (ngSubmit)="submit(f)" novalidate>
+      
+      <div class="form-group">
+        <label>Full Name</label>
+        <input
+          type="text"
+          name="fullName"
+          [(ngModel)]="model.fullName"
+          class="form-control"
+          placeholder="Enter your full name"
+          required
+        />
+      </div>
+
+      <div class="form-group">
+        <label>Email address</label>
+        <input
+          type="email"
+          name="email"
+          [(ngModel)]="model.email"
+          class="form-control"
+          placeholder="Enter your email"
+          required
+        />
+      </div>
+
+      <div class="form-group">
+        <label>Password</label>
+        <input
+          type="password"
+          name="password"
+          [(ngModel)]="model.password"
+          class="form-control"
+          placeholder="Create a password"
+          minlength="4"
+          required
+        />
+      </div>
+
+      <p *ngIf="error" class="auth-error">{{ error }}</p>
+
+      <button class="btn-primary w-100" type="submit">
+        {{ loading ? 'Creating...' : 'Create Account' }}
+      </button>
+    </form>
+
+    <p class="auth-footer">
+      Already a member?
+      <a routerLink="/login">Login</a>
+    </p>
+  </div>
+</main>

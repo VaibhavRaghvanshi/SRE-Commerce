@@ -1,0 +1,26 @@
+﻿<div class="sr-slider" *ngIf="banners?.length">
+  <div class="sr-track" [style.transform]="'translateX(-' + (idx() * 100) + '%)'">
+    <ng-container *ngFor="let b of banners; trackBy: trackByIndex">
+      <a *ngIf="!isExternal(b.link)" class="sr-slide" [routerLink]="b.link">
+        <img [src]="imageSrc(b.imageUrl)" alt="Banner" />
+      </a>
+
+      <a *ngIf="isExternal(b.link)" class="sr-slide" [href]="b.link" target="_blank" rel="noreferrer">
+        <img [src]="imageSrc(b.imageUrl)" alt="Banner" />
+      </a>
+    </ng-container>
+  </div>
+
+  <button class="sr-nav sr-prev" type="button" (click)="prev()"><</button>
+  <button class="sr-nav sr-next" type="button" (click)="next()">></button>
+
+  <div class="sr-dots">
+    <button
+      *ngFor="let _ of banners; let i = index; trackBy: trackByIndex"
+      type="button"
+      class="sr-dot"
+      [class.active]="i === idx()"
+      (click)="go(i)"
+    ></button>
+  </div>
+</div>

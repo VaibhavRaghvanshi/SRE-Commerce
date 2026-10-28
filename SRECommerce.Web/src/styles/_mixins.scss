@@ -1,0 +1,9 @@
+@use 'variables' as *;
+
+@mixin mq($key){ @media (min-width: map-get($bp, $key)){ @content; } }
+@mixin flex-center{ display:flex; align-items:center; justify-content:center; }
+@mixin hover-lift{ transition: transform .2s ease, box-shadow .2s ease;
+  &:hover{ transform: translateY(-2px); box-shadow: var(--shadow); } }
+@mixin truncate($lines:1){
+  overflow:hidden; display:-webkit-box; -webkit-line-clamp:$lines; -webkit-box-orient:vertical;
+}

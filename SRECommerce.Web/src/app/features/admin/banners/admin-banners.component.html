@@ -1,0 +1,73 @@
+<div class="container">
+  <div class="d-flex items-center justify-between mb-3">
+    <h2 class="m-0">Admin - Banners</h2>
+  </div>
+
+  <div class="card p-3 mb-3">
+    <div class="grid-2">
+      <input class="form-control" placeholder="Title" [(ngModel)]="form.title" />
+      <input class="form-control" placeholder="Image URL" [(ngModel)]="form.imageUrl" />
+
+      <select class="form-control" [(ngModel)]="form.linkType">
+        <option [ngValue]="0">No Link</option>
+        <option [ngValue]="1">Product (slug)</option>
+        <option [ngValue]="2">Category (slug)</option>
+        <option [ngValue]="3">External URL</option>
+      </select>
+      <input class="form-control" placeholder="Link Value" [(ngModel)]="form.linkValue" />
+
+      <input class="form-control" type="number" placeholder="Sort Order" [(ngModel)]="form.sortOrder" />
+      <select class="form-control" [(ngModel)]="form.isEnabled">
+        <option [ngValue]="true">Enabled</option>
+        <option [ngValue]="false">Disabled</option>
+      </select>
+    </div>
+
+    <div class="mt-2 d-flex items-center" style="gap:8px;">
+      <input type="file" (change)="onFileSelected($event)" accept="image/*" />
+      <button class="btn-outline" type="button" (click)="upload()" [disabled]="!selectedFile || uploading()">
+        {{ uploading() ? 'Uploading...' : 'Upload Image' }}
+      </button>
+    </div>
+
+    <div class="mt-2" *ngIf="form.imageUrl">
+      <small class="text-muted">Preview:</small><br />
+      <img [src]="bannerSrc(form.imageUrl)" style="width:220px;height:120px;object-fit:cover;border-radius:10px" />
+    </div>
+
+    <div class="mt-2">
+      <button class="btn-primary" type="button" (click)="save()">
+        {{ editingId ? 'Update' : 'Add' }} Banner
+      </button>
+      <button *ngIf="editingId" class="btn-outline" type="button" (click)="cancel()">Cancel</button>
+    </div>
+  </div>
+
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Preview</th>
+        <th>Title</th>
+        <th>Link</th>
+        <th>Enabled</th>
+        <th>Order</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let b of banners()">
+        <td>
+          <img [src]="bannerSrc(b.imageUrl)" style="width:80px;height:44px;border-radius:8px;object-fit:cover" />
+        </td>
+        <td>{{ b.title }}</td>
+        <td>{{ b.linkType }} / {{ b.linkValue || '-' }}</td>
+        <td>{{ b.isEnabled ? 'Yes' : 'No' }}</td>
+        <td>{{ b.sortOrder }}</td>
+        <td>
+          <button class="btn-outline" type="button" (click)="edit(b)">Edit</button>
+          <button class="btn-danger" type="button" (click)="remove(b.id)">Delete</button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>

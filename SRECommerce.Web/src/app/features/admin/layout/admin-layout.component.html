@@ -1,0 +1,37 @@
+﻿<div class="admin-shell">
+  <header class="admin-topbar">
+    <div class="admin-brand">
+      <img class="logo-img" src="/SR.png" alt="SR" />
+      <div>
+        <div class="title">SRECommerce</div>
+        <div class="sub">Admin Panel</div>
+      </div>
+    </div>
+
+    <nav class="admin-nav">
+      <a routerLink="/admin" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">
+        Dashboard
+      </a>
+      <a routerLink="/admin/home-sections" routerLinkActive="active">Home Sections</a>
+      <a routerLink="/admin/banners" routerLinkActive="active">Banners</a>
+      <a routerLink="/admin/categories" routerLinkActive="active">Categories</a>
+      <a routerLink="/admin/products" routerLinkActive="active">Products</a>
+      <a routerLink="/admin/orders" routerLinkActive="active">Orders</a>
+      <a *ngIf="auth.isAdmin()" routerLink="/admin/users" routerLinkActive="active">Users</a>
+    </nav>
+
+    <div class="admin-user">
+      <a class="btn-outline" routerLink="/">Open Storefront</a>
+      <div class="name">{{ auth.userName || 'Admin' }}</div>
+      <div class="pill">{{ auth.userRole || 'Admin' }}</div>
+      <button class="btn-outline" type="button" (click)="logout()">Logout</button>
+    </div>
+  </header>
+
+  <main class="admin-main">
+    <div class="admin-content">
+      <router-outlet></router-outlet>
+    </div>
+  </main>
+</div>
+
