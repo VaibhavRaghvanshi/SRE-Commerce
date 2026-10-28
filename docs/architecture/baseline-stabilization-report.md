@@ -36,6 +36,7 @@ Changes:
 - `SRECommerce.Web/src/app/core/interceptors/auth.interceptor.spec.ts`.
 - `scripts/Initialize-LocalSecrets.ps1`, `scripts/smoke-baseline.mjs`.
 - This report and `docs/runbooks/baseline-verification.md`.
+- `docs/decisions/0002-baseline-security-and-verification.md`.
 
 ## Files Modified
 
@@ -88,6 +89,7 @@ Verified current Angular production host → proxy → Kestrel → restored SQLi
 - Installed SDK/runtime patch maintenance and framework upgrades remain necessary; no .NET 10 SDK was installed. Angular emitted an old baseline-browser-mapping metadata warning; the build/tests still passed.
 - Default configuration still points to existing SQLite by design. No connection-string-only switch to the divergent SQL Server database was attempted. Historical SQL migration source recovery remains unavailable because the owner confirms this folder had no earlier Git history.
 - Docker engine remains unavailable; no container was created or started. No paid integration or real payment processing was used.
+- Initial Git import retains existing whitespace/blank-EOF warnings; application source was not broadly reformatted to hide them. GitHub draft PR creation was unavailable (connector 403; browser fallback timeout); the migration branch itself was pushed and verified successfully.
 
 ## Next Recommended Task
 

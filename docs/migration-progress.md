@@ -4,11 +4,15 @@ Last updated: 2026-10-28 (Asia/Calcutta).
 
 ## Current checkpoint
 
-Baseline stabilization approved and locally verified; GitHub delivery in progress. Stop after this phase; no microservice implementation is approved yet.
+**WAITING_FOR_USER_APPROVAL** — baseline stabilization completed and uploaded. Stop after this phase; no microservice implementation is approved yet.
 
 Current phase: [baseline stabilization report](architecture/baseline-stabilization-report.md). Backend 33/33 tests, Angular 12/12 browser tests, production build, and 13 isolated Kestrel/web smoke checks passed. Source SQLite hash is unchanged (1,000 products, 3 orders). SQL backup/restore/checkdb verification passed; no source schema/data migration occurred. SQL Server is the owner-approved target. Current monolith remains SQLite until reviewed per-service migration.
 
 Owner clarified that this folder had no earlier Git history, authorized Git/GitHub setup, and selected `VaibhavRaghvanshi/SRE-Commerce`. Its existing initial commit is preserved as the base of `migration/saas-modernization`. The owner-created repository is public; credentials, databases, uploaded media, logs, backups and historical Office/PDF deliverables are excluded from the source import.
+
+Delivery: [uploaded migration branch](https://github.com/VaibhavRaghvanshi/SRE-Commerce/tree/migration/saas-modernization), based on the owner's initial commit `1ab0d5d`. Stabilization import commit: `d25d509`. No pull request was created: connector returned HTTP 403 (Resource not accessible by integration); the browser fallback timed out while preparing the form. No merge/deployment occurred. Both temporary smoke server processes were stopped after testing. Backups and the read-only SQL restore clone remain available locally.
+
+Next single proposed task: Identity service on SQL Server (`SRECommerce.Identity.*`, `SRECommerce_IdentityDB`) with reviewed legacy-user migration. Obtain approval before creating that service or database.
 
 First-audit record below is historical; it describes the state before approved stabilization changes.
 
@@ -28,9 +32,9 @@ First-audit record below is historical; it describes the state before approved s
 
 ## Resume instructions
 
-1. Read this checkpoint and the architecture assessment before modifying anything.
+1. Read this checkpoint, the baseline report and the architecture assessment before modifying anything.
 2. If no new approval is present, remain at this checkpoint. The broad target plan does not authorize the next module.
-3. After approval, recover the correct Git working copy/history and perform only the baseline scope. Preserve both databases and existing code.
+3. Git is now initialized and the baseline is complete. After the next approval, perform only the approved next service/task. Preserve both databases, backups and existing code; do not repeat the baseline or initialize Git again.
 4. Record exact commands/results and newly discovered limits, then stop for the next approval.
 
 No destructive database or volume cleanup, live payment processing, production deployment or external messaging is authorized by this audit.
