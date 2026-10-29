@@ -2,7 +2,11 @@
 
 Existing ASP.NET Core and Angular commerce application, being modernized incrementally toward a configurable, multi-tenant platform with service-owned SQL Server databases.
 
-The current application is a **single-tenant monolith**. Its baseline still uses SQLite; SQL Server is the approved migration target. No microservice or database-provider cutover has been implemented yet. Existing data is excluded from Git and must be restored separately. See [migration progress](docs/migration-progress.md) before continuing work.
+The legacy application remains a **single-tenant monolith** on SQLite. The independent Identity backend is implemented and locally verified on SQL Server under `Backend/Services/Identity`; authority/frontend cutover is separate. Existing data is excluded from Git and must be restored separately. See [migration progress](docs/migration-progress.md) before continuing work.
+
+Identity setup, protocol contracts and verification: [Identity runbook](docs/runbooks/identity-service.md). It has its own stable .NET 10 SDK pin/solution; the legacy .NET 8 solution remains independent.
+
+Docker Desktop Linux engine and the Identity/Mailpit containers are verified: [local Docker guide](docs/docker-local-development.md), [Identity completion report](docs/architecture/identity-completion-report.md). Latest Identity/Docker changes remain local; a GitHub push requires separate approval.
 
 ## Prerequisites
 

@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/Services/" />
+  <Folder Name="/Services/Identity/">
+    <Project Path="Services/Identity/SRECommerce.Identity.API/SRECommerce.Identity.API.csproj" />
+    <Project Path="Services/Identity/SRECommerce.Identity.Application/SRECommerce.Identity.Application.csproj" />
+    <Project Path="Services/Identity/SRECommerce.Identity.Domain/SRECommerce.Identity.Domain.csproj" />
+    <Project Path="Services/Identity/SRECommerce.Identity.Infrastructure/SRECommerce.Identity.Infrastructure.csproj" />
+    <Project Path="Services/Identity/SRECommerce.Identity.Tests/SRECommerce.Identity.Tests.csproj" />
+  </Folder>
+</Solution>

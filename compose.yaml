@@ -1,0 +1,50 @@
+name: srecommerce-local
+services:
+  mailpit:
+    image: ${MAILPIT_IMAGE:-axllent/mailpit:v1.32.0}
+    profiles: [identity-email, identity-api]
+    ports: ["127.0.0.1:1025:1025", "127.0.0.1:8025:8025"]
+    environment:
+      MP_DATABASE: /data/mailpit.db
+      MP_MAX_MESSAGES: "100"
+    volumes: [mailpit-data:/data]
+    networks: [identity-local]
+    restart: unless-stopped
+    mem_limit: 128m
+    cpus: 0.25
+    healthcheck:
+      test: [CMD, /mailpit, readyz]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+  identity:
+    image: srecommerce-identity:dev
+    build:
+      context: .
+      dockerfile: Backend/Services/Identity/SRECommerce.Identity.API/Dockerfile
+    profiles: [identity-api]
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      Identity__Issuer: http://localhost:5081/
+      ConnectionStrings__Identity: ${IDENTITY_SQL_CONNECTION:?Provide the restricted local Identity SQL connection}
+      Mailpit__Enabled: "true"
+      Mailpit__Host: mailpit
+      Mailpit__Port: "1025"
+    ports: ["127.0.0.1:5081:8080"]
+    networks: [identity-local]
+    volumes:
+      - identity-keys:/var/identity/keys
+      - identity-dev-certificates:/home/app/.dotnet/corefx/cryptography/x509stores
+    depends_on:
+      mailpit:
+        condition: service_healthy
+    restart: unless-stopped
+    mem_limit: 512m
+    cpus: 1.0
+volumes:
+  mailpit-data:
+  identity-keys:
+  identity-dev-certificates:
+networks:
+  identity-local:
+    driver: bridge

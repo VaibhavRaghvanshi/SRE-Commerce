@@ -27,6 +27,9 @@ artifacts/
 *.csproj.user
 *.suo
 *.lnk
+*.pfx
+*.pem
+*.key
 
 # Historical office/PDF deliverables stay in the local preservation archive.
 /SRECommerce.Web/public/*.pdf

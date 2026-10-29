@@ -1,0 +1,17 @@
+**/bin
+**/obj
+**/node_modules
+**/dist
+**/.angular
+.git
+.vs
+artifacts
+**/App_Data
+**/wwwroot/uploads
+**/*.pfx
+**/*.p12
+**/*.pem
+**/*.key
+.env*
+**/.env*
+**/*.log
