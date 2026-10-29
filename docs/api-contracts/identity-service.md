@@ -30,6 +30,7 @@ Local client: `srecommerce-local`, public client, callback `http://127.0.0.1:509
 | DELETE | me/sessions/{id} | Only own session; 404 for others; revokes authorization/access/refresh |
 | POST | logout | Revoke current bearer session and clear browser cookie |
 | GET | me/memberships | Own tenant references/roles only |
+| GET | me/access | Current server-validated account kind, stored platform role, selected active membership, scopes and audiences for trusted service authorization; no credentials/tokens |
 | GET | me/security-history?page=1 | Own audit events; 50 records per page |
 | POST | me/mfa/setup | Current password required; returns authenticator secret once, preserve only the verified enrollment session |
 | POST | me/mfa/enable | Valid TOTP required; returns 8 recovery codes once, revokes sessions and requires re-login |
@@ -49,5 +50,7 @@ Account-kind JSON values currently follow the enum numeric values: Customer=0, B
 | GET | platform/audit?tenantId=...&page=1 | Current stored SuperAdmin, audited privileged read, bounded 50-row pages |
 
 No Tenant service/table is read. Provisioning a GUID reference does not create/activate a business; future Tenant lifecycle verification remains an integration dependency. Tenant headers do not select authorization scope. Membership changes revoke only that user's sessions for the affected tenant; global account/security changes revoke all that user's sessions.
+
+Tenant integration additionally registers `tenant_api` with resource/audience `srecommerce.tenant`. Clients using Tenant request both `identity_api` and `tenant_api`; Identity-only scopes remain valid for existing Identity APIs. Explicit `--initialize` adds this permission to the known client without replacing redirects/settings. The Tenant runtime obtains current authorization through `/me/access` rather than reading Identity tables. Owner provisioning requires a currently active, email-confirmed account; disabling the owner during onboarding prevents activation. Unchanged active membership provisioning is an audited idempotent operation and preserves sessions; actual role/activation changes still revoke them.
 
 Statuses: 400 validation/protocol errors, 401 invalid authentication, 403 denied scope/permission/account/session, 404 non-owned/missing resource, 409 concurrent/constraint conflict, 429 authentication rate limit, 503 unavailable SQL. Responses and logs must not expose passwords, token values or encrypted email payloads. `/health/live`, `/health/ready` are anonymous process/schema checks. OpenAPI JSON is `/openapi/v1.json` in Development.

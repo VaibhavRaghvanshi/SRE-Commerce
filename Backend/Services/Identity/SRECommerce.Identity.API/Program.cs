@@ -99,7 +99,7 @@ builder.Services.AddOpenIddict()
         o.SetAuthorizationEndpointUris("/connect/authorize").SetTokenEndpointUris("/connect/token")
             .SetRevocationEndpointUris("/connect/revoke").SetEndSessionEndpointUris("/connect/logout");
         o.AllowAuthorizationCodeFlow().RequireProofKeyForCodeExchange().AllowRefreshTokenFlow();
-        o.RegisterScopes(Scopes.OpenId, Scopes.Profile, Scopes.Email, Scopes.OfflineAccess, "identity_api");
+        o.RegisterScopes(Scopes.OpenId, Scopes.Profile, Scopes.Email, Scopes.OfflineAccess, "identity_api", "tenant_api");
         o.SetAccessTokenLifetime(TimeSpan.FromMinutes(5)).SetRefreshTokenLifetime(TimeSpan.FromDays(7));
         o.SetRefreshTokenReuseLeeway(TimeSpan.Zero);
         o.DisableAccessTokenEncryption();

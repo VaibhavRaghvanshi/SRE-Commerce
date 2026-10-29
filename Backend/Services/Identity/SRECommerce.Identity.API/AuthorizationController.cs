@@ -153,7 +153,10 @@ public sealed class AuthorizationController(IdentityDbContext db, UserManager<Ap
         }
         var principal = new ClaimsPrincipal(identity);
         principal.SetScopes(scopes);
-        principal.SetResources(principal.HasScope("identity_api") ? ["srecommerce.identity"] : []);
+        var resources = new List<string>();
+        if (principal.HasScope("identity_api")) resources.Add("srecommerce.identity");
+        if (principal.HasScope("tenant_api")) resources.Add("srecommerce.tenant");
+        principal.SetResources(resources);
         principal.SetDestinations(claim => claim.Type switch
         {
             Claims.Name when principal.HasScope(Scopes.Profile) => [Destinations.AccessToken, Destinations.IdentityToken],

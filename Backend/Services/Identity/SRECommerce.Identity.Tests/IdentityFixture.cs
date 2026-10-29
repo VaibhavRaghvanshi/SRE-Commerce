@@ -71,7 +71,7 @@ public record TokenSet(HttpClient Client, string Access, string Refresh, string 
 public static class Protocol
 {
     public static string Password() => "Valid-" + Guid.NewGuid().ToString("N") + "Aa1!";
-    public static async Task<TokenSet> SignIn(IdentityFactory factory, string email, string password, Guid? tenant = null, string? mfaCode = null, bool recovery = false)
+    public static async Task<TokenSet> SignIn(IdentityFactory factory, string email, string password, Guid? tenant = null, string? mfaCode = null, bool recovery = false, string? scope = null)
     {
         var client = factory.Client();
         var verifier = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(48));
@@ -80,7 +80,7 @@ public static class Protocol
         var authorize = "/connect/authorize?" + new FormUrlEncodedContent(new Dictionary<string, string>
         {
             ["client_id"] = "srecommerce-local", ["redirect_uri"] = "http://127.0.0.1:5099/callback", ["response_type"] = "code",
-            ["scope"] = "openid profile email offline_access identity_api", ["code_challenge"] = challenge, ["code_challenge_method"] = "S256",
+            ["scope"] = scope ?? "openid profile email offline_access identity_api", ["code_challenge"] = challenge, ["code_challenge_method"] = "S256",
             ["state"] = state, ["nonce"] = Guid.NewGuid().ToString("N"), ["tenant_id"] = tenant?.ToString() ?? ""
         }).ReadAsStringAsync().Result;
         var initial = await client.GetAsync(authorize);

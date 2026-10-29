@@ -8,6 +8,8 @@ Identity setup, protocol contracts and verification: [Identity runbook](docs/run
 
 Docker Desktop Linux engine and the Identity/Mailpit containers are verified: [local Docker guide](docs/docker-local-development.md), [Identity completion report](docs/architecture/identity-completion-report.md). Latest Identity/Docker changes remain local; a GitHub push requires separate approval.
 
+Tenant Management backend: [setup/runbook](docs/runbooks/tenant-service.md), [API contract](docs/api-contracts/tenant-service.md), [completion and verification report](docs/architecture/tenant-completion-report.md). It owns `SRECommerce_TenantDB` and uses Identity over HTTP. The opt-in `compose.tenant.yaml` overlay adds only Tenant; Angular remains on its existing authentication until a separately approved integration module.
+
 ## Prerequisites
 
 - Stable .NET SDK 8.0.404 (pinned in global.json, latest compatible patch roll-forward; preview SDKs excluded).
@@ -64,6 +66,6 @@ Database initialization and demo seeding default to **false**. They are rejected
 
 ## Scope and known limits
 
-User management now requires a current stored Admin role. Employees keep catalog/order access but cannot list/create/promote/delete users. The last administrator cannot be demoted or deleted by the sequential API workflow. Full identity lifecycle, refresh/revocation, tenant isolation, stock concurrency/reservations, distributed checkout and production hardening remain future work. Do not expose this learning baseline as a production SaaS.
+Legacy user management requires a current stored Admin role. Employees keep catalog/order access but cannot list/create/promote/delete users. The last legacy administrator cannot be demoted or deleted by the sequential API workflow. This application still needs the separately approved Identity/Tenant frontend and authority cutover, inventory concurrency/reservations, distributed checkout and production hardening. The standalone Identity/Tenant backends have their own verified contracts and reports above. Do not expose this learning baseline as a production SaaS.
 
 Backups, databases, uploads, logs, build outputs, historical Office/PDF deliverables and local secrets are excluded from Git. Original source/media and both database stores were preserved locally before stabilization. Read the [baseline report](docs/architecture/baseline-stabilization-report.md) and [runbook](docs/runbooks/baseline-verification.md) for evidence, recovery and the next approval checkpoint.

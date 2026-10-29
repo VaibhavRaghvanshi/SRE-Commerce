@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using OpenIddict.Abstractions;
 using SRECommerce.Identity.Application;
 using SRECommerce.Identity.Domain;
 using SRECommerce.Identity.Infrastructure;
@@ -59,6 +60,17 @@ public sealed class AccountsController(IIdentityAccounts accounts, IdentityDbCon
     }
     [HttpGet("me/memberships"), Authorize(Policy="ActiveSession")]
     public async Task<IActionResult> MyMemberships(CancellationToken ct) => Ok(await db.Memberships.IgnoreQueryFilters().AsNoTracking().Where(m => m.UserId == UserId).Select(m => new { m.TenantId, m.Role, m.IsActive }).ToListAsync(ct));
+
+    [HttpGet("me/access"), Authorize(Policy="ActiveSession")]
+    public async Task<IActionResult> Access(CancellationToken ct)
+    {
+        var user = (await users.FindByIdAsync(UserId.ToString()))!;
+        var profile = await db.Profiles.AsNoTracking().SingleAsync(p=>p.UserId==UserId,ct);
+        Guid? selected = Guid.TryParse(User.FindFirstValue("tenant_id"),out var id) ? id : null;
+        var membership = selected is null ? null : await db.Memberships.AsNoTracking().SingleOrDefaultAsync(m=>m.UserId==UserId && m.IsActive,ct);
+        return Ok(new { userId=UserId, accountKind=profile.Kind.ToString(), isPlatformAdmin=await users.IsInRoleAsync(user,"SuperAdmin"),
+            selectedTenantId=membership?.TenantId, tenantRole=membership?.Role, scopes=User.GetScopes(), audiences=User.GetAudiences() });
+    }
 
     [HttpPost("me/mfa/setup"), Authorize(Policy="ActiveSession"), EnableRateLimiting("auth")]
     public async Task<IActionResult> SetupMfa(MfaSetupRequest request, CancellationToken ct)

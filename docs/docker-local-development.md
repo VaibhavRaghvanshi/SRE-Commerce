@@ -105,3 +105,18 @@ Official references: [Docker Desktop WSL backend](https://docs.docker.com/deskto
 Is personal portfolio/learning use ke liye Docker Desktop's personal/education terms apply. Docker lists free use for personal use, education, non-commercial open source and businesses with fewer than 250 employees **and** less than USD 10 million annual revenue. Larger organizational/commercial use and government use may require a paid subscription; check the actual organization's terms before using this setup there. [Official Docker Desktop licensing](https://docs.docker.com/subscription-billing/desktop-license/).
 
 Installed SQL Server 2022 Developer is for development/testing, not production. SQL Server 2022 Express is a separate free edition with a 10 GB relational database limit, up to four cores/one socket and a 1,410 MB buffer-pool limit; moving to it would require a separate compatibility/capacity decision. No edition change is made here. Production hosting, database licensing, domains, backups and outbound delivery may cost money. [Microsoft edition and scale limits](https://learn.microsoft.com/en-us/sql/sql-server/editions-and-components-of-sql-server-2022/).
+
+## Approved Tenant backend follow-up
+
+Owner ne baad mein Tenant Management backend approve kiya. Uska [runbook](runbooks/tenant-service.md) aur [completion report](architecture/tenant-completion-report.md) ab available hain. Base Identity profile ke saath explicit overlay use hota hai:
+
+```powershell
+docker compose -f compose.yaml -f compose.tenant.yaml --profile tenant-api config --quiet
+docker compose -f compose.yaml -f compose.tenant.yaml --profile tenant-api build identity tenant
+docker compose -f compose.yaml -f compose.tenant.yaml --profile tenant-api up -d --no-build
+docker compose -f compose.yaml -f compose.tenant.yaml --profile tenant-api ps
+```
+
+Final Identity/Tenant image builds aur 34 live checks pass hue. Tenant API `http://localhost:5082`; SQL Windows host par hi hai, dedicated approved Tenant login sirf uske data ko access karta hai. Identity ka internal hostname `identity:8080` explicitly allowed hai. Teeno containers healthy hain; no Kafka/cache/broker/SQL replacement add hua. Tenant bearer-only API ke paas persistent protected payloads nahi hain, isliye uska framework key provider ephemeral hai; Identity ke existing named key/certificate volumes preserve hain. Original Identity image rollback tag `srecommerce-identity:identity-checkpoint-7eaf9a8` bhi preserve hai.
+
+Session interruption ke baad Docker temporarily unavailable hua; owner ne Desktop khola, phir Client/Server, Linux mode aur running containers dobara verify hue. Koi reset/prune/unregister nahi hua. Final backend suites: Identity 24/24, Tenant 28/28; Tenant backup/restore/CHECKDB bhi pass. Next module aur GitHub push ke liye separate owner checkpoint remains.

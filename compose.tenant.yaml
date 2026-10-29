@@ -1,0 +1,26 @@
+# Explicit overlay keeps Tenant's required secret out of the existing Identity-only profile.
+services:
+  mailpit:
+    profiles: [identity-email, identity-api, tenant-api]
+  identity:
+    profiles: [identity-api, tenant-api]
+    environment:
+      AllowedHosts: localhost;127.0.0.1;identity
+  tenant:
+    image: srecommerce-tenant:dev
+    build:
+      context: .
+      dockerfile: Backend/Services/Tenant/SRECommerce.Tenant.API/Dockerfile
+    profiles: [tenant-api]
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Tenant: ${TENANT_SQL_CONNECTION:?Provide the dedicated restricted Tenant SQL connection}
+      Identity__BaseUrl: http://identity:8080/
+    ports: ["127.0.0.1:5082:8080"]
+    networks: [identity-local]
+    depends_on:
+      identity:
+        condition: service_healthy
+    restart: unless-stopped
+    mem_limit: 384m
+    cpus: 0.75

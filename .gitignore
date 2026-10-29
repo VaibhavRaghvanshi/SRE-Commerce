@@ -28,6 +28,7 @@ artifacts/
 *.suo
 *.lnk
 *.pfx
+*.p12
 *.pem
 *.key
 

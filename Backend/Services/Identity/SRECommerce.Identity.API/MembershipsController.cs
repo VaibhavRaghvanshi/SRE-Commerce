@@ -64,9 +64,13 @@ public sealed class PlatformController(IdentityDbContext db, IIdentityAccounts a
     {
         if (!await CurrentAdmin()) return Forbid();
         if (tenantId == Guid.Empty || request.UserId != userId || !TenantRoles.All.Contains(request.Role)) return BadRequest();
-        if (await users.FindByIdAsync(userId.ToString()) is null) return NotFound();
+        var targetUser = await users.FindByIdAsync(userId.ToString());
+        if (targetUser is null) return NotFound();
+        if (request.Role == "Owner" && (!targetUser.EmailConfirmed || !await db.Profiles.AnyAsync(p=>p.UserId==userId && p.IsActive,ct)))
+            return BadRequest(new { error = "An active, email-confirmed owner is required." });
         await using var transaction=await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable,ct);
         var member = await db.Memberships.IgnoreQueryFilters().SingleOrDefaultAsync(m => m.TenantId == tenantId && m.UserId == userId, ct);
+        var membershipChanged = member is null || !member.IsActive || member.Role != request.Role;
         if (member is null) db.Memberships.Add(new TenantMembership { TenantId = tenantId, UserId = userId, Role = request.Role });
         else
         {
@@ -78,7 +82,7 @@ public sealed class PlatformController(IdentityDbContext db, IIdentityAccounts a
         if (!await db.RolePermissions.IgnoreQueryFilters().AnyAsync(p => p.TenantId == tenantId, ct))
             foreach (var role in TenantRoles.All)
                 foreach (var permission in TenantRoles.Permissions(role)) db.RolePermissions.Add(new RolePermission { TenantId = tenantId, Role = role, Permission = permission });
-        await accounts.RevokeTenantSessionsAsync(userId, tenantId, ct);
+        if (membershipChanged) await accounts.RevokeTenantSessionsAsync(userId, tenantId, ct);
         await accounts.AuditAsync(UserId, tenantId, "platform.membership.provision", "explicit-privileged-operation", ct);
         await transaction.CommitAsync(ct);
         return NoContent();
