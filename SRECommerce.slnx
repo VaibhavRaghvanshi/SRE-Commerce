@@ -1,0 +1,36 @@
+<Solution>
+  <Folder Name="/BuildingBlocks/">
+    <Project Path="SRECommerce.BuildingBlocks/SRECommerce.BuildingBlocks.Kernel/SRECommerce.BuildingBlocks.Kernel.csproj" />
+    <Project Path="SRECommerce.BuildingBlocks/SRECommerce.BuildingBlocks.Contracts/SRECommerce.BuildingBlocks.Contracts.csproj" />
+    <Project Path="SRECommerce.BuildingBlocks/SRECommerce.BuildingBlocks.Infrastructure/SRECommerce.BuildingBlocks.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/Services/" />
+  <Folder Name="/SRECommerce.Identity.API/">
+    <Project Path="SRECommerce.Identity.API/SRECommerce.Identity.API/SRECommerce.Identity.API.csproj" />
+    <Project Path="SRECommerce.Identity.API/SRECommerce.Identity.Application/SRECommerce.Identity.Application.csproj" />
+    <Project Path="SRECommerce.Identity.API/SRECommerce.Identity.Domain/SRECommerce.Identity.Domain.csproj" />
+    <Project Path="SRECommerce.Identity.API/SRECommerce.Identity.Infrastructure/SRECommerce.Identity.Infrastructure.csproj" />
+    <Project Path="SRECommerce.Identity.API/SRECommerce.Identity.Tests/SRECommerce.Identity.Tests.csproj" />
+  </Folder>
+  <Folder Name="/SRECommerce.Storefront.API/">
+    <Project Path="SRECommerce.Storefront.API/SRECommerce.Storefront.API/SRECommerce.Storefront.API.csproj" />
+    <Project Path="SRECommerce.Storefront.API/SRECommerce.Storefront.Application/SRECommerce.Storefront.Application.csproj" />
+    <Project Path="SRECommerce.Storefront.API/SRECommerce.Storefront.Domain/SRECommerce.Storefront.Domain.csproj" />
+    <Project Path="SRECommerce.Storefront.API/SRECommerce.Storefront.Infrastructure/SRECommerce.Storefront.Infrastructure.csproj" />
+    <Project Path="SRECommerce.Storefront.API/SRECommerce.Storefront.Tests/SRECommerce.Storefront.Tests.csproj" />
+  </Folder>
+  <Folder Name="/SRECommerce.Tenant.API/">
+    <Project Path="SRECommerce.Tenant.API/SRECommerce.Tenant.API/SRECommerce.Tenant.API.csproj" />
+    <Project Path="SRECommerce.Tenant.API/SRECommerce.Tenant.Application/SRECommerce.Tenant.Application.csproj" />
+    <Project Path="SRECommerce.Tenant.API/SRECommerce.Tenant.Domain/SRECommerce.Tenant.Domain.csproj" />
+    <Project Path="SRECommerce.Tenant.API/SRECommerce.Tenant.Infrastructure/SRECommerce.Tenant.Infrastructure.csproj" />
+    <Project Path="SRECommerce.Tenant.API/SRECommerce.Tenant.Tests/SRECommerce.Tenant.Tests.csproj" />
+  </Folder>
+  <Folder Name="/SRECommerce.Theme.API/">
+    <Project Path="SRECommerce.Theme.API/SRECommerce.Theme.API/SRECommerce.Theme.API.csproj" />
+    <Project Path="SRECommerce.Theme.API/SRECommerce.Theme.Application/SRECommerce.Theme.Application.csproj" />
+    <Project Path="SRECommerce.Theme.API/SRECommerce.Theme.Domain/SRECommerce.Theme.Domain.csproj" />
+    <Project Path="SRECommerce.Theme.API/SRECommerce.Theme.Infrastructure/SRECommerce.Theme.Infrastructure.csproj" />
+    <Project Path="SRECommerce.Theme.API/SRECommerce.Theme.Tests/SRECommerce.Theme.Tests.csproj" />
+  </Folder>
+</Solution>

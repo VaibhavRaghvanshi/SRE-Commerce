@@ -1,5 +1,7 @@
 # Complete backend and SQL phase
 
+**Current folder rule:** per owner's GrowthStack reference, each service lives directly under `SRECommerce.<Service>.API/` with its own `SRECommerce.<Service>.API.sln` and five projects. Angular is `SRECommerce.UI`. Implemented source is organized into Controllers/DTOs/Interfaces/Entities/Data/Services and applicable Repositories. Complete relocation checks before resuming new business features.
+
 **Latest owner instruction (2026-10-31) takes precedence:** develop backend and Angular together, using the same five-project service structure, and push tested checkpoints to the existing GitHub migration branch without repeated approval. This supersedes the earlier backend-first/Angular gate and separate push approval recorded below. Keep existing data and secrets private; destructive changes remain outside routine development. New runtime credential scripts remain unexecuted at this checkpoint. Focus first on an integrated Catalog → Inventory → Pricing → Cart → Order flow; report remaining scope honestly.
 
 Owner instruction: finish all backend APIs as separate Clean Architecture projects and finish SQL before starting Angular. This supersedes the earlier stop/approval after each individual backend service. Implement and verify services sequentially, continuing automatically across the approved backend phase. Angular starts only after the backend/SQL acceptance gate. GitHub push still needs separate approval; destructive operations and security-sensitive provisioning remain separately gated.
@@ -26,7 +28,7 @@ The owner also selected current SQLite data (1,000 products / 3 orders) for non-
 | Discovery | SRECommerce_DiscoveryDB | Tenant search projections, filters/facets/suggestions, reviews/moderation/verified purchase | Pending |
 | ApiGateway | None | YARP allowlisted routes, correlation/auth/rate/CORS/timeouts; no public internal endpoints | Pending |
 
-Each remaining service has exactly API, Application, Domain, Infrastructure and Tests projects under `Backend/Services/{Service}`. Domain/application boundaries and business models stay service-owned. Building blocks contain transport contracts, scoped authorization, auditing/outbox/inbox plumbing, cache/resilience and hosting helpers, never a shared business DbContext or cross-service SQL connection.
+Each remaining service has exactly API, Application, Domain, Infrastructure and Tests projects under `SRECommerce.{Service}.API`. Domain/application boundaries and business models stay service-owned. Building blocks contain transport contracts, scoped authorization, auditing/outbox/inbox plumbing, cache/resilience and hosting helpers, never a shared business DbContext or cross-service SQL connection.
 
 Owner confirmed the same source layout for every remaining service: controllers live in the API project's `Controllers/` directory, with five separate layer/test projects. Create each service with substantive implementation and verified progress; generated bin/obj output is not source completion.
 

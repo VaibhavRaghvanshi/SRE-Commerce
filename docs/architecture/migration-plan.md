@@ -26,7 +26,7 @@ For every row, create these five projects only when that service is individually
 - `SRECommerce.{Service}.Infrastructure`
 - `SRECommerce.{Service}.Tests`
 
-For Identity, these expand to `SRECommerce.Identity.API`, `SRECommerce.Identity.Application`, `SRECommerce.Identity.Domain`, `SRECommerce.Identity.Infrastructure` and `SRECommerce.Identity.Tests`. The same exact expansion applies to each identifier below. API references Application and Infrastructure for composition; Application references Domain; Infrastructure references Application and Domain; Domain stays independent; Tests are never deployed. Keep the existing four projects during migration. Proposed folders are `Backend/Services/{Service}/`; do not bulk move the monolith to satisfy a diagram.
+For Identity, these expand to `SRECommerce.Identity.API`, `SRECommerce.Identity.Application`, `SRECommerce.Identity.Domain`, `SRECommerce.Identity.Infrastructure` and `SRECommerce.Identity.Tests`. The same exact expansion applies to each identifier below. API references Application and Infrastructure for composition; Application references Domain; Infrastructure references Application and Domain; Domain stays independent; Tests are never deployed. Keep the existing four projects during migration. Proposed folders are `SRECommerce.{Service}.API/`; do not bulk move the monolith to satisfy a diagram.
 
 | Service identifier | Logical SQL Server database | Ownership and current input |
 | --- | --- | --- |

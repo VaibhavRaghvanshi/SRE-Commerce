@@ -33,6 +33,6 @@ artifacts/
 *.key
 
 # Historical office/PDF deliverables stay in the local preservation archive.
-/SRECommerce.Web/public/*.pdf
-/SRECommerce.Web/public/*.docx
-/SRECommerce.Web/public/*.pptx
+/SRECommerce.UI/public/*.pdf
+/SRECommerce.UI/public/*.docx
+/SRECommerce.UI/public/*.pptx

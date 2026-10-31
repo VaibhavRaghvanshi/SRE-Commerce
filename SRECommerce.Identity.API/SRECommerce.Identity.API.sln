@@ -1,0 +1,42 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36623.8
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SRECommerce.Identity.API", "SRECommerce.Identity.API\SRECommerce.Identity.API.csproj", "{DAC24164-85C4-4455-B1E0-C973F44CD557}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SRECommerce.Identity.Application", "SRECommerce.Identity.Application\SRECommerce.Identity.Application.csproj", "{131EF8E0-73C8-4631-AA4F-318300CA916C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SRECommerce.Identity.Domain", "SRECommerce.Identity.Domain\SRECommerce.Identity.Domain.csproj", "{54E9046C-46B6-4BED-BBB6-5BABB0FBCE8B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SRECommerce.Identity.Infrastructure", "SRECommerce.Identity.Infrastructure\SRECommerce.Identity.Infrastructure.csproj", "{495CCA21-75D0-4F84-8294-AA46FE9E7637}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SRECommerce.Identity.Tests", "SRECommerce.Identity.Tests\SRECommerce.Identity.Tests.csproj", "{D6864A47-EC6E-4FC4-951C-3B3DF02C0DAA}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{DAC24164-85C4-4455-B1E0-C973F44CD557}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DAC24164-85C4-4455-B1E0-C973F44CD557}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DAC24164-85C4-4455-B1E0-C973F44CD557}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DAC24164-85C4-4455-B1E0-C973F44CD557}.Release|Any CPU.Build.0 = Release|Any CPU
+		{131EF8E0-73C8-4631-AA4F-318300CA916C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{131EF8E0-73C8-4631-AA4F-318300CA916C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{131EF8E0-73C8-4631-AA4F-318300CA916C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{131EF8E0-73C8-4631-AA4F-318300CA916C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{54E9046C-46B6-4BED-BBB6-5BABB0FBCE8B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{54E9046C-46B6-4BED-BBB6-5BABB0FBCE8B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{54E9046C-46B6-4BED-BBB6-5BABB0FBCE8B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{54E9046C-46B6-4BED-BBB6-5BABB0FBCE8B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{495CCA21-75D0-4F84-8294-AA46FE9E7637}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{495CCA21-75D0-4F84-8294-AA46FE9E7637}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{495CCA21-75D0-4F84-8294-AA46FE9E7637}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{495CCA21-75D0-4F84-8294-AA46FE9E7637}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D6864A47-EC6E-4FC4-951C-3B3DF02C0DAA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D6864A47-EC6E-4FC4-951C-3B3DF02C0DAA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D6864A47-EC6E-4FC4-951C-3B3DF02C0DAA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D6864A47-EC6E-4FC4-951C-3B3DF02C0DAA}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

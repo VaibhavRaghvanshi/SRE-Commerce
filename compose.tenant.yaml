@@ -10,7 +10,7 @@ services:
     image: srecommerce-tenant:dev
     build:
       context: .
-      dockerfile: Backend/Services/Tenant/SRECommerce.Tenant.API/Dockerfile
+      dockerfile: SRECommerce.Tenant.API/SRECommerce.Tenant.API/Dockerfile
     profiles: [tenant-api]
     environment:
       ASPNETCORE_ENVIRONMENT: Development

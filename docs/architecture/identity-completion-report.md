@@ -4,7 +4,7 @@ Status: approved Identity backend implemented and locally verified. Docker follo
 
 ## Implementation and ownership
 
-Exactly five projects under `Backend/Services/Identity`: API, Application, Domain, Infrastructure and Tests. Separate Backend solution/SDK pin preserves the original .NET 8 application. .NET SDK 10.0.403, Microsoft Identity/EF/runtime 10.0.14, OpenIddict 7.7.2; explicit cryptography packages retain patched versions. API dependency advisory scan reported zero known vulnerabilities at verification.
+Exactly five projects under `SRECommerce.Identity.API`: API, Application, Domain, Infrastructure and Tests. Separate Backend solution/SDK pin preserves the original .NET 8 application. .NET SDK 10.0.403, Microsoft Identity/EF/runtime 10.0.14, OpenIddict 7.7.2; explicit cryptography packages retain patched versions. API dependency advisory scan reported zero known vulnerabilities at verification.
 
 OpenIddict authorization code + S256 PKCE, exact registered redirect, server-side antiforgery login, verified-email policy, lockout, MFA/recovery codes, five-minute access tokens, rotating stored refresh tokens and session revocation are implemented. API authorization checks current account/session/security stamp and stored token/authorization validity. Tenant scope comes from the validated token; memberships and permissions are checked against SQL. Platform SuperAdmin is explicit and audited. Concurrent last-owner demotions are serialized. See [API contract](../api-contracts/identity-service.md) and [design/ERD](identity-service-design.md).
 

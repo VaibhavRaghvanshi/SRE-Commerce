@@ -6,10 +6,12 @@ Run from the repository root using PowerShell. These instructions preserve the s
 
 ```powershell
 .\scripts\Initialize-LocalSecrets.ps1
-dotnet restore SRECommerce.sln
-dotnet test SRECommerce.sln -c Release
+Push-Location SRECommerce.Legacy.API
+dotnet restore SRECommerce.Legacy.API.sln
+dotnet test SRECommerce.Legacy.API.sln -c Release
 dotnet list SRECommerce.Api\SRECommerce.Api.csproj package --vulnerable --include-transitive
-Set-Location SRECommerce.Web
+Pop-Location
+Set-Location SRECommerce.UI
 $env:CHROME_BIN = 'C:\Program Files\Google\Chrome\Application\chrome.exe'
 $env:NG_BUILD_MAX_WORKERS = '1'
 npm ci
@@ -47,12 +49,12 @@ $env:DemoData__Enabled = 'false'
 dotnet bin\Release\net8.0\SRECommerce.Api.dll
 ```
 
-Web terminal, from `SRECommerce.Web`, after the production build:
+Web terminal, from `SRECommerce.UI`, after the production build:
 
 ```powershell
 $env:PORT = '14201'
 $env:API_PROXY_TARGET = 'http://127.0.0.1:15270'
-node dist\SRECommerce.Web\server\server.mjs
+node dist\SRECommerce.UI\server\server.mjs
 ```
 
 Check terminal, from the repository root:

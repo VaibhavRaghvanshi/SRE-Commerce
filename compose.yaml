@@ -21,7 +21,7 @@ services:
     image: srecommerce-identity:dev
     build:
       context: .
-      dockerfile: Backend/Services/Identity/SRECommerce.Identity.API/Dockerfile
+      dockerfile: SRECommerce.Identity.API/SRECommerce.Identity.API/Dockerfile
     profiles: [identity-api]
     environment:
       ASPNETCORE_ENVIRONMENT: Development

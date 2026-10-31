@@ -7,13 +7,13 @@ This service is separate from the existing .NET 8 API and Angular app. Do not ch
 ```powershell
 .\scripts\Install-IdentitySdk.ps1
 .\scripts\Initialize-IdentitySecrets.ps1
-Set-Location Backend
-..\artifacts\dotnet10\dotnet.exe tool restore
-..\artifacts\dotnet10\dotnet.exe build SRECommerce.Backend.slnx -c Release -m:1 -nr:false
-..\artifacts\dotnet10\dotnet.exe test SRECommerce.Backend.slnx -c Release -m:1 -nr:false
+Set-Location D:\Projects\SRECommerce
+.\artifacts\dotnet10\dotnet.exe tool restore
+.\artifacts\dotnet10\dotnet.exe build SRECommerce.slnx -c Release -m:1 -nr:false
+.\artifacts\dotnet10\dotnet.exe test SRECommerce.slnx -c Release -m:1 -nr:false
 ```
 
-The fixed SDK is 10.0.403, runtime/EF/Identity 10.0.14, OpenIddict 7.7.2. Official SDK SHA512 is verified; installation stays under ignored artifacts and does not modify global SDK selection. The Backend tool manifest pins EF tooling. On a machine with this stable SDK already installed, normal dotnet commands from Backend also work. Root .NET 8 global.json/solution are retained.
+The fixed SDK is 10.0.403, runtime/EF/Identity 10.0.14, OpenIddict 7.7.2. Official SDK SHA512 is verified; installation stays under ignored artifacts. Root `global.json` pins this modern SDK and `.config/dotnet-tools.json` pins EF tooling. The original .NET 8 SDK/solution boundary is preserved inside `SRECommerce.Legacy.API`. Identity's independent solution is `SRECommerce.Identity.API/SRECommerce.Identity.API.sln`.
 
 ## Database migrations
 
@@ -44,7 +44,7 @@ From Backend:
 
 ```powershell
 $env:Mailpit__Enabled='true'
-..\artifacts\dotnet10\dotnet.exe run --project Services\Identity\SRECommerce.Identity.API --launch-profile identity-http
+.\artifacts\dotnet10\dotnet.exe run --project SRECommerce.Identity.API\SRECommerce.Identity.API --launch-profile identity-http
 ```
 
 Service: localhost:5081; OpenAPI: /openapi/v1.json; live/ready health endpoints. Startup never automatically migrates/seeds. A separate local initialization command is required. Data-protection keys and development signing/encryption certificates remain outside Git. Back up and protect these separately from SQL backups; restoring a database alone does not restore decryption/signing keys.
@@ -80,7 +80,7 @@ This explicitly creates one sample account and performs captured email confirmat
 
 ## Container and production limits
 
-Build from repository root with `docker build -f Backend/Services/Identity/SRECommerce.Identity.API/Dockerfile -t srecommerce-identity:dev .`. The image uses a non-root runtime user and a readiness healthcheck. Production needs configured TLS/certificates and a writable protected key-ring volume owned by that user. The application must be served over HTTPS directly; no untrusted forwarded headers are accepted.
+Build from repository root with `docker build -f SRECommerce.Identity.API/SRECommerce.Identity.API/Dockerfile -t srecommerce-identity:dev .`. The image uses a non-root runtime user and a readiness healthcheck. Production needs configured TLS/certificates and a writable protected key-ring volume owned by that user. The application must be served over HTTPS directly; no untrusted forwarded headers are accepted.
 
 Windows integrated authentication used natively does not automatically work inside Linux containers. The verified Compose profile uses `host.docker.internal,1433`, the pre-existing SQL mixed-authentication mode and the restricted Identity runtime login. No server-wide authentication/firewall setting was changed. Both containers are healthy; container readiness and 13 real-process smoke checks passed against the host SQL database. See [Docker local development](../docker-local-development.md) for the verified commands and resource limits. No volume pruning/reset is authorized.
 

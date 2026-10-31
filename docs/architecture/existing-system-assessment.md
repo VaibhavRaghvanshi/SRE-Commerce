@@ -8,7 +8,7 @@ This assessment follows Part 19 of the supplied master prompt. Application sourc
 
 ```mermaid
 flowchart LR
-  Browser[Customer / staff browser] --> Angular[SRECommerce.Web: Angular 20 standalone SPA]
+  Browser[Customer / staff browser] --> Angular[SRECommerce.UI: Angular 20 standalone SPA]
   Angular -->|relative /api and /uploads| Proxy[Angular dev proxy or optional Express proxy]
   Proxy --> API[SRECommerce.Api: ASP.NET Core 8 controllers]
   API --> App[SRECommerce.Application: DTOs and SlugHelper]

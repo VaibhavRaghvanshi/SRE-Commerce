@@ -1,71 +1,70 @@
 # SRE-Commerce
 
-Existing ASP.NET Core and Angular commerce application, being modernized incrementally toward a configurable, multi-tenant platform with service-owned SQL Server databases.
+SRE-Commerce follows the owner's `D:\Projects\Cruds\GrowthStack` reference: one top-level folder and independent solution per microservice, plus one Angular UI folder.
 
-The legacy application remains a **single-tenant monolith** on SQLite. The independent Identity backend is implemented and locally verified on SQL Server under `Backend/Services/Identity`; authority/frontend cutover is separate. Existing data is excluded from Git and must be restored separately. See [migration progress](docs/migration-progress.md) before continuing work.
-
-Identity setup, protocol contracts and verification: [Identity runbook](docs/runbooks/identity-service.md). It has its own stable .NET 10 SDK pin/solution; the legacy .NET 8 solution remains independent.
-
-Docker Desktop Linux engine and the Identity/Mailpit containers are verified: [local Docker guide](docs/docker-local-development.md), [Identity completion report](docs/architecture/identity-completion-report.md). Latest Identity/Docker changes remain local; a GitHub push requires separate approval.
-
-Tenant Management backend: [setup/runbook](docs/runbooks/tenant-service.md), [API contract](docs/api-contracts/tenant-service.md), [completion and verification report](docs/architecture/tenant-completion-report.md). It owns `SRECommerce_TenantDB` and uses Identity over HTTP. The opt-in `compose.tenant.yaml` overlay adds only Tenant; Angular remains on its existing authentication until a separately approved integration module.
-
-## Prerequisites
-
-- Stable .NET SDK 8.0.404 (pinned in global.json, latest compatible patch roll-forward; preview SDKs excluded).
-- Node.js 22.15 or a compatible supported version for Angular 20.3, npm, and Chrome for headless tests.
-- Existing SQL Server 2022 Developer instance for the planned migration; Docker is not required for the baseline.
-
-.NET 8 and Angular 20 approach the end of their support windows in November 2026. The next service should use a separately approved stable .NET 10 setup; framework upgrades are not silently bundled into the database migration. See the [assessment](docs/architecture/existing-system-assessment.md) and official support links there.
-
-## Local setup
-
-```powershell
-.\scripts\Initialize-LocalSecrets.ps1
-dotnet restore SRECommerce.sln
-dotnet build SRECommerce.sln -c Release
+```text
+D:\Projects\SRECommerce\
+  SRECommerce.Identity.API\
+    SRECommerce.Identity.API.sln
+    SRECommerce.Identity.API\Controllers\
+    SRECommerce.Identity.Application\DTOs\
+    SRECommerce.Identity.Application\Interfaces\
+    SRECommerce.Identity.Domain\Entities\
+    SRECommerce.Identity.Infrastructure\Data\
+    SRECommerce.Identity.Infrastructure\Services\
+    SRECommerce.Identity.Tests\
+  SRECommerce.Tenant.API\                 same five-project pattern + own .sln
+  SRECommerce.Theme.API\                  same five-project pattern + own .sln
+  SRECommerce.Storefront.API\             same five-project pattern + own .sln
+  SRECommerce.BuildingBlocks\             shared contracts/transport helpers
+  SRECommerce.Legacy.API\                 preserved original .NET 8 application/data
+  SRECommerce.UI\                         existing Angular application
+  docs\
+  scripts\
+  SRECommerce.slnx                        aggregate modern-backend solution
 ```
 
-The script creates a random JWT key in ASP.NET user-secrets only if no local key exists; it does not print the key, initialize databases, seed accounts or change existing account passwords. User-secrets are a local development convenience, not an encrypted production secret store. Production must provide Jwt__Key using an appropriate secret provider. Never commit it.
+Open an individual service `.sln` to work on that API. `Controllers`, `DTOs`, `Interfaces`, `Entities`, `Data`, `Services`, `Initialization`, `Integrations` and applicable `Repositories` contain actual `.cs` source. Types were separated from combined files without changing namespaces or behavior. `bin` and `obj` are generated build outputs.
 
-Restore a verified SQLite backup to `SRECommerce.Api/App_Data/srecommerce.db` before running the legacy application. The default connection opens an existing database in read/write mode and does not create a new database automatically.
+Remaining services follow this layout as implemented. **They are not complete yet**; see the [delivery matrix](docs/architecture/backend-completion-plan.md). Existing Entity Framework persistence implementations are in Infrastructure; folder organization does not invent unused repository interfaces or claim unfinished features.
+
+## Build modern APIs
+
+The repository pins SDK 10.0.403. The installed local SDK is under ignored `artifacts/dotnet10`; use `scripts/Install-IdentitySdk.ps1` if needed.
 
 ```powershell
-dotnet run --project SRECommerce.Api --launch-profile http
+Set-Location D:\Projects\SRECommerce
+.\artifacts\dotnet10\dotnet.exe build SRECommerce.slnx -c Release -m:1 -nr:false
+Set-Location SRECommerce.Identity.API
+..\artifacts\dotnet10\dotnet.exe build SRECommerce.Identity.API.sln -c Release -m:1 -nr:false
+..\artifacts\dotnet10\dotnet.exe run --project SRECommerce.Identity.API --no-launch-profile -- --urls http://localhost:5081
 ```
 
-API: `http://localhost:5027`; Swagger is Development-only. `/health/live` checks the process and `/health/ready` checks required database tables. Missing schema returns 503; startup does not apply migrations or seed data. Do not replace the SQLite connection with a SQL Server string before the provider migration is implemented.
+Each API owns its SQL database/migrations/tests. Startup never automatically migrates/recreates databases. Use reviewed `docs/database-migrations` scripts; native development SQL uses Windows authentication. Credentials, keys, databases, uploaded media and backups remain outside Git. Secret IDs, DB names and Docker volume names are preserved.
 
-In a second terminal:
+## Angular UI
 
 ```powershell
-Set-Location SRECommerce.Web
+Set-Location D:\Projects\SRECommerce\SRECommerce.UI
 npm ci
 npm start
+npm run build
+npm run test:ci
 ```
 
-The development proxy sends `/api` and `/uploads` to port 5027. Development CORS allows explicit localhost origins on 4200/4201. Production origins must be configured explicitly; wildcard CORS is not enabled.
+Angular's workspace/output identifier is `SRECommerce.UI`. Development proxies `/api` and `/uploads` to the preserved legacy API on 5027 until new commerce integration is implemented. The production Node server accepts `API_PROXY_TARGET`. Folder organization alone does not switch authentication/data authority.
 
-## Verification
+## Preserved legacy application
+
+`SRECommerce.Legacy.API` contains the original four projects, regression tests, .NET 8 SDK pin and own solution. Private SQLite/media moved with the owning API directory and remain ignored; local user-secrets IDs are unchanged.
 
 ```powershell
-dotnet test SRECommerce.sln -c Release
-Set-Location SRECommerce.Web
-$env:CHROME_BIN = 'C:\Program Files\Google\Chrome\Application\chrome.exe'
-npm run test:ci
-npm run build
+Set-Location D:\Projects\SRECommerce\SRECommerce.Legacy.API
+dotnet build SRECommerce.Legacy.API.sln -c Release
+dotnet test SRECommerce.Legacy.API.sln -c Release
+dotnet run --project SRECommerce.Api
 ```
 
-The API suite uses generated credentials, separate temporary SQLite databases and upload folders. It never initializes the existing application database. Frontend tests cover the routed shell/account/dashboard, admin-only user management and bearer-token origin scope.
+New checkouts require restoring private data separately. Database initialization/demo seeding remain disabled. No original SQL database or Docker volume was deleted/replaced. Relocation evidence is in ignored `artifacts/source-relocation-manifest.json`.
 
-Upload validation accepts matching PNG/JPEG/GIF/WebP extensions, MIME types and signatures, limits images to 5 MiB, generates filenames, and serves `nosniff`. This is not a complete image decoder, malware scanner, media-processing service or production storage policy.
-
-## Controlled demo data
-
-Database initialization and demo seeding default to **false**. They are rejected outside Development. They must only be enabled intentionally against a new disposable development database. `DemoData:Password` must be supplied through a local secret provider with at least 12 characters; there is no bundled fixed password. Existing accounts and their password hashes are preserved. The seeder still generates sample catalog/orders and must not be used to reconcile or migrate real data.
-
-## Scope and known limits
-
-Legacy user management requires a current stored Admin role. Employees keep catalog/order access but cannot list/create/promote/delete users. The last legacy administrator cannot be demoted or deleted by the sequential API workflow. This application still needs the separately approved Identity/Tenant frontend and authority cutover, inventory concurrency/reservations, distributed checkout and production hardening. The standalone Identity/Tenant backends have their own verified contracts and reports above. Do not expose this learning baseline as a production SaaS.
-
-Backups, databases, uploads, logs, build outputs, historical Office/PDF deliverables and local secrets are excluded from Git. Original source/media and both database stores were preserved locally before stabilization. Read the [baseline report](docs/architecture/baseline-stabilization-report.md) and [runbook](docs/runbooks/baseline-verification.md) for evidence, recovery and the next approval checkpoint.
+Routine tested commits/pushes on `migration/saas-modernization` and backend/UI work together are owner-approved. See [migration progress](docs/migration-progress.md) and the [folder-layout decision](docs/architecture/source-folder-layout.md).

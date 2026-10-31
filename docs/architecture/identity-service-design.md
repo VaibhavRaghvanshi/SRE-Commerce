@@ -4,7 +4,7 @@ Status: implementation approved by the owner after the verified baseline. Scope:
 
 ## Domain and projects
 
-`Backend/Services/Identity/SRECommerce.Identity.{API,Application,Domain,Infrastructure,Tests}`. Domain owns profile/account state, tenant memberships, sessions, permissions and auditing. Infrastructure adapts ASP.NET Core Identity, SQL Server EF Core, OpenIddict, durable local email delivery and legacy password verification. Application defines contracts and ports; API composes authentication, authorization and HTTP contracts. The legacy projects remain in their own solution and retain their provider/data.
+`SRECommerce.Identity.API/SRECommerce.Identity.{API,Application,Domain,Infrastructure,Tests}`. Domain owns profile/account state, tenant memberships, sessions, permissions and auditing. Infrastructure adapts ASP.NET Core Identity, SQL Server EF Core, OpenIddict, durable local email delivery and legacy password verification. Application defines contracts and ports; API composes authentication, authorization and HTTP contracts. The legacy projects remain in their own solution and retain their provider/data.
 
 Use stable .NET SDK 10.0.403 and Microsoft Identity/EF packages 10.0.14. Install the SDK locally under ignored artifacts with the official SHA512 checked. OpenIddict 7.7.2 is Apache-2.0; ASP.NET Core Identity/EF are Microsoft MIT packages. Confirm selected package metadata after restore. Use a separate Backend solution/SDK pin so the existing .NET 8 baseline remains buildable.
 

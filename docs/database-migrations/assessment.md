@@ -31,7 +31,7 @@ SQL Server connection: `.\MSSQL22`, Windows integrated authentication, sqlcmd co
 
 Observed: Developer Edition (64-bit), version 16.0.1000.6, Full-Text installed; SRECommerceDb ONLINE. SQL Server has six business tables and two historical migrations. Its catalog/image nullability and indexes differ from the current model; notably Categories.ImageUrl is required varchar(200) there, and Users lacks the unique Email index configured in current EF source.
 
-SQLite path: `SRECommerce.Api/App_Data/srecommerce.db`. Opened using Node 22's experimental `node:sqlite` DatabaseSync with `readOnly:true`; only schema/count queries and PRAGMAs ran. Integrity: `ok`. Foreign-key check: empty result. Eight business tables, no EF migration-history table. Monetary values are stored using SQLite TEXT affinity; target SQL decimal conversion needs explicit invariant parsing and rounding checks.
+SQLite path: `SRECommerce.Legacy.API/SRECommerce.Api/App_Data/srecommerce.db`. Opened using Node 22's experimental `node:sqlite` DatabaseSync with `readOnly:true`; only schema/count queries and PRAGMAs ran. Integrity: `ok`. Foreign-key check: empty result. Eight business tables, no EF migration-history table. Monetary values are stored using SQLite TEXT affinity; target SQL decimal conversion needs explicit invariant parsing and rounding checks.
 
 Counts are recorded in the main assessment. No password hashes or individual user/contact/address records were returned. No claim is made that the two stores have matching user IDs just because their user counts match.
 

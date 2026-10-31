@@ -30,10 +30,10 @@ Changes:
 ## Files Created
 
 - `.gitignore`, `global.json`, `README.md`.
-- `SRECommerce.Api/Security/SecurityPolicies.cs`.
-- `Tests/SRECommerce.Api.Tests/SRECommerce.Api.Tests.csproj`, `ApiFactory.cs`, `BaselineTests.cs`, `UploadTests.cs`.
-- `SRECommerce.Web/src/app/core/guards/user-management.guard.ts` and its spec.
-- `SRECommerce.Web/src/app/core/interceptors/auth.interceptor.spec.ts`.
+- `SRECommerce.Legacy.API/SRECommerce.Api/Security/SecurityPolicies.cs`.
+- `SRECommerce.Legacy.API/Tests/SRECommerce.Api.Tests/SRECommerce.Api.Tests.csproj`, `ApiFactory.cs`, `BaselineTests.cs`, `UploadTests.cs`.
+- `SRECommerce.UI/src/app/core/guards/user-management.guard.ts` and its spec.
+- `SRECommerce.UI/src/app/core/interceptors/auth.interceptor.spec.ts`.
 - `scripts/Initialize-LocalSecrets.ps1`, `scripts/smoke-baseline.mjs`.
 - This report and `docs/runbooks/baseline-verification.md`.
 - `docs/decisions/0002-baseline-security-and-verification.md`.
@@ -69,7 +69,7 @@ Existing route contracts retained. Hardened `/api/admin/users` CRUD/role changes
 | `dotnet test SRECommerce.sln -c Release --logger trx` after package patching | 33 passed, 0 failed, 0 skipped |
 | Angular CLI `test --watch=false --browsers=ChromeHeadless` | 12 passed |
 | Angular CLI `build --configuration production` | Passed; initial browser bundle about 386 kB, within configured budgets. Rebuilt after removing the header credential. |
-| `dotnet list SRECommerce.Api/...csproj package --vulnerable --include-transitive --format json` | No known vulnerable API packages reported after patching |
+| `dotnet list SRECommerce.Legacy.API/SRECommerce.Api/...csproj package --vulnerable --include-transitive --format json` | No known vulnerable API packages reported after patching |
 | `node scripts/smoke-baseline.mjs` with explicit isolated API/web URLs | 13 HTTP checks passed against Kestrel and the built Express/Angular host; 1,000 products and 10 home sections |
 | SQLite backup integrity/FK/counts | Passed |
 | SQL backup checksum/restore/checkdb | Passed |

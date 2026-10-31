@@ -1,0 +1,42 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36623.8
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SRECommerce.Tenant.API", "SRECommerce.Tenant.API\SRECommerce.Tenant.API.csproj", "{B0373E50-2A06-46A4-8872-DF0DAC60E76A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SRECommerce.Tenant.Application", "SRECommerce.Tenant.Application\SRECommerce.Tenant.Application.csproj", "{02DFB0B2-1BE9-4534-AA4A-433A90D3807C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SRECommerce.Tenant.Domain", "SRECommerce.Tenant.Domain\SRECommerce.Tenant.Domain.csproj", "{58F451A7-8BF1-494F-8B50-5525E3C33C89}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SRECommerce.Tenant.Infrastructure", "SRECommerce.Tenant.Infrastructure\SRECommerce.Tenant.Infrastructure.csproj", "{8898506E-8C0B-44B5-9D57-FBC290ADF360}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SRECommerce.Tenant.Tests", "SRECommerce.Tenant.Tests\SRECommerce.Tenant.Tests.csproj", "{9E130C4B-1B0E-4E76-B962-5D890E764182}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B0373E50-2A06-46A4-8872-DF0DAC60E76A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B0373E50-2A06-46A4-8872-DF0DAC60E76A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B0373E50-2A06-46A4-8872-DF0DAC60E76A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B0373E50-2A06-46A4-8872-DF0DAC60E76A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{02DFB0B2-1BE9-4534-AA4A-433A90D3807C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{02DFB0B2-1BE9-4534-AA4A-433A90D3807C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{02DFB0B2-1BE9-4534-AA4A-433A90D3807C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{02DFB0B2-1BE9-4534-AA4A-433A90D3807C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{58F451A7-8BF1-494F-8B50-5525E3C33C89}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{58F451A7-8BF1-494F-8B50-5525E3C33C89}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{58F451A7-8BF1-494F-8B50-5525E3C33C89}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{58F451A7-8BF1-494F-8B50-5525E3C33C89}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8898506E-8C0B-44B5-9D57-FBC290ADF360}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8898506E-8C0B-44B5-9D57-FBC290ADF360}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8898506E-8C0B-44B5-9D57-FBC290ADF360}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8898506E-8C0B-44B5-9D57-FBC290ADF360}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9E130C4B-1B0E-4E76-B962-5D890E764182}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9E130C4B-1B0E-4E76-B962-5D890E764182}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9E130C4B-1B0E-4E76-B962-5D890E764182}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9E130C4B-1B0E-4E76-B962-5D890E764182}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

@@ -4,7 +4,7 @@ Status: owner explicitly selected Tenant Management backend on 2026-10-29. Scope
 
 ## Ownership and deployment
 
-Five projects: `SRECommerce.Tenant.API`, `.Application`, `.Domain`, `.Infrastructure`, `.Tests` under `Backend/Services/Tenant`. Own database `SRECommerce_TenantDB` on the existing Windows SQL instance; no replacement SQL container or cross-service table reads/foreign keys. Shared service database with tenant-key query filters initially; dedicated database routing is a future strategy, not a claim of implemented provisioning.
+Five projects: `SRECommerce.Tenant.API`, `.Application`, `.Domain`, `.Infrastructure`, `.Tests` under `SRECommerce.Tenant.API`. Own database `SRECommerce_TenantDB` on the existing Windows SQL instance; no replacement SQL container or cross-service table reads/foreign keys. Shared service database with tenant-key query filters initially; dedicated database routing is a future strategy, not a claim of implemented provisioning.
 
 Own business registration/onboarding, business-type catalog, lifecycle, settings, branding metadata, locations, domains, module configuration, plan catalog, subscriptions/limits, effective entitlements and audit history. Theme appearance, billing/payment collection and Identity memberships stay with their owning services.
 

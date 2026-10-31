@@ -12,7 +12,7 @@ services:
     image: srecommerce-theme:dev
     build:
       context: .
-      dockerfile: Backend/Services/Theme/SRECommerce.Theme.API/Dockerfile
+      dockerfile: SRECommerce.Theme.API/SRECommerce.Theme.API/Dockerfile
     profiles: [theme-api]
     environment:
       ASPNETCORE_ENVIRONMENT: Development

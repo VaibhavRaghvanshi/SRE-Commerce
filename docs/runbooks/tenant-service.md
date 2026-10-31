@@ -4,12 +4,12 @@ Read the [design](../architecture/tenant-service-design.md) and [API contract](.
 
 ## Build and tests
 
-Use the already pinned local .NET SDK from Backend:
+Use the pinned local .NET SDK from the repository root, or open `SRECommerce.Tenant.API/SRECommerce.Tenant.API.sln`:
 
 ```powershell
-Set-Location D:\Projects\SRECommerce\Backend
-..\artifacts\dotnet10\dotnet.exe build SRECommerce.Backend.slnx -c Release -m:1 -nr:false
-..\artifacts\dotnet10\dotnet.exe test SRECommerce.Backend.slnx -c Release --no-restore -m:1 -nr:false --logger trx --results-directory ..\artifacts\backend-final
+Set-Location D:\Projects\SRECommerce
+.\artifacts\dotnet10\dotnet.exe build SRECommerce.slnx -c Release -m:1 -nr:false
+.\artifacts\dotnet10\dotnet.exe test SRECommerce.slnx -c Release --no-restore -m:1 -nr:false --logger trx --results-directory artifacts\backend-final
 ```
 
 Tests use actual SQL Server databases with unique guarded `SRECommerce_TenantTests_*` / `SRECommerce_IdentityTests_*` names. Tenant tests call the real Identity middleware through test HTTP handlers and perform real PKCE flows; they do not read Identity tables in the production Tenant runtime. Fixtures use Identity's own test helpers for setup only. Retained test databases are not automatically deleted.
@@ -22,7 +22,7 @@ Initial migration `20261029143617_InitialTenant` creates twelve business/catalog
 Set-Location D:\Projects\SRECommerce
 sqlcmd -S 'tcp:localhost,1433' -E -C -b -I -i docs\database-migrations\tenant-create-database.sql
 sqlcmd -S 'tcp:localhost,1433' -E -C -b -I -d SRECommerce_TenantDB -i docs\database-migrations\tenant-initial.sql
-Set-Location Backend\Services\Tenant\SRECommerce.Tenant.API
+Set-Location SRECommerce.Tenant.API\SRECommerce.Tenant.API
 $env:ASPNETCORE_ENVIRONMENT='Development'
 & 'D:\Projects\SRECommerce\artifacts\dotnet10\dotnet.exe' bin\Release\net10.0\SRECommerce.Tenant.API.dll --initialize
 ```
@@ -32,7 +32,7 @@ Initialization adds missing business types/development plans only, preserving ex
 Native launch from Backend:
 
 ```powershell
-..\artifacts\dotnet10\dotnet.exe run --project Services\Tenant\SRECommerce.Tenant.API --launch-profile tenant-http
+.\artifacts\dotnet10\dotnet.exe run --project SRECommerce.Tenant.API\SRECommerce.Tenant.API --launch-profile tenant-http
 ```
 
 Native Tenant API: `http://localhost:5082`; Identity: `http://localhost:5081`. Health `/health/live` and `/health/ready`, development OpenAPI `/openapi/v1.json`. Readiness checks schema connectivity; Identity availability is checked on authenticated business requests. Production rejects development SQL certificate trust, non-HTTPS Identity URLs and requires HTTPS for API traffic. Configure trusted certificates/TLS before production.

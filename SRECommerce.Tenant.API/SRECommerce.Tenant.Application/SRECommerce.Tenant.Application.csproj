@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup><ProjectReference Include="../SRECommerce.Tenant.Domain/SRECommerce.Tenant.Domain.csproj" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="../../SRECommerce.BuildingBlocks/SRECommerce.BuildingBlocks.Contracts/SRECommerce.BuildingBlocks.Contracts.csproj" /></ItemGroup>
+</Project>
