@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([switch]$Build,[switch]$InitializeIdentity,[switch]$StartUi)
+param([switch]$Build,[switch]$InitializeIdentity,[switch]$StartUi,[ValidateSet('Identity','Tenant','Theme','Storefront','Catalog','Inventory','ApiGateway')][string[]]$Services=@('Identity','Tenant','Catalog','Inventory','ApiGateway'))
 $ErrorActionPreference='Stop'
 $repository=Split-Path $PSScriptRoot -Parent
 $runtime=Join-Path $repository 'artifacts\dotnet10\dotnet.exe'
@@ -13,12 +13,13 @@ $specs=@(
     @{Name='Theme';Port=5183;Extra=@{'Identity__BaseUrl'='http://localhost:5181/';'Tenant__BaseUrl'='http://localhost:5182/'}},
     @{Name='Storefront';Port=5184;Extra=@{'Identity__BaseUrl'='http://localhost:5181/';'Tenant__BaseUrl'='http://localhost:5182/'}},
     @{Name='Catalog';Port=5185;Extra=@{'Identity__BaseUrl'='http://localhost:5181/';'Tenant__BaseUrl'='http://localhost:5182/'}},
-    @{Name='ApiGateway';Port=5180;Extra=@{'Services__Identity'='http://localhost:5181/';'Services__Tenant'='http://localhost:5182/';'Services__Theme'='http://localhost:5183/';'Services__Storefront'='http://localhost:5184/';'Services__Catalog'='http://localhost:5185/'}}
+    @{Name='Inventory';Port=5186;Extra=@{'Identity__BaseUrl'='http://localhost:5181/';'Tenant__BaseUrl'='http://localhost:5182/';'Catalog__BaseUrl'='http://localhost:5185/'}},
+    @{Name='ApiGateway';Port=5180;Extra=@{'Services__Identity'='http://localhost:5181/';'Services__Tenant'='http://localhost:5182/';'Services__Theme'='http://localhost:5183/';'Services__Storefront'='http://localhost:5184/';'Services__Catalog'='http://localhost:5185/';'Services__Inventory'='http://localhost:5186/'}}
 )
 $processes=@{}
 $processManifest=Join-Path $runDirectory 'processes.json'
 if(Test-Path -LiteralPath $processManifest){foreach($record in (Get-Content -LiteralPath $processManifest -Raw|ConvertFrom-Json)){$processes[$record.Service]=$record}}
-foreach($spec in $specs){
+foreach($spec in $specs|Where-Object {$_.Name -in $Services}){
     $apiName=if($spec.Name -eq 'ApiGateway'){'SRECommerce.ApiGateway'}else{'SRECommerce.'+$spec.Name+'.API'}
     $working=Join-Path $repository ($apiName+'\'+$apiName)
     $dll=Join-Path $working ('bin\Release\net10.0\'+$apiName+'.dll')

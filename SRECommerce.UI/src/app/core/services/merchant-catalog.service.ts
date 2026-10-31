@@ -18,7 +18,7 @@ export class MerchantCatalogService {
   private options(reason: string) { return { headers: reason.trim() ? new HttpHeaders({ 'X-Support-Reason': reason.trim() }) : new HttpHeaders() }; }
   private base(tenant: string) { return `/commerce/catalog/tenants/${encodeURIComponent(tenant)}/catalog`; }
   lookups(tenant: string, reason: string) { return this.http.get<MerchantLookups>(this.base(tenant) + '/lookups', this.options(reason)).pipe(timeout(15000)); }
-  products(tenant: string, page: number, reason: string) { return this.http.get<CommercePage<CommerceProduct>>(this.base(tenant) + '/products', { ...this.options(reason), params: { page, pageSize: 24 } }).pipe(timeout(15000)); }
+  products(tenant: string, page: number, reason: string, search='') { return this.http.get<CommercePage<CommerceProduct>>(this.base(tenant) + '/products', { ...this.options(reason), params: { page, pageSize: 24, search } }).pipe(timeout(15000)); }
   attributes(tenant: string, category: string, reason: string) { return this.http.get<CatalogDefinition[]>(this.base(tenant) + `/categories/${category}/attributes`, this.options(reason)).pipe(timeout(15000)); }
   save(tenant: string, id: string | null, editor: CatalogEditor, reason: string) { return id ? this.http.put<CommerceProduct>(this.base(tenant) + '/products/' + id, editor, this.options(reason)) : this.http.post<CommerceProduct>(this.base(tenant) + '/products', editor, this.options(reason)); }
   publish(tenant: string, product: CommerceProduct, reason: string) { return this.http.post<CommerceProduct>(this.base(tenant) + `/products/${product.id}/publish`, { version: product.version }, this.options(reason)); }

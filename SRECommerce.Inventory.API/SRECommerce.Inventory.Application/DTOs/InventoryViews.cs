@@ -1,0 +1,10 @@
+using SRECommerce.Inventory.Domain;
+namespace SRECommerce.Inventory.Application;
+public record CatalogStockItem(Guid ProductId,Guid VariantId,string Sku,string? Barcode);
+public record BalanceView(Guid Id,Guid WarehouseId,Guid VariantId,Guid BatchId,string Lot,DateTimeOffset? ExpiresAt,decimal OnHand,decimal Reserved,decimal Damaged,decimal Available,string Version);
+public record AvailabilityView(Guid VariantId,decimal Available,bool LowStock,bool Tracked=true);
+public record ReservationView(Guid Id,Guid WarehouseId,string Reference,ReservationStatus Status,DateTimeOffset ExpiresAt,ReservationAllocation[] Items,string Version);
+public record ReservationAllocation(Guid VariantId,Guid BalanceId,decimal Quantity);
+public record PurchaseView(Guid Id,Guid SupplierId,Guid WarehouseId,string Reference,string Currency,PurchaseStatus Status,PurchaseLineView[] Lines,string Version);
+public record PurchaseLineView(Guid Id,Guid VariantId,decimal Ordered,decimal Received,decimal UnitCost);
+public record InventoryStock(StockBalance Balance,InventoryBatch Batch);

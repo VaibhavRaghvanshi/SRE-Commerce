@@ -14,6 +14,7 @@ public interface ICatalogRepository
     Task<CatalogPage<ProductView>> Published(CatalogQuery query,CancellationToken ct);
     Task<ProductView?> PublishedProduct(string slug,CancellationToken ct);
     Task<ProductView?> PublishedVariant(Guid id,CancellationToken ct);
+    Task<Guid[]> PublicVariantIds(Guid[] ids,CancellationToken ct);
     Task<IReadOnlyCollection<ProductCollection>> Collections(CancellationToken ct);
     Task<CatalogImport?> Import(Guid id,CancellationToken ct);
     void Add<T>(T entity)where T:class;

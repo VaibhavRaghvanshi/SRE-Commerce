@@ -1,5 +1,5 @@
 <main class="workspace">
-  <header><div><a routerLink="/">SRECommerce</a><h1>Catalog workspace</h1></div><button *ngIf="session.token" type="button" (click)="session.signOut()">Sign out</button></header>
+  <header><div><a routerLink="/">SRECommerce</a><h1>Catalog workspace</h1><a [routerLink]="['/workspace',tenant,'inventory']">Manage inventory</a></div><button *ngIf="session.token" type="button" (click)="session.signOut()">Sign out</button></header>
   <section class="panel" *ngIf="!session.token"><h2>Sign in to manage your business</h2><p>Use your business Owner or Manager account.</p><button type="button" (click)="signIn()">Secure sign in</button></section>
   <p role="alert" class="error" *ngIf="error()">{{ error() }}</p><p role="status" class="message" *ngIf="message()">{{ message() }}</p>
   <p *ngIf="session.token && !canManage">Your current role can browse the store but cannot edit its catalog.</p>

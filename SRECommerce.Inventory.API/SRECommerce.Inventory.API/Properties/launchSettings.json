@@ -1,0 +1,1 @@
+{"profiles":{"inventory-http":{"commandName":"Project","launchBrowser":false,"applicationUrl":"http://localhost:5086","environmentVariables":{"ASPNETCORE_ENVIRONMENT":"Development"}}}}

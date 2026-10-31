@@ -11,6 +11,7 @@ describe('Commerce access token boundary', () => {
     TestBed.inject(HttpClient).get('/commerce/catalog/tenants/tenant/catalog/products').subscribe();
     const request=TestBed.inject(HttpTestingController).expectOne('/commerce/catalog/tenants/tenant/catalog/products');expect(request.request.headers.get('Authorization')).toBe('Bearer commerce-test-token');request.flush({});
   });
+  it('authenticates inventory mutations through the same gateway boundary',()=>{TestBed.inject(HttpClient).post('/commerce/inventory/tenants/tenant/inventory/stock-changes',{}).subscribe();const request=TestBed.inject(HttpTestingController).expectOne('/commerce/inventory/tenants/tenant/inventory/stock-changes');expect(request.request.headers.get('Authorization')).toBe('Bearer commerce-test-token');request.flush({});});
   for (const url of ['/api/products','https://external.example/commerce/catalog/tenants/id','/commerce/catalog/public/tenants/id/catalog/products','/commerce-other/catalog/products']) {
     it('does not attach commerce credentials to '+url,()=>{TestBed.inject(HttpClient).get(url).subscribe();const request=TestBed.inject(HttpTestingController).expectOne(url);expect(request.request.headers.has('Authorization')).toBeFalse();request.flush({});});
   }

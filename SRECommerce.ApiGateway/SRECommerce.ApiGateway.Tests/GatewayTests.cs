@@ -26,7 +26,7 @@ public sealed class GatewayFixture:IAsyncLifetime
 public sealed class GatewayFactory(string address):WebApplicationFactory<GatewayProgram>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
-    {builder.UseEnvironment("Development");foreach(var name in new[]{"Identity","Tenant","Theme","Storefront","Catalog"})builder.UseSetting("Services:"+name,address);builder.ConfigureLogging(o=>o.SetMinimumLevel(LogLevel.Error));}
+    {builder.UseEnvironment("Development");foreach(var name in new[]{"Identity","Tenant","Theme","Storefront","Catalog","Inventory"})builder.UseSetting("Services:"+name,address);builder.ConfigureLogging(o=>o.SetMinimumLevel(LogLevel.Error));}
 }
 public sealed class GatewayTests(GatewayFixture fixture):IClassFixture<GatewayFixture>
 {

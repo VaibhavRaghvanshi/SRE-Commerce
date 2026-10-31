@@ -17,7 +17,7 @@ The owner also selected current SQLite data (1,000 products / 3 orders) for non-
 | Theme | SRECommerce_ThemeDB | Validated accessible tokens/presets, draft/preview/publish/version/rollback, cached/default fallback | Native verified: 17 full-suite tests + SQL-outage test; schema/backup/restore verified; Docker runtime pending credentials |
 | Storefront | SRECommerce_StorefrontDB | Sections/navigation/banners/field visibility, layout versions/preview/publish, fallback | 25 tests; main schema/backup/restore verified; Docker runtime pending |
 | Catalog | SRECommerce_CatalogDB | Categories/brands, typed attributes, products/SKUs/media/bundles/collections, publish/import | Native 19 tests, main SQL migration/backup verified, Legacy Demo draft import and initial Angular/browser flow verified; media upload and Docker runtime pending |
-| Inventory | SRECommerce_InventoryDB | Warehouses/branches, balances/ledger/batches, transactional reservations/releases, purchasing | In progress; not yet verified |
+| Inventory | SRECommerce_InventoryDB | Warehouses/branches, balances/ledger/batches, transactional reservations/releases, purchasing | Native 18 tests; owned SQL migration/backup/restore and Angular/browser stock flow verified; bulk source-stock backfill, broker notifications and Docker runtime pending |
 | Pricing | SRECommerce_PricingDB | Price lists/groups/tiers, promotions/coupons, authoritative quotes/tax metadata and redemption | Pending |
 | Cart | SRECommerce_CartDB | Durable guest/customer carts, merge, quantities/expiry and authoritative checkout preparation | Pending |
 | Order | SRECommerce_OrderDB | Idempotent checkout saga, snapshots/status, cancellation/returns/exchanges and compensation | Pending |

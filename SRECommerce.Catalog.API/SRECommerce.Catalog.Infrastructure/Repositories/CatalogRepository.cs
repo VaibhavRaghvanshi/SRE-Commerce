@@ -42,6 +42,11 @@ public sealed class CatalogRepository(CatalogDbContext db,ModuleScope scope,IHtt
         var json=await(from variant in db.Variants.AsNoTracking() join snapshot in Active(true) on new{variant.TenantId,Id=variant.ProductId} equals new{snapshot.TenantId,Id=snapshot.ProductId} where variant.Id==id select snapshot.Document).SingleOrDefaultAsync(ct);
         if(json is null)return null;var value=ContractJson.Read<ProductView>(json);return value.Variants.Any(v=>v.Id==id&&v.Active)?value:null;
     }
+    public async Task<Guid[]> PublicVariantIds(Guid[] ids,CancellationToken ct)
+    {
+        var rows=await(from variant in db.Variants.AsNoTracking() join snapshot in Active() on new{variant.TenantId,Id=variant.ProductId} equals new{snapshot.TenantId,Id=snapshot.ProductId} where ids.Contains(variant.Id) select new{variant.Id,snapshot.Document}).ToListAsync(ct);
+        return rows.Where(row=>ContractJson.Read<ProductView>(row.Document).Variants.Any(v=>v.Id==row.Id&&v.Active)).Select(row=>row.Id).Distinct().ToArray();
+    }
     public async Task<IReadOnlyCollection<ProductCollection>> Collections(CancellationToken ct)=>await db.Collections.Include(c=>c.Products).OrderBy(c=>c.Name).ToListAsync(ct);
     public Task<CatalogImport?> Import(Guid id,CancellationToken ct)=>db.Imports.SingleOrDefaultAsync(i=>i.Id==id,ct);
     public void Add<T>(T entity)where T:class=>db.Add(entity);

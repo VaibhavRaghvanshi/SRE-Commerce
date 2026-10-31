@@ -17,6 +17,7 @@ D:\Projects\SRECommerce\
   SRECommerce.Theme.API\                  same five-project pattern + own .sln
   SRECommerce.Storefront.API\             same five-project pattern + own .sln
   SRECommerce.Catalog.API\                same five-project pattern + own .sln
+  SRECommerce.Inventory.API\              same five-project pattern + own .sln
   SRECommerce.ApiGateway\                 YARP API + tests + own .sln
   SRECommerce.BuildingBlocks\             shared contracts/transport helpers
   SRECommerce.Legacy.API\                 preserved original .NET 8 application/data
@@ -69,7 +70,7 @@ Set-Location D:\Projects\SRECommerce
 .\scripts\Stop-CommerceDevelopment.ps1
 ```
 
-The launcher starts Identity 5181, Tenant 5182, Theme 5183, Storefront 5184, Catalog 5185 and Gateway 5180. `-InitializeIdentity` explicitly registers the development public Angular PKCE client; it creates no confidential client secret or SQL runtime login. Private demo-owner credentials and migration mappings remain outside Git. See [local commerce runbook](docs/runbooks/commerce-local-development.md).
+The launcher starts Identity 5181, Tenant 5182, Catalog 5185, Inventory 5186 and Gateway 5180 by default. Add `-Services Identity,Tenant,Theme,Storefront,Catalog,Inventory,ApiGateway` when all implemented APIs are needed. `-InitializeIdentity` explicitly registers the development public Angular PKCE client; it creates no confidential client secret or SQL runtime login. Private demo-owner credentials and migration mappings remain outside Git. See [local commerce runbook](docs/runbooks/commerce-local-development.md).
 
 ## Preserved legacy application
 

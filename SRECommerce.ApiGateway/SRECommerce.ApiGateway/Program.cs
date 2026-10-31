@@ -21,7 +21,7 @@ public partial class GatewayProgram
         });
         builder.Services.AddCors(o=>o.AddDefaultPolicy(p=>p.WithOrigins(builder.Configuration.GetSection("Cors:Origins").Get<string[]>()??(builder.Environment.IsDevelopment()?["http://localhost:4200"]:[])).AllowAnyHeader().AllowAnyMethod()));
         var routes=new List<RouteConfig>();var clusters=new List<ClusterConfig>();
-        foreach(var module in ServiceManifest.All.Where(s=>s.Name is "Identity"or"Tenant"or"Theme"or"Storefront"or"Catalog"))
+        foreach(var module in ServiceManifest.All.Where(s=>s.Name is "Identity"or"Tenant"or"Theme"or"Storefront"or"Catalog"or"Inventory"))
         {
             var key=module.Name.ToLowerInvariant();var configured=builder.Configuration["Services:"+module.Name];
             if(!builder.Environment.IsDevelopment()&&configured is null)throw new InvalidOperationException("Explicit production service URLs are required");

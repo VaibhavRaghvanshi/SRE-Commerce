@@ -49,5 +49,12 @@
     "changeOrigin": true,
     "timeout": 15000,
     "proxyTimeout": 15000
+  },
+  "/commerce/inventory/**": {
+    "timeout": 15000,
+    "proxyTimeout": 15000,
+    "secure": true,
+    "target": "http://localhost:5180",
+    "changeOrigin": true
   }
 }

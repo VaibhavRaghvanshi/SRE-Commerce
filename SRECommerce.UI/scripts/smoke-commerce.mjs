@@ -1,8 +1,9 @@
 import {chromium} from 'playwright-core';
 import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
 import {join,resolve} from 'node:path';
+import {fileURLToPath} from 'node:url';
 import {randomBytes} from 'node:crypto';
-const root=resolve('..'),base=process.env.COMMERCE_SMOKE_UI_URL||'http://localhost:4000';
+const root=resolve(fileURLToPath(new URL('../../',import.meta.url))),base=process.env.COMMERCE_SMOKE_UI_URL||'http://localhost:4000';
 if(!['localhost','127.0.0.1'].includes(new URL(base).hostname))throw new Error('Explicit local browser smoke URL required.');
 const privateConfig=JSON.parse(readFileSync(join(process.env.APPDATA,'Microsoft/UserSecrets/SRECommerce-LegacyDemo-Development/secrets.json'),'utf8'));
 const output=join(root,'artifacts/commerce-browser-smoke');mkdirSync(output,{recursive:true});
@@ -27,9 +28,24 @@ try{
   await page.getByRole('button',{name:'Save draft',exact:true}).click();await page.getByText('Draft saved. Publish it when it is ready.',{exact:true}).waitFor({timeout:20000});
   const row=page.locator('tbody tr').filter({hasText:name});await row.waitFor({timeout:20000});checks.push('Product draft persisted through gateway to SQL');
   phase='publish product';await row.getByRole('button',{name:'Publish',exact:true}).click();await page.getByText('Product published.',{exact:true}).waitFor({timeout:20000});checks.push('Owner publication committed');
+  if(process.argv.includes('--inventory')){
+    phase='register published inventory SKU';await page.getByRole('link',{name:'Manage inventory',exact:true}).click();await page.getByRole('heading',{name:'Inventory workspace',exact:true}).waitFor();
+    await page.getByLabel('Product search',{exact:true}).fill(suffix);await page.getByRole('button',{name:'Find products',exact:true}).click();
+    await page.locator('select[name="product"]').selectOption({label:name});await page.locator('select[name="variant"]').selectOption({label:'UI-'+suffix.toUpperCase()});
+    await page.getByRole('button',{name:'Register SKU',exact:true}).click();await page.getByText('Published SKU registered.',{exact:true}).waitFor({timeout:20000});checks.push('Inventory verifies and registers published Catalog SKU');
+    phase='receive inventory stock';await page.locator('select[name="operating-warehouse"]').selectOption({label:'Legacy Demo warehouse'});await page.locator('select[name="operating-sku"]').selectOption({label:'UI-'+suffix.toUpperCase()});
+    await page.getByLabel('Receipt quantity',{exact:true}).fill('5');await page.getByLabel('Lot code',{exact:true}).fill('BROWSER-'+suffix.toUpperCase());await page.getByLabel('Receipt reason',{exact:true}).fill('Labeled browser verification');
+    await page.getByRole('button',{name:'Receive stock',exact:true}).click();await page.getByText('Stock receipt saved.',{exact:true}).waitFor({timeout:20000});checks.push('Opening receipt persisted with lot and SQL ledger');
+    phase='reserve and release inventory';await page.getByLabel('Order / hold reference',{exact:true}).fill('BROWSER-'+suffix);await page.getByLabel('Reservation quantity',{exact:true}).fill('3');await page.getByRole('button',{name:'Reserve stock',exact:true}).click();await page.getByText('Stock reserved.',{exact:true}).waitFor({timeout:20000});
+    await page.getByRole('button',{name:'Release hold',exact:true}).click();await page.getByText('Reservation released.',{exact:true}).waitFor({timeout:20000});checks.push('Reservation and release update physical availability');
+    phase='commit inventory reservation';await page.getByRole('button',{name:'Reserve stock',exact:true}).click();await page.getByText('Stock reserved.',{exact:true}).waitFor({timeout:20000});await page.getByRole('button',{name:'Commit and deduct stock',exact:true}).click();await page.getByText('Reservation committed. Physical stock deducted.',{exact:true}).waitFor({timeout:20000});
+    const stockRow=page.locator('tbody tr').filter({hasText:'BROWSER-'+suffix.toUpperCase()});await stockRow.getByRole('cell',{name:'2',exact:true}).first().waitFor({timeout:20000});checks.push('Commit deducts exactly three units and clears the hold');
+    await page.screenshot({path:join(output,'inventory-desktop.png'),fullPage:true});await page.setViewportSize({width:390,height:844});await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:join(output,'inventory-mobile.png')});await page.setViewportSize({width:1365,height:900});
+  }
   phase='public catalog';await page.goto(base+'/stores/legacy-demo');await page.getByRole('link',{name,exact:true}).first().waitFor({timeout:20000});
   await page.screenshot({path:join(output,'catalog-desktop.png'),fullPage:true});checks.push('Published product visible in live public catalog');
   phase='public product';await page.getByRole('link',{name,exact:true}).first().click();await page.getByRole('heading',{name,exact:true}).waitFor({timeout:20000});await page.getByRole('button',{name:new RegExp('UI-'+suffix.toUpperCase())}).waitFor();checks.push('Product details and sellable SKU rendered');
+  if(process.argv.includes('--inventory')){await page.getByText(/2 units available\./).waitFor({timeout:20000});checks.push('Public product reads the real remaining Inventory quantity');}
   await page.setViewportSize({width:390,height:844});await page.screenshot({path:join(output,'product-mobile.png'),fullPage:true});
   if(await page.evaluate(()=>Object.keys(localStorage).some(k=>k.startsWith('oidc.'))))throw new Error('Unexpected persistent OIDC user storage');checks.push('No OIDC user tokens persisted to localStorage');
   writeFileSync(join(output,'result.json'),JSON.stringify({passed:checks.length,checks,productSlug:slug,source:'real local SQL/Identity/Tenant/Catalog via gateway',credentialsPrinted:false},null,2));

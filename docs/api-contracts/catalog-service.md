@@ -13,6 +13,7 @@ Base `/api/v1/tenants/{tenantId}/catalog`; gateway `/commerce/catalog/tenants/{t
 | `categories/{id}/attributes` | GET effective inherited fields; PUT direct bindings with `?version=` and `{attributeId,required}[]` |
 | `brands`, `attributes` | POST and PUT `/{id}`; typed definitions and immutable field code/type |
 | `products` / `products/{id}` | POST/GET/PUT drafts; paged/search/category/brand filters |
+| `variants/{id}` | GET the published variant's product for authorized Staff; new unpublished draft variants remain absent |
 | `products/{id}/publish` | POST `{version}` creates immutable publication and outbox atomically |
 | `products/{id}/archive` | POST `{version}` retires visibility/sellability while preserving data/history |
 | `collections` / `collections/{id}` | POST/PUT with ordered product IDs, archival and rowversion |
@@ -26,6 +27,8 @@ Attributes inherit from category ancestors; unknown fields/wrong types fail, req
 ## Public and internal reads
 
 Anonymous `/api/v1/public/tenants/{tenantId}/catalog/{lookups|products}` and `/products/{slug}` require a live published Tenant/module registry. Query filters operate on immutable publication columns, not newer draft fields. Editing a published draft cannot leak its changed title/category/attributes before republishing. Archived product/category/brand, hidden and B2B-only products are absent from the anonymous catalog. Results are paged and no secret/private price/cost field is included.
+
+Anonymous `/variants?ids=<guid>` returns only the requested variant IDs visible in public published snapshots (maximum 100 repeated IDs). Inventory uses this contract to prevent public stock disclosure for hidden/archived/B2B-only SKUs. Staff variant reads use the published snapshot too; importing a draft-only variant into Inventory is rejected.
 
 Internal `/internal/v1/tenants/{tenantId}/catalog/variants/{id}` requires a narrow machine scope and permitted source service, never a human bearer. The gateway does not expose it. Machine provisioning/live downstream integration remains separately tracked; native SQL/API tests cover human/internal separation.
 
@@ -43,4 +46,4 @@ The local launcher uses Identity 5181, Tenant 5182, Theme 5183, Storefront 5184,
 
 Owner-approved Legacy Demo now has 1,000 original product drafts and 20 categories from the verified consistent SQLite backup, using a separately generated development BusinessOwner and audited normal Tenant activation. Existing imported user confirmations/roles were not upgraded. Originals/hash remain unchanged. Private mapping and original price/discount/stock values remain in ignored `artifacts/legacy-demo-catalog-mapping.json`; Pricing/Inventory/order backfills are pending. Imports are resumable/idempotent. No source product/order/user row was deleted or overwritten. Catalog COPY_ONLY/CHECKSUM/VERIFYONLY/read-only restore/CHECKDB passed before import; repeat backup after substantive backfill/publication checkpoints.
 
-Initial native verification: Catalog 19 tests and gateway 8 tests passed; Catalog API advisory scan reported none. Browser/auth integration verification and remaining UI refinements are tracked in migration progress, rather than assumed from a successful build.
+Latest native verification: Catalog 20 tests and gateway 8 tests passed; Catalog API advisory scan reported none. Real browser Catalog/Inventory flow passed 11 checks. Remaining UI/media/production integration limits are tracked in migration progress.

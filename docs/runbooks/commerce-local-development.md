@@ -11,7 +11,7 @@ Use the repository root `D:\Projects\SRECommerce`. Each API has its own solution
 .\scripts\Stop-CommerceDevelopment.ps1 -Services Catalog
 ```
 
-Ports: gateway 5180, Identity 5181, Tenant 5182, Theme 5183, Storefront 5184, Catalog 5185, Angular development 4200. Existing Docker Identity/Tenant ports 5081/5082 are separate. The launcher preserves unknown port occupants and does not run SQL migrations, reset data or provision runtime accounts. Its process manifest/logs are ignored under `artifacts/commerce-development`.
+Ports: gateway 5180, Identity 5181, Tenant 5182, Theme 5183, Storefront 5184, Catalog 5185, Inventory 5186, Angular development 4200. Default startup includes Identity/Tenant/Catalog/Inventory/Gateway to limit laptop resource use; select other implemented APIs with -Services. Existing Docker Identity/Tenant ports 5081/5082 are separate. The launcher preserves unknown port occupants and does not run SQL migrations, reset data or provision runtime accounts. Its process manifest/logs are ignored under `artifacts/commerce-development`.
 
 `-InitializeIdentity` registers the development public Angular client with code + PKCE, refresh tokens and explicit localhost 4200/4000 callbacks. Tokens are held in browser memory. Short-lived PKCE state uses sessionStorage. A page reload requires a new authorization redirect; existing Identity cookies can still provide SSO. Sign-out calls the Identity session-revocation endpoint. Live account/tenant/module checks remain authoritative on every protected API request.
 
@@ -19,6 +19,7 @@ Ports: gateway 5180, Identity 5181, Tenant 5182, Theme 5183, Storefront 5184, Ca
 
 - `http://localhost:4200/stores/legacy-demo` — published Catalog products only.
 - `http://localhost:4200/workspace/<tenant-id>/catalog` — Owner/Manager product and category editor. Platform support requires a reason, audited by the API.
+- `http://localhost:4200/workspace/<tenant-id>/inventory` — warehouses, receipts, reservations, purchasing and ledger.
 - `http://localhost:5180/health/live` — gateway liveness.
 - `http://localhost:5185/health/ready` — Catalog SQL readiness.
 - `http://localhost:5185/openapi/v1.json` — Development API contract.
@@ -47,6 +48,8 @@ $env:PORT='4000'
 node dist/SRECommerce.UI/server/server.mjs
 # In another terminal, from SRECommerce.UI:
 node scripts/smoke-commerce.mjs
+# After explicit Legacy Demo Inventory setup, also verify receipts/reservations/public stock:
+node scripts/smoke-commerce.mjs --inventory
 ```
 
 The browser smoke uses installed Chrome and the private, dedicated Legacy Demo owner from local user-secrets. It creates and publishes one labeled smoke product and checks public listing/detail at desktop/mobile sizes. It does not print credentials or tokens. Screenshots/results are ignored in `artifacts/commerce-browser-smoke`. Angular's Node proxy streams requests/responses and bounds requests to 15 seconds; it preserves callback routes for Angular and does not retry writes.

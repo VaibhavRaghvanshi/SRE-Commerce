@@ -90,6 +90,16 @@ public sealed class CatalogApiTests(CatalogFixture fixture):IClassFixture<Catalo
         finally{fixture.Factory.IdentityOffline=false;fixture.Factory.TenantOffline=false;}
     }
     [Fact]
+    public async Task Staff_variant_lookup_uses_the_published_snapshot_and_hides_new_draft_skus()
+    {
+        var b=await fixture.Business();using var client=b.Client;var category=await Category(b);
+        var product=await Publish(b,await Create(b,Draft(category.Id) with{Kind=ProductKind.Variable,Variants=[new(null,"SIZE-S",new(){["size"]="S"})]}));
+        var first=product.Variants[0];var draft=await Read<ProductView>(await client.PutAsJsonAsync(Path(b.Id)+$"/products/{product.Id}",Edit(product) with{Variants=[first,new(null,"SIZE-M",new(){["size"]="M"})]}));
+        var added=draft.Variants.Single(v=>v.Sku=="SIZE-M");Assert.Equal(HttpStatusCode.NotFound,(await client.GetAsync(Path(b.Id)+$"/variants/{added.Id}")).StatusCode);
+        var published=await Read<ProductView>(await client.GetAsync(Path(b.Id)+$"/variants/{first.Id}"));Assert.Single(published.Variants);
+        await Publish(b,draft);Assert.Equal(HttpStatusCode.OK,(await client.GetAsync(Path(b.Id)+$"/variants/{added.Id}")).StatusCode);
+    }
+    [Fact]
     public async Task Migrations_health_openapi_and_machine_separation_work()
     {
         using var scope=fixture.Factory.Services.CreateScope();var db=scope.ServiceProvider.GetRequiredService<CatalogDbContext>();await db.Database.MigrateAsync();Assert.Empty(await db.Database.GetPendingMigrationsAsync());using var client=fixture.Factory.Client();

@@ -16,6 +16,7 @@ public sealed class CatalogController(ICatalogService catalog):ControllerBase
     [HttpPut("attributes/{id:guid}")]public async Task<IActionResult> Attribute(Guid tenant,Guid id,AttributeRequest request,CancellationToken ct)=>Ok(await catalog.Attribute(tenant,id,request,ct));
     [HttpGet("products")]public async Task<IActionResult> Products(Guid tenant,[FromQuery]CatalogQuery query,CancellationToken ct)=>Ok(await catalog.Products(tenant,query,false,ct));
     [HttpGet("products/{id:guid}")]public async Task<IActionResult> Product(Guid tenant,Guid id,CancellationToken ct)=>Ok(await catalog.Product(tenant,id,ct));
+    [HttpGet("variants/{id:guid}")]public async Task<IActionResult> Variant(Guid tenant,Guid id,CancellationToken ct)=>Ok(await catalog.PublishedVariantForStaff(tenant,id,ct));
     [HttpPost("products")]public async Task<IActionResult> Create(Guid tenant,ProductDraft request,CancellationToken ct)=>StatusCode(201,await catalog.Save(tenant,null,request,ct));
     [HttpPut("products/{id:guid}")]public async Task<IActionResult> Save(Guid tenant,Guid id,ProductDraft request,CancellationToken ct)=>Ok(await catalog.Save(tenant,id,request,ct));
     [HttpPost("products/{id:guid}/publish")]public async Task<IActionResult> Publish(Guid tenant,Guid id,VersionRequest request,CancellationToken ct)=>Ok(await catalog.Publish(tenant,id,request.Version,ct));
