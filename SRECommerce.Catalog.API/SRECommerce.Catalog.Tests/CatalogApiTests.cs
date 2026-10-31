@@ -19,6 +19,20 @@ public sealed class CatalogApiTests(CatalogFixture fixture):IClassFixture<Catalo
     private static ProductDraft Edit(ProductView view)=>new(view.Name,view.Slug,view.CategoryId,view.BrandId,view.Kind,view.Description,view.SeoTitle,view.SeoDescription,view.Visible,view.B2BOnly,view.Attributes,view.Specifications,view.Variants,view.Media,view.BundleItems,view.Relationships,view.Version);
     private static async Task<ProductView> Publish(CatalogBusiness business,ProductView product)=>await Read<ProductView>(await business.Client.PostAsJsonAsync(Path(business.Id)+$"/products/{product.Id}/publish",new VersionRequest(product.Version!)));
     [Fact]
+    public async Task Publication_batches_rollback_partial_writes_and_replay_without_new_revisions()
+    {
+        var b=await fixture.Business();using var client=b.Client;var category=await Category(b);var a=await Create(b,Draft(category.Id));var c=await Create(b,Draft(category.Id,"second","SECOND"));var path=Path(b.Id);
+        var request=new PublishBatchRequest(Guid.NewGuid(),"verified-source",[new(a.Id,a.Version!),new(c.Id,Convert.ToBase64String(new byte[8]))]);
+        Assert.Equal(HttpStatusCode.Conflict,(await client.PostAsJsonAsync(path+"/publish-batch",request)).StatusCode);
+        using var anonymous=fixture.Factory.Client();Assert.Equal(0,(await anonymous.GetFromJsonAsync<CatalogPage<ProductView>>(Public(b.Id)+"/products"))!.Total);
+        request=request with{Products=[new(a.Id,a.Version!),new(c.Id,c.Version!)]};var ids=await Read<Guid[]>(await client.PostAsJsonAsync(path+"/publish-batch",request));Assert.Equal(2,ids.Length);
+        Assert.Equal(ids,await Read<Guid[]>(await client.PostAsJsonAsync(path+"/publish-batch",request)));
+        Assert.Equal(HttpStatusCode.Conflict,(await client.PostAsJsonAsync(path+"/publish-batch",request with{Source="changed"})).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized,(await anonymous.GetAsync(path+"/published-skus?ids="+a.Variants[0].Id)).StatusCode);
+        var skus=(await client.GetFromJsonAsync<SRECommerce.BuildingBlocks.Contracts.PublishedSku[]>(path+"/published-skus?ids="+a.Variants[0].Id+"&ids="+c.Variants[0].Id))!;Assert.Equal(2,skus.Length);
+        using var scope=fixture.Factory.Services.CreateScope();var db=scope.ServiceProvider.GetRequiredService<CatalogDbContext>();Assert.Equal(2,await db.Publications.IgnoreQueryFilters().CountAsync(p=>p.TenantId==b.Id));
+    }
+    [Fact]
     public async Task Published_snapshot_is_isolated_from_drafts_and_archival_removes_it()
     {
         var b=await fixture.Business();using var client=b.Client;var category=await Category(b);var product=await Create(b,Draft(category.Id));using var anonymous=fixture.Factory.Client();

@@ -51,3 +51,7 @@ The native launcher starts Inventory on 5186 with Identity 5181, Tenant 5182, Ca
 Tests cover concurrent overselling, ledger conservation, idempotency, FEFO/expiry, damage/return/reconciliation, partial purchasing, tenant boundaries, module disablement, dependency outages, published-SKU visibility, migrations/readiness/OpenAPI and human/internal separation. Verification results are in migration progress.
 
 Remaining scope: 1,000-product stock backfill, large-tenant report pagination/exports, receiving returned customer orders, broker-driven low-stock notification delivery, confidential machine integration and Docker runtime acceptance. Low-stock flags and outbox rows are implemented; delivered notifications are not claimed.
+
+## Approved Legacy Demo batch backfill
+
+See [the verified source migration runbook](../runbooks/legacy-demo-commerce-backfill.md). Catalog 21, Inventory 19 and Pricing 33 affected-service tests passed with real SQL/Identity/Tenant integration. The approved 1,000-product source is published with 1,000 owned price tiers and 76,202 opening-stock units, reconciled per SKU through service APIs. Source prices preserve fixed per-unit discounts and unknown cost; no original database was replaced. The dedicated zero-rate policy is explicitly development-only because source tax metadata is absent. Broker delivery, source order migration and production tax configuration remain separate work.

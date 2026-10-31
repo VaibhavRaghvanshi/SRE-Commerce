@@ -5,6 +5,7 @@ namespace SRECommerce.Inventory.API;
 [ApiController,Authorize,RequestSizeLimit(1048576),Route("api/v1/tenants/{tenant:guid}/inventory")]
 public sealed class InventoryController(IInventoryService service):ControllerBase
 {
+    [HttpPost("opening-imports")]public async Task<IActionResult> Import(Guid tenant,OpeningStockImport request,CancellationToken ct)=>Ok(await service.ImportOpeningStock(tenant,request,ct));
     [HttpGet("lookups")]public async Task<IActionResult> Lookups(Guid tenant,CancellationToken ct)=>Ok(await service.Lookups(tenant,ct));
     [HttpPost("branches")]public async Task<IActionResult> Branch(Guid tenant,BranchRequest request,CancellationToken ct)=>StatusCode(201,await service.Branch(tenant,null,request,ct));
     [HttpPut("branches/{id:guid}")]public async Task<IActionResult> Branch(Guid tenant,Guid id,BranchRequest request,CancellationToken ct)=>Ok(await service.Branch(tenant,id,request,ct));

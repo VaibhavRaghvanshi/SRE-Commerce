@@ -19,6 +19,7 @@ public sealed class PricingRepository(PricingDbContext db,ModuleScope scope,IHtt
     public async Task<PricePage<ProductPrice>> PricePage(int page,Guid? list,string? search,CancellationToken ct)
     {var query=db.Prices.AsQueryable();if(list is {} id)query=query.Where(p=>p.PriceListId==id);if(!string.IsNullOrWhiteSpace(search))query=query.Where(p=>p.Sku.Contains(search));var total=await query.CountAsync(ct);return new(await query.OrderBy(p=>p.Sku).ThenBy(p=>p.Id).Skip((page-1)*50).Take(50).ToListAsync(ct),page,50,total);}
     public Task<ProductPrice?> Price(Guid id,CancellationToken ct)=>db.Prices.SingleOrDefaultAsync(p=>p.Id==id,ct);
+    public Task<PricingImport?> Import(Guid id,CancellationToken ct)=>db.Imports.SingleOrDefaultAsync(p=>p.Id==id,ct);
     public async Task<IReadOnlyCollection<Promotion>> Promotions(CancellationToken ct)=>await db.Promotions.OrderBy(p=>p.Code).ToListAsync(ct);
     public async Task<IReadOnlyCollection<Coupon>> Coupons(CancellationToken ct)=>await db.Coupons.OrderBy(c=>c.Code).ToListAsync(ct);
     public Task<PricingQuote?> Quote(Guid id,CancellationToken ct)=>db.Quotes.SingleOrDefaultAsync(q=>q.Id==id,ct);

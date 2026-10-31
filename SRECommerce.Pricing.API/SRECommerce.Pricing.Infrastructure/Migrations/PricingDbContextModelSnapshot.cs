@@ -410,6 +410,40 @@ namespace SRECommerce.Pricing.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SRECommerce.Pricing.Domain.PricingImport", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Hash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("Result")
+                        .IsRequired()
+                        .HasMaxLength(5000)
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.HasKey("TenantId", "Id");
+
+                    b.ToTable("PricingImports", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_PricingImports_Result", "ISJSON([Result])=1");
+                        });
+                });
+
             modelBuilder.Entity("SRECommerce.Pricing.Domain.PricingQuote", b =>
                 {
                     b.Property<Guid>("TenantId")

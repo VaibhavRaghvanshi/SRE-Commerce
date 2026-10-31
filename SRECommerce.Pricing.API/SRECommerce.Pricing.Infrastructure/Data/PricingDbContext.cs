@@ -21,9 +21,11 @@ public sealed class PricingDbContext(DbContextOptions<PricingDbContext> options,
     public DbSet<PricingQuote> Quotes=>Set<PricingQuote>();
     public DbSet<CouponRedemption> Redemptions=>Set<CouponRedemption>();
     public DbSet<PriceHistory> History=>Set<PriceHistory>();
+    public DbSet<PricingImport> Imports=>Set<PricingImport>();
     protected override void OnModelCreating(ModelBuilder model)
     {
         model.ConfigureInfrastructure();model.Entity<OutboxMessage>().TenantEntity(x=>x.TenantId==CurrentTenant);model.Entity<InboxMessage>().TenantEntity(x=>x.TenantId==CurrentTenant);model.Entity<AuditEntry>().TenantEntity(x=>x.TenantId==CurrentTenant);
+        model.Entity<PricingImport>(e=>{e.ToTable("PricingImports",t=>t.HasCheckConstraint("CK_PricingImports_Result","ISJSON([Result])=1"));e.HasKey(x=>new{x.TenantId,x.Id});e.Property(x=>x.Source).HasMaxLength(80);e.Property(x=>x.Hash).HasMaxLength(64);e.Property(x=>x.Result).HasMaxLength(5000);e.TenantEntity(x=>x.TenantId==CurrentTenant);});
         model.Entity<PricingSettings>(e=>{e.ToTable("PricingSettings",t=>t.HasCheckConstraint("CK_PricingSettings_Precision","[DecimalPlaces] BETWEEN 0 AND 3"));e.HasKey(x=>new{x.TenantId,x.Id});e.HasIndex(x=>x.TenantId).IsUnique();e.Property(x=>x.Currency).HasMaxLength(3);e.Property(x=>x.Version).IsRowVersion();e.TenantEntity(x=>x.TenantId==CurrentTenant);});
         model.Entity<TaxPolicy>(e=>{e.ToTable("TaxPolicies",t=>t.HasCheckConstraint("CK_TaxPolicies_Rate","[Rate]>=0 AND [Rate]<=100"));e.HasKey(x=>new{x.TenantId,x.Id});e.Property(x=>x.Code).HasMaxLength(64);e.Property(x=>x.Name).HasMaxLength(160);e.Property(x=>x.Rate).HasPrecision(7,4);e.Property(x=>x.Version).IsRowVersion();e.HasIndex(x=>new{x.TenantId,x.Code}).IsUnique();e.TenantEntity(x=>x.TenantId==CurrentTenant);});
         model.Entity<CustomerPriceGroup>(e=>{e.ToTable("CustomerPriceGroups");e.HasKey(x=>new{x.TenantId,x.Id});e.Property(x=>x.Code).HasMaxLength(64);e.Property(x=>x.Name).HasMaxLength(160);e.Property(x=>x.Version).IsRowVersion();e.HasIndex(x=>new{x.TenantId,x.Code}).IsUnique();e.TenantEntity(x=>x.TenantId==CurrentTenant);});
@@ -37,7 +39,7 @@ public sealed class PricingDbContext(DbContextOptions<PricingDbContext> options,
         model.Entity<PriceHistory>(e=>{e.ToTable("PriceHistory",t=>{t.HasCheckConstraint("CK_PriceHistory_Before","ISJSON([Before])=1 OR [Before]=N'null'");t.HasCheckConstraint("CK_PriceHistory_After","ISJSON([After])=1");});e.HasKey(x=>new{x.TenantId,x.Id});e.Property(x=>x.Before).HasMaxLength(10000);e.Property(x=>x.After).HasMaxLength(10000);e.HasIndex(x=>new{x.TenantId,x.PriceId,x.ChangedAt});e.HasOne<ProductPrice>().WithMany().HasForeignKey(x=>new{x.TenantId,Id=x.PriceId}).OnDelete(DeleteBehavior.Restrict);e.TenantEntity(x=>x.TenantId==CurrentTenant);});
     }
     private void Guard()
-    {this.GuardWrites(scope);if(ChangeTracker.Entries().Any(e=>e.Entity is PricingQuote or PriceHistory&&e.State is EntityState.Modified or EntityState.Deleted))throw new BusinessFault("PricingHistoryImmutable",403);}
+    {this.GuardWrites(scope);if(ChangeTracker.Entries().Any(e=>e.Entity is PricingQuote or PriceHistory or PricingImport&&e.State is EntityState.Modified or EntityState.Deleted))throw new BusinessFault("PricingHistoryImmutable",403);}
     public override int SaveChanges(bool accept){Guard();return base.SaveChanges(accept);}
     public override Task<int> SaveChangesAsync(bool accept,CancellationToken ct=default){Guard();return base.SaveChangesAsync(accept,ct);}
 }

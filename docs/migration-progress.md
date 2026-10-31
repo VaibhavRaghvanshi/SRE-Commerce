@@ -1,5 +1,7 @@
 # SRECommerce migration progress
 
+Latest checkpoint (2026-10-31): approved Legacy Demo price/stock backfill complete. All 1,000 source products published, 1,000 price tiers copied with fixed per-unit discounts and null unknown costs, and 76,202 opening units reconciled through owning APIs. Catalog/Inventory/Pricing passed 73 affected-service tests; additive PricingImports migration reviewed/applied. Import requests are tenant-scoped, atomic and replay-safe. Original SQLite hash remains unchanged; original SQL preserved. See the source migration runbook. Cart is the next active service; remaining master phases are not complete.
+
 Last updated: 2026-10-31 (Asia/Calcutta).
 
 ## Current checkpoint

@@ -60,3 +60,7 @@ Native ports: Pricing 5187, Gateway 5180, Identity 5181, Tenant 5182, Catalog 51
 Initial full modern regression: 174/174 tests across eight test projects passed. After nullable-cost preservation, Pricing passed 32/32. Pricing dependency advisory scan reported no vulnerable packages. Main SQL migrations and backup/VERIFYONLY/isolated read-only restore/CHECKDB passed. Real Chrome Catalog/Inventory/Pricing flow passed 16 checks, including 100 + 18% configured tax = 118, a 10% coupon = 106.20, and quantity two = 212.40.
 
 An initial combined browser run hit a bounded dependency timeout during cold startup; evidence was retained and the warmed run passed. Production timeouts were not relaxed. Large-tenant batching, source price/stock backfill, Cart/Order compensation, broker delivery, production tax/provider deployment and Docker runtime acceptance remain tracked separately.
+
+## Approved Legacy Demo batch backfill
+
+See [the verified source migration runbook](../runbooks/legacy-demo-commerce-backfill.md). Catalog 21, Inventory 19 and Pricing 33 affected-service tests passed with real SQL/Identity/Tenant integration. The approved 1,000-product source is published with 1,000 owned price tiers and 76,202 opening-stock units, reconciled per SKU through service APIs. Source prices preserve fixed per-unit discounts and unknown cost; no original database was replaced. The dedicated zero-rate policy is explicitly development-only because source tax metadata is absent. Broker delivery, source order migration and production tax configuration remain separate work.

@@ -20,6 +20,19 @@ public sealed class PricingApiTests(PricingFixture fixture):IClassFixture<Pricin
         var coupon=await Read<JsonElement>(await b.Client.PostAsJsonAsync(Path(b.Catalog.Id)+"/coupons",new CouponRequest("SAVE10",promotion.GetProperty("id").GetGuid(),limit,perCustomer)),HttpStatusCode.Created);return(promotion.GetProperty("id").GetGuid(),coupon.GetProperty("id").GetGuid());
     }
     [Fact]
+    public async Task Price_imports_are_atomic_replay_safe_and_preserve_unknown_cost()
+    {
+        var b=await fixture.Business();using var client=b.Client;using var catalog=b.Catalog.Client;var path=Path(b.Catalog.Id);
+        var row=new PriceRequest(b.List,b.Product,b.Variant,b.Tax,2,120,90,null);var request=new PriceImportRequest(Guid.NewGuid(),"legacy-source",[row,row with{MinimumQuantity=3,TaxPolicyId=Guid.NewGuid()}]);
+        Assert.Equal(HttpStatusCode.Conflict,(await client.PostAsJsonAsync(path+"/imports",request)).StatusCode);
+        var before=(await client.GetFromJsonAsync<PricePage<ProductPriceView>>(path+"/prices"))!;Assert.Single(before.Items);
+        request=request with{Prices=[row,row with{MinimumQuantity=3,SellingPrice=80}]};var ids=await Read<Guid[]>(await client.PostAsJsonAsync(path+"/imports",request));Assert.Equal(2,ids.Length);
+        Assert.Equal(ids,await Read<Guid[]>(await client.PostAsJsonAsync(path+"/imports",request)));Assert.Equal(HttpStatusCode.Conflict,(await client.PostAsJsonAsync(path+"/imports",request with{Source="different"})).StatusCode);
+        using var anonymous=fixture.Factory.Client();Assert.Equal(HttpStatusCode.Unauthorized,(await anonymous.PostAsJsonAsync(path+"/imports",request)).StatusCode);
+        var prices=(await client.GetFromJsonAsync<PricePage<ProductPriceView>>(path+"/prices"))!;Assert.Equal(3,prices.Total);Assert.All(prices.Items.Where(p=>ids.Contains(p.Id)),p=>Assert.Null(p.CostPrice));
+        using var scope=fixture.Factory.Services.CreateScope();var db=scope.ServiceProvider.GetRequiredService<PricingDbContext>();Assert.Equal(2,await db.History.IgnoreQueryFilters().CountAsync(h=>h.TenantId==b.Catalog.Id&&ids.Contains(h.PriceId)));
+    }
+    [Fact]
     public async Task Public_quotes_use_server_tiers_tax_and_immutable_idempotent_snapshots_without_cost_leaks()
     {
         var b=await fixture.Business();using var owner=b.Client;using var catalog=b.Catalog.Client;var path=Path(b.Catalog.Id);

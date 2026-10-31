@@ -17,6 +17,25 @@ public sealed class InventoryApiTests(InventoryFixture fixture):IClassFixture<In
     private static async Task<BalanceView> Receipt(InventoryBusiness b,decimal quantity,string lot="UNBATCHED",DateTimeOffset? expires=null)=>await Read<BalanceView>(await b.Client.PostAsJsonAsync(Path(b.Catalog.Id)+"/stock-changes",new StockChangeRequest(Guid.NewGuid(),b.Warehouse,b.Variant,StockAction.Receipt,quantity,"Opening stock",Lot:lot,ExpiresAt:expires)));
     private ReserveRequest Hold(InventoryBusiness b,decimal quantity)=>new(Guid.NewGuid(),b.Warehouse,"order-"+Guid.NewGuid().ToString("N"),fixture.Factory.Clock.GetUtcNow().AddMinutes(5),[new(b.Variant,quantity)]);
     [Fact]
+    public async Task Opening_imports_track_zero_stock_and_replay_without_duplicate_ledger_receipts()
+    {
+        var b=await fixture.Business();using var client=b.Client;using var catalog=b.Catalog.Client;var path=Path(b.Catalog.Id);var cp=$"/api/v1/tenants/{b.Catalog.Id}/catalog";
+        var original=(await catalog.GetFromJsonAsync<SRECommerce.Catalog.Application.ProductView>(cp+$"/products/{(await catalog.GetFromJsonAsync<SRECommerce.Catalog.Application.ProductView>(cp+$"/variants/{b.Variant}"))!.Id}"))!;
+        var products=new List<SRECommerce.Catalog.Application.ProductView>();
+        foreach(var number in new[]{1,2})
+        {
+            var draft=new SRECommerce.Catalog.Application.ProductDraft("Opening "+number,"opening-"+number,original.CategoryId,null,SRECommerce.Catalog.Domain.ProductKind.Simple,"","","",true,false,[],[],[new(null,"OPEN-"+number,[])],[],[],[]);
+            var product=await Read<SRECommerce.Catalog.Application.ProductView>(await catalog.PostAsJsonAsync(cp+"/products",draft),HttpStatusCode.Created);
+            products.Add(await Read<SRECommerce.Catalog.Application.ProductView>(await catalog.PostAsJsonAsync(cp+$"/products/{product.Id}/publish",new SRECommerce.Catalog.Application.VersionRequest(product.Version!))));
+        }
+        var a=products[0];var c=products[1];var request=new OpeningStockImport(Guid.NewGuid(),"source-hash",b.Warehouse,"OPENING",[new(a.Id,a.Variants[0].Id!.Value,5),new(c.Id,c.Variants[0].Id!.Value,0)]);
+        Assert.Equal(HttpStatusCode.Conflict,(await client.PostAsJsonAsync(path+"/opening-imports",request with{Rows=[request.Rows[0],new(c.Id,Guid.NewGuid(),0)]})).StatusCode);
+        var ids=await Read<Guid[]>(await client.PostAsJsonAsync(path+"/opening-imports",request));Assert.Equal(ids,await Read<Guid[]>(await client.PostAsJsonAsync(path+"/opening-imports",request)));
+        Assert.Equal(HttpStatusCode.Conflict,(await client.PostAsJsonAsync(path+"/opening-imports",request with{Source="changed"})).StatusCode);Assert.Equal(HttpStatusCode.Conflict,(await client.PostAsJsonAsync(path+"/opening-imports",request with{Key=Guid.NewGuid()})).StatusCode);
+        using var anonymous=fixture.Factory.Client();var availability=(await anonymous.GetFromJsonAsync<AvailabilityView[]>($"/api/v1/public/tenants/{b.Catalog.Id}/inventory/availability?variants={ids[0]}&variants={ids[1]}"))!;Assert.All(availability,item=>Assert.True(item.Tracked));Assert.Equal(5,availability.Single(v=>v.VariantId==ids[0]).Available);Assert.Equal(0,availability.Single(v=>v.VariantId==ids[1]).Available);
+        using var scope=fixture.Factory.Services.CreateScope();var db=scope.ServiceProvider.GetRequiredService<InventoryDbContext>();Assert.Single(await db.Movements.IgnoreQueryFilters().Where(m=>m.TenantId==b.Catalog.Id).ToListAsync());
+    }
+    [Fact]
     public async Task Concurrent_reservations_cannot_oversell_and_replays_do_not_reserve_twice()
     {
         var b=await fixture.Business();using var client=b.Client;using var catalog=b.Catalog.Client;await Receipt(b,10);var path=Path(b.Catalog.Id);var requests=new[]{Hold(b,7),Hold(b,7)};

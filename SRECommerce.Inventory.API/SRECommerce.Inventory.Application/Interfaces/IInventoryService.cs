@@ -1,6 +1,7 @@
 namespace SRECommerce.Inventory.Application;
 public interface IInventoryService
 {
+    Task<Guid[]> ImportOpeningStock(Guid tenant,OpeningStockImport request,CancellationToken ct);
     Task<object> Lookups(Guid tenant,CancellationToken ct);
     Task<object> Branch(Guid tenant,Guid? id,BranchRequest request,CancellationToken ct);
     Task<object> Warehouse(Guid tenant,Guid? id,WarehouseRequest request,CancellationToken ct);

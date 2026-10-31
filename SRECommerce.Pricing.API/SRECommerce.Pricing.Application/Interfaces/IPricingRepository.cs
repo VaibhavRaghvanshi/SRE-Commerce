@@ -11,6 +11,7 @@ public interface IPricingRepository
     Task<IReadOnlyCollection<ProductPrice>> Prices(Guid[]? variants,Guid? list,CancellationToken ct);
     Task<PricePage<ProductPrice>> PricePage(int page,Guid? list,string? search,CancellationToken ct);
     Task<ProductPrice?> Price(Guid id,CancellationToken ct);
+    Task<PricingImport?> Import(Guid id,CancellationToken ct);
     Task<IReadOnlyCollection<Promotion>> Promotions(CancellationToken ct);
     Task<IReadOnlyCollection<Coupon>> Coupons(CancellationToken ct);
     Task<PricingQuote?> Quote(Guid id,CancellationToken ct);

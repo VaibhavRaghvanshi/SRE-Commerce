@@ -5,6 +5,7 @@ namespace SRECommerce.Pricing.API;
 [ApiController,Authorize,RequestSizeLimit(1048576),Route("api/v1/tenants/{tenant:guid}/pricing")]
 public sealed class PricingController(IPricingService pricing):ControllerBase
 {
+    [HttpPost("imports")]public async Task<IActionResult> Import(Guid tenant,PriceImportRequest request,CancellationToken ct)=>Ok(await pricing.Import(tenant,request,ct));
     [HttpGet("lookups")]public async Task<IActionResult> Lookups(Guid tenant,CancellationToken ct)=>Ok(await pricing.Lookups(tenant,ct));
     [HttpPut("settings")]public async Task<IActionResult> Settings(Guid tenant,SettingsRequest request,CancellationToken ct)=>Ok(await pricing.Settings(tenant,request,ct));
     [HttpPost("tax-policies")]public async Task<IActionResult> Tax(Guid tenant,TaxRequest request,CancellationToken ct)=>StatusCode(201,await pricing.Tax(tenant,null,request,ct));

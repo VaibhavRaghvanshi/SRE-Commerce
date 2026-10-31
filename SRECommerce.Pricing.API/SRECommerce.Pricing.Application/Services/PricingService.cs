@@ -88,7 +88,7 @@ public sealed partial class PricingService(IPricingRepository repository,IPricin
     }
     public async Task<ProductPriceView> Price(Guid tenant,Guid? id,PriceRequest request,CancellationToken ct)
     {
-        await access.Authorize(tenant,ActorPermission.Manager,ct);Id(request.ProductId);Id(request.VariantId);PricingRules.Quantity(request.MinimumQuantity);PricingRules.Money(request.Mrp);PricingRules.Money(request.SellingPrice);if(request.CostPrice is {} cost)PricingRules.Money(cost);if(request.SellingPrice>request.Mrp)throw new BusinessFault("SellingPriceExceedsMrp",400);
+        await access.Authorize(tenant,ActorPermission.Manager,ct);ValidatePrice(request);
         var source=await access.CatalogItem(tenant,request.ProductId,request.VariantId,ct);
         return await repository.Transaction(async token=>
         {

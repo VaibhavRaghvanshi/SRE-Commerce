@@ -6,5 +6,6 @@ public interface IInventoryAccess
     Task Public(Guid tenant,CancellationToken ct);
     Task<Guid[]> PublicVariants(Guid tenant,Guid[] ids,CancellationToken ct);
     Task<CatalogStockItem> CatalogItem(Guid tenant,Guid product,Guid variant,CancellationToken ct);
+    Task<PublishedSku[]> CatalogItems(Guid tenant,Guid[] variants,CancellationToken ct);
     Task Machine(Guid tenant,string[] sources,CancellationToken ct);
 }

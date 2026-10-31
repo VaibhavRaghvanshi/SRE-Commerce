@@ -8,6 +8,14 @@ using SRECommerce.Inventory.Application;
 namespace SRECommerce.Inventory.Infrastructure;
 public sealed class InventoryAccess(ModuleAccess access,RemoteAccess remote,IHttpContextAccessor contexts):IInventoryAccess
 {
+    public async Task<PublishedSku[]> CatalogItems(Guid tenant,Guid[] variants,CancellationToken ct)
+    {
+        using var request=new HttpRequestMessage(HttpMethod.Get,$"api/v1/tenants/{tenant}/catalog/published-skus?"+string.Join("&",variants.Select(id=>"ids="+id)));
+        request.Headers.Authorization=new AuthenticationHeaderValue("Bearer",remote.UserBearer());var reason=contexts.HttpContext?.Request.Headers["X-Support-Reason"].ToString();if(!string.IsNullOrEmpty(reason))request.Headers.Add("X-Support-Reason",reason);
+        using var response=await remote.Send("catalog",request,ct);if(response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.Unauthorized)throw new BusinessFault("CatalogAccessDenied",403);if(!response.IsSuccessStatusCode)throw new DependencyFault("Catalog");
+        return await RemoteAccess.Read<PublishedSku[]>(response,"Catalog",ct)??throw new DependencyFault("Catalog");
+    }
+
     public Task Authorize(Guid tenant,ActorPermission permission,CancellationToken ct)=>access.AuthorizeAsync(tenant,permission,ct);
     public async Task Public(Guid tenant,CancellationToken ct)=>_=await access.PublicAsync(tenant,ct);
     public async Task<Guid[]> PublicVariants(Guid tenant,Guid[] ids,CancellationToken ct)

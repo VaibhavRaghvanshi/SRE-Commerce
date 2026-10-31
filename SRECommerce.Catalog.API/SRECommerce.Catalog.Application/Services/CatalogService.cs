@@ -153,16 +153,37 @@ public sealed class CatalogService(ICatalogRepository repository,ICatalogAccess 
     public async Task<ProductView> Publish(Guid tenant,Guid id,string version,CancellationToken ct)
     {
         await access.Authorize(tenant,ActorPermission.Manager,ct);return await repository.Transaction(async token=>
+        {var product=await PublishCore(tenant,id,version,token);await repository.Commit("catalog.product.published",id,View(product,true),token);return View(product);},ct);
+    }
+    private async Task<Domain.Product> PublishCore(Guid tenant,Guid id,string version,CancellationToken ct)
+    {
+        var product=await repository.Product(id,ct)??throw new BusinessFault("ProductNotFound",404);repository.Version(product,version);if(product.Status==ProductStatus.Archived)throw new BusinessFault("ProductArchived");
+        CatalogRules.Attributes(Read<Dictionary<string,JsonElement>>(product.Attributes),await AttributeBindings(product.CategoryId,ct),true);
+        if(product.BrandId is {} brand&&!(await repository.Brands(ct)).Any(b=>b.Id==brand&&!b.Archived))throw new BusinessFault("BrandUnavailable");
+        foreach(var component in product.BundleItems.Where(b=>b.Active))
+        {var item=await repository.PublishedVariant(component.ComponentVariantId,ct)??throw new BusinessFault("BundleComponentNotPublished");if(!product.B2BOnly&&item.B2BOnly)throw new BusinessFault("BundleComponentRequiresB2B");}
+        product.PublishedRevision++;product.Status=ProductStatus.Published;product.UpdatedAt=DateTimeOffset.UtcNow;var view=View(product,true);var json=Json(view);if(Encoding.UTF8.GetByteCount(json)>131072)throw new BusinessFault("ProductSnapshotTooLarge",400);
+        repository.Add(new ProductPublication{TenantId=tenant,ProductId=id,Revision=product.PublishedRevision,Name=product.Name,Slug=product.Slug,CategoryId=product.CategoryId,BrandId=product.BrandId,Visible=product.Visible,B2BOnly=product.B2BOnly,Document=json,Hash=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(json)))});
+        return product;
+    }
+    public async Task<Guid[]> PublishBatch(Guid tenant,PublishBatchRequest request,CancellationToken ct)
+    {
+        await access.Authorize(tenant,ActorPermission.Manager,ct);
+        if(request.Key==Guid.Empty||request.Products is null||request.Products.Length is <1 or >100||request.Products.Any(p=>p.ProductId==Guid.Empty)||request.Products.Select(p=>p.ProductId).Distinct().Count()!=request.Products.Length)throw new BusinessFault("InvalidPublicationBatch",400);
+        CatalogRules.Text(request.Source,80);var hash=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Json(new{Action="publish",request.Source,request.Products}))));
+        return await repository.Transaction(async token=>
         {
-            var product=await repository.Product(id,token)??throw new BusinessFault("ProductNotFound",404);repository.Version(product,version);if(product.Status==ProductStatus.Archived)throw new BusinessFault("ProductArchived");
-            CatalogRules.Attributes(Read<Dictionary<string,JsonElement>>(product.Attributes),await AttributeBindings(product.CategoryId,token),true);
-            if(product.BrandId is {} brand&&!(await repository.Brands(token)).Any(b=>b.Id==brand&&!b.Archived))throw new BusinessFault("BrandUnavailable");
-            foreach(var component in product.BundleItems.Where(b=>b.Active))
-            {var item=await repository.PublishedVariant(component.ComponentVariantId,token)??throw new BusinessFault("BundleComponentNotPublished");if(!product.B2BOnly&&item.B2BOnly)throw new BusinessFault("BundleComponentRequiresB2B");}
-            product.PublishedRevision++;product.Status=ProductStatus.Published;product.UpdatedAt=DateTimeOffset.UtcNow;var view=View(product,true);var json=Json(view);if(Encoding.UTF8.GetByteCount(json)>131072)throw new BusinessFault("ProductSnapshotTooLarge",400);
-            repository.Add(new ProductPublication{TenantId=tenant,ProductId=id,Revision=product.PublishedRevision,Name=product.Name,Slug=product.Slug,CategoryId=product.CategoryId,BrandId=product.BrandId,Visible=product.Visible,B2BOnly=product.B2BOnly,Document=json,Hash=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(json)))});
-            await repository.Commit("catalog.product.published",id,view,token);return View(product);
+            var prior=await repository.Import(request.Key,token);if(prior is not null){if(prior.Hash!=hash)throw new BusinessFault("ImportKeyPayloadConflict");return Read<Guid[]>(prior.Result);}
+            var ids=new List<Guid>();foreach(var row in request.Products)
+            {var product=await PublishCore(tenant,row.ProductId,row.Version,token);ids.Add(product.Id);await repository.Commit("catalog.product.published",product.Id,View(product,true),token);}
+            repository.Add(new CatalogImport{TenantId=tenant,Id=request.Key,Source=request.Source,Hash=hash,Result=Json(ids)});await repository.Commit("catalog.publication.batch",request.Key,null,token);return ids.ToArray();
         },ct);
+    }
+    public async Task<PublishedSku[]> PublishedSkus(Guid tenant,Guid[] ids,CancellationToken ct)
+    {
+        await access.Authorize(tenant,ActorPermission.Staff,ct);
+        if(ids.Length is <1 or >100||ids.Any(id=>id==Guid.Empty)||ids.Distinct().Count()!=ids.Length)throw new BusinessFault("InvalidVariantQuery",400);
+        return await repository.PublishedSkus(ids,ct);
     }
     public async Task Archive(Guid tenant,Guid id,string version,CancellationToken ct)
     {await access.Authorize(tenant,ActorPermission.Manager,ct);await repository.Transaction(async token=>{var value=await repository.Product(id,token)??throw new BusinessFault("ProductNotFound",404);repository.Version(value,version);value.Status=ProductStatus.Archived;value.UpdatedAt=DateTimeOffset.UtcNow;await repository.Commit("catalog.product.archived",id,new{productId=id,archived=true},token);return true;},ct);}

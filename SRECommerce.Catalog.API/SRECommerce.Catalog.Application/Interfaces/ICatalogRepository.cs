@@ -14,6 +14,7 @@ public interface ICatalogRepository
     Task<CatalogPage<ProductView>> Published(CatalogQuery query,CancellationToken ct);
     Task<ProductView?> PublishedProduct(string slug,CancellationToken ct);
     Task<ProductView?> PublishedVariant(Guid id,CancellationToken ct);
+    Task<SRECommerce.BuildingBlocks.Contracts.PublishedSku[]> PublishedSkus(Guid[] ids,CancellationToken ct);
     Task<Guid[]> VisibleVariantIds(Guid[] ids,bool includeB2B,CancellationToken ct);
     Task<IReadOnlyCollection<ProductCollection>> Collections(CancellationToken ct);
     Task<CatalogImport?> Import(Guid id,CancellationToken ct);

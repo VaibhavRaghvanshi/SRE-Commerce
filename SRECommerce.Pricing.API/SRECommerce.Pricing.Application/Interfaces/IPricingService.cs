@@ -1,6 +1,7 @@
 namespace SRECommerce.Pricing.Application;
 public interface IPricingService
 {
+    Task<Guid[]> Import(Guid tenant,PriceImportRequest request,CancellationToken ct);
     Task<object> Lookups(Guid tenant,CancellationToken ct);
     Task<object> Settings(Guid tenant,SettingsRequest request,CancellationToken ct);
     Task<object> Tax(Guid tenant,Guid? id,TaxRequest request,CancellationToken ct);

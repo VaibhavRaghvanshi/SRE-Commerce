@@ -11,6 +11,8 @@ public interface ICatalogService
     Task<ProductView> Product(Guid tenant,Guid id,CancellationToken ct);
     Task<ProductView> Save(Guid tenant,Guid? id,ProductDraft request,CancellationToken ct);
     Task<ProductView> Publish(Guid tenant,Guid id,string version,CancellationToken ct);
+    Task<Guid[]> PublishBatch(Guid tenant,PublishBatchRequest request,CancellationToken ct);
+    Task<SRECommerce.BuildingBlocks.Contracts.PublishedSku[]> PublishedSkus(Guid tenant,Guid[] ids,CancellationToken ct);
     Task Archive(Guid tenant,Guid id,string version,CancellationToken ct);
     Task<ProductView> PublicProduct(Guid tenant,string slug,CancellationToken ct);
     Task<ProductView> SellableVariant(Guid tenant,Guid id,CancellationToken ct);
