@@ -22,7 +22,7 @@ public sealed class MembershipsController(IdentityDbContext db, IIdentityAccount
     }
     [HttpGet]
     public async Task<IActionResult> List(Guid tenantId, CancellationToken ct) => await Permitted(tenantId, "members.read", ct)
-        ? Ok(await db.Memberships.AsNoTracking().Select(m => new { m.UserId, m.Role, m.IsActive }).ToListAsync(ct)) : Forbid();
+        ? Ok(await (from membership in db.Memberships.AsNoTracking() join profile in db.Profiles.AsNoTracking() on membership.UserId equals profile.UserId select new {membership.UserId, membership.Role, membership.IsActive, DisplayName=profile.FullName}).ToListAsync(ct)) : Forbid();
 
     [HttpPut("{userId:guid}")]
     public async Task<IActionResult> Assign(Guid tenantId, Guid userId, MembershipRequest request, CancellationToken ct)

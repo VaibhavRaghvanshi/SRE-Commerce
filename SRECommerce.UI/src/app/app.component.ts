@@ -13,6 +13,7 @@ import { ShopChatComponent } from './shared/shop-chat/shop-chat.component';
 })
 export class AppComponent {
   isAdminRoute = false;
+  get isCommerceRoute(){return /^\/(stores|workspace|commerce)(\/|$)/.test(this.router.url);}
 
   constructor(private router: Router) {
     this.router.events

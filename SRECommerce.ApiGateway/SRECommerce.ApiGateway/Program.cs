@@ -21,7 +21,7 @@ public partial class GatewayProgram
         });
         builder.Services.AddCors(o=>o.AddDefaultPolicy(p=>p.WithOrigins(builder.Configuration.GetSection("Cors:Origins").Get<string[]>()??(builder.Environment.IsDevelopment()?["http://localhost:4200"]:[])).AllowAnyHeader().AllowAnyMethod()));
         var routes=new List<RouteConfig>();var clusters=new List<ClusterConfig>();
-        foreach(var module in ServiceManifest.All.Where(s=>s.Name is "Identity"or"Tenant"or"Theme"or"Storefront"or"Catalog"or"Inventory"))
+        foreach(var module in ServiceManifest.All.Where(s=>s.Name is "Identity"or"Tenant"or"Theme"or"Storefront"or"Catalog"or"Inventory"or"Pricing"))
         {
             var key=module.Name.ToLowerInvariant();var configured=builder.Configuration["Services:"+module.Name];
             if(!builder.Environment.IsDevelopment()&&configured is null)throw new InvalidOperationException("Explicit production service URLs are required");
@@ -30,7 +30,7 @@ public partial class GatewayProgram
             clusters.Add(new ClusterConfig{ClusterId=key,Destinations=new Dictionary<string,DestinationConfig>{{"primary",new(){Address=address.AbsoluteUri}}},HttpRequest=new(){ActivityTimeout=TimeSpan.FromSeconds(15)}});
             var families=module.Name switch
             {
-                "Identity"=>new[]{"me/{**rest}","accounts/{**rest}","logout","sessions/{**rest}","platform/{**rest}"},
+                "Identity"=>new[]{"me/{**rest}","accounts/{**rest}","logout","sessions/{**rest}","platform/{**rest}","tenants/{tenant}/memberships/{**rest}"},
                 "Tenant"=>["public/{**rest}","tenants/{**rest}","platform/{**rest}","plans","business-types"],
                 "Theme"=>["public/{**rest}","tenants/{**rest}","platform/{**rest}","theme-presets"],
                 "Storefront"=>["public/{**rest}","tenants/{**rest}","platform/{**rest}","layout-templates"],

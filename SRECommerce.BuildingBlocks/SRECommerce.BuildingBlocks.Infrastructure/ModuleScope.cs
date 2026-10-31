@@ -15,20 +15,22 @@ public sealed class ModuleScope
     public string? SupportReason {get;private set;}
     public bool Bootstrap {get;private set;}
     public bool GlobalCatalog {get;private set;}
+    public bool Guest {get;private set;}
     public void BindUser(Guid tenant,UserAccess actor,string? reason=null)
-    {if(tenant==Guid.Empty)throw new BusinessFault("InvalidTenant",400);TenantId=tenant;User=actor;Machine=null;SupportReason=reason;}
+    {if(tenant==Guid.Empty)throw new BusinessFault("InvalidTenant",400);Guest=false;TenantId=tenant;User=actor;Machine=null;SupportReason=reason;}
     public void BindMachine(Guid tenant,MachineAccess actor)
-    {if(tenant==Guid.Empty)throw new BusinessFault("InvalidTenant",400);TenantId=tenant;Machine=actor;User=null;}
+    {if(tenant==Guid.Empty)throw new BusinessFault("InvalidTenant",400);Guest=false;TenantId=tenant;Machine=actor;User=null;}
     public void BindPublic(Guid tenant)
-    {if(tenant==Guid.Empty)throw new BusinessFault("InvalidTenant",400);TenantId=tenant;User=null;Machine=null;}
+    {if(tenant==Guid.Empty)throw new BusinessFault("InvalidTenant",400);Guest=false;TenantId=tenant;User=null;Machine=null;}
+    public void BindGuest(Guid tenant){BindPublic(tenant);Guest=true;}
     public void BindEvent(Guid tenant,string producer)
     {BindMachine(tenant,new(producer,"broker:"+producer,[],[]));}
     public void BindBootstrap(){Bootstrap=true;GlobalCatalog=true;TenantId=Guid.Empty;}
     public void BindGlobal(UserAccess actor,string reason)
     {if(!actor.IsPlatformAdmin)throw new BusinessFault("PlatformAdministratorRequired",403);User=actor;GlobalCatalog=true;SupportReason=reason;TenantId=Guid.Empty;}
-    public bool CanWrite=>Bootstrap || User is not null || Machine is not null;
+    public bool CanWrite=>Bootstrap || Guest || User is not null || Machine is not null;
     public Guid? ActorId=>User?.UserId;
-    public string ActorName=>Machine?.Service??(Bootstrap?"bootstrap":"user");
+    public string ActorName=>Machine?.Service??(Bootstrap?"bootstrap":Guest?"guest":"user");
 }
 public sealed class OutboxMessage : ITenantRecord
 {

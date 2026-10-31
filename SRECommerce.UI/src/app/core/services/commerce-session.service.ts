@@ -29,7 +29,7 @@ export class CommerceSessionService {
     }
     return this.manager;
   }
-  async signIn(tenant: string, area:'catalog'|'inventory'='catalog') {
+  async signIn(tenant: string, area:'catalog'|'inventory'|'pricing'='catalog') {
     if (!/^[a-f0-9-]{36}$/i.test(tenant)) throw new Error('Choose a valid business.');
     this.error.set('');
     await this.client().signinRedirect({ extraQueryParams: { tenant_id: tenant }, state: { returnTo: `/workspace/${tenant}/${area}` } });
@@ -41,7 +41,7 @@ export class CommerceSessionService {
     this.access.set(access);
     const state = user.state as { returnTo?: string } | undefined;
     const path = state?.returnTo || '';
-    return /^\/workspace\/[a-f0-9-]{36}\/(catalog|inventory)$/i.test(path) ? path : '/';
+    return /^\/workspace\/[a-f0-9-]{36}\/(catalog|inventory|pricing)$/i.test(path) ? path : '/';
   }
   async signOut() {
     const token = this.token;

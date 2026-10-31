@@ -173,7 +173,9 @@ public sealed class CatalogService(ICatalogRepository repository,ICatalogAccess 
     public async Task<ProductView> PublishedVariantForStaff(Guid tenant,Guid id,CancellationToken ct)
     {await access.Authorize(tenant,ActorPermission.Staff,ct);return await repository.PublishedVariant(id,ct)??throw new BusinessFault("VariantNotSellable",404);}
     public async Task<Guid[]> PublicVariantIds(Guid tenant,Guid[] ids,CancellationToken ct)
-    {await access.Public(tenant,ct);if(ids.Length is <1 or >100||ids.Any(id=>id==Guid.Empty)||ids.Distinct().Count()!=ids.Length)throw new BusinessFault("InvalidVariantQuery",400);return await repository.PublicVariantIds(ids,ct);}
+    {await access.Public(tenant,ct);if(ids.Length is <1 or >100||ids.Any(id=>id==Guid.Empty)||ids.Distinct().Count()!=ids.Length)throw new BusinessFault("InvalidVariantQuery",400);return await repository.VisibleVariantIds(ids,false,ct);}
+    public async Task<Guid[]> ShoppingVariantIds(Guid tenant,Guid[] ids,CancellationToken ct)
+    {await access.Authorize(tenant,ActorPermission.Customer,ct);if(ids.Length is <1 or >100||ids.Any(id=>id==Guid.Empty)||ids.Distinct().Count()!=ids.Length)throw new BusinessFault("InvalidVariantQuery",400);return await repository.VisibleVariantIds(ids,access.CanViewB2B,ct);}
     public async Task<object> Collection(Guid tenant,Guid? id,CollectionRequest request,CancellationToken ct)
     {
         await access.Authorize(tenant,ActorPermission.Manager,ct);return await repository.Transaction(async token=>
