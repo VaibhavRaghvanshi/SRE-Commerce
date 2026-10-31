@@ -10,6 +10,13 @@
     <Project Path="SRECommerce.ApiGateway/SRECommerce.ApiGateway/SRECommerce.ApiGateway.csproj" />
   </Folder>
   <Folder Name="/SRECommerce.BuildingBlocks/" />
+  <Folder Name="/SRECommerce.Cart.API/">
+    <Project Path="SRECommerce.Cart.API/SRECommerce.Cart.API/SRECommerce.Cart.API.csproj" />
+    <Project Path="SRECommerce.Cart.API/SRECommerce.Cart.Application/SRECommerce.Cart.Application.csproj" />
+    <Project Path="SRECommerce.Cart.API/SRECommerce.Cart.Domain/SRECommerce.Cart.Domain.csproj" />
+    <Project Path="SRECommerce.Cart.API/SRECommerce.Cart.Infrastructure/SRECommerce.Cart.Infrastructure.csproj" />
+    <Project Path="SRECommerce.Cart.API/SRECommerce.Cart.Tests/SRECommerce.Cart.Tests.csproj" />
+  </Folder>
   <Folder Name="/SRECommerce.Catalog.API/">
     <Project Path="SRECommerce.Catalog.API/SRECommerce.Catalog.API/SRECommerce.Catalog.API.csproj" />
     <Project Path="SRECommerce.Catalog.API/SRECommerce.Catalog.Application/SRECommerce.Catalog.Application.csproj" />

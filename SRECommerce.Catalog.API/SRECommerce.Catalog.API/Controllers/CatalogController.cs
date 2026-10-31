@@ -19,6 +19,7 @@ public sealed class CatalogController(ICatalogService catalog):ControllerBase
     [HttpGet("variants/{id:guid}")]public async Task<IActionResult> Variant(Guid tenant,Guid id,CancellationToken ct)=>Ok(await catalog.PublishedVariantForStaff(tenant,id,ct));
     [HttpGet("shopping-variants")]public async Task<IActionResult> ShoppingVariants(Guid tenant,[FromQuery]Guid[] ids,CancellationToken ct)=>Ok(await catalog.ShoppingVariantIds(tenant,ids,ct));
     [HttpGet("published-skus")]public async Task<IActionResult> PublishedSkus(Guid tenant,[FromQuery]Guid[] ids,CancellationToken ct)=>Ok(await catalog.PublishedSkus(tenant,ids,ct));
+    [HttpGet("shopping-products")]public async Task<IActionResult> ShoppingProducts(Guid tenant,[FromQuery]Guid[] ids,CancellationToken ct)=>Ok(await catalog.ShoppingProducts(tenant,ids,false,ct));
     [HttpPost("publish-batch")]public async Task<IActionResult> PublishBatch(Guid tenant,PublishBatchRequest request,CancellationToken ct)=>Ok(await catalog.PublishBatch(tenant,request,ct));
     [HttpPost("products")]public async Task<IActionResult> Create(Guid tenant,ProductDraft request,CancellationToken ct)=>StatusCode(201,await catalog.Save(tenant,null,request,ct));
     [HttpPut("products/{id:guid}")]public async Task<IActionResult> Save(Guid tenant,Guid id,ProductDraft request,CancellationToken ct)=>Ok(await catalog.Save(tenant,id,request,ct));

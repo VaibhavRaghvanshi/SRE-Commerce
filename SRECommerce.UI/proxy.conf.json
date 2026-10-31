@@ -63,5 +63,12 @@
     "timeout": 15000,
     "secure": true,
     "changeOrigin": true
+  },
+  "/commerce/cart/**": {
+    "target": "http://localhost:5180",
+    "proxyTimeout": 15000,
+    "timeout": 15000,
+    "secure": true,
+    "changeOrigin": true
   }
 }

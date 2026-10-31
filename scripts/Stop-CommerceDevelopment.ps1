@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([ValidateSet('Identity','Tenant','Theme','Storefront','Catalog','Inventory','Pricing','ApiGateway','UI')][string[]]$Services=@('Identity','Tenant','Theme','Storefront','Catalog','Inventory','Pricing','ApiGateway','UI'))
+param([ValidateSet('Identity','Tenant','Theme','Storefront','Catalog','Inventory','Pricing','Cart','ApiGateway','UI')][string[]]$Services=@('Identity','Tenant','Theme','Storefront','Catalog','Inventory','Pricing','Cart','ApiGateway','UI'))
 $ErrorActionPreference='Stop'
 $repository=Split-Path $PSScriptRoot -Parent
 $manifest=Join-Path $repository 'artifacts\commerce-development\processes.json'

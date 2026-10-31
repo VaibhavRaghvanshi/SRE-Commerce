@@ -79,10 +79,14 @@ public sealed partial class InventoryService(IInventoryRepository repository,IIn
     public async Task<object> Movements(Guid tenant,Guid? balance,int page,CancellationToken ct)
     {await access.Authorize(tenant,ActorPermission.Manager,ct);Page(page);return await repository.Movements(balance,page,ct);}
     public async Task<AvailabilityView[]> Availability(Guid tenant,Guid[] variants,CancellationToken ct)
+    =>await AvailabilityCore(tenant,variants,true,ct);
+    public async Task<AvailabilityView[]> ShoppingAvailability(Guid tenant,Guid[] variants,CancellationToken ct)
+    =>await AvailabilityCore(tenant,variants,false,ct);
+    private async Task<AvailabilityView[]> AvailabilityCore(Guid tenant,Guid[] variants,bool publicRead,CancellationToken ct)
     {
-        await access.Public(tenant,ct);if(variants.Length is <1 or >100||variants.Any(v=>v==Guid.Empty)||variants.Distinct().Count()!=variants.Length)throw new BusinessFault("InvalidAvailabilityQuery",400);
+        if(publicRead)await access.Public(tenant,ct);else await access.Authorize(tenant,ActorPermission.Customer,ct);if(variants.Length is <1 or >100||variants.Any(v=>v==Guid.Empty)||variants.Distinct().Count()!=variants.Length)throw new BusinessFault("InvalidAvailabilityQuery",400);
         var branches=(await repository.Branches(ct)).Where(b=>b.Active).Select(b=>b.Id).ToHashSet();var warehouses=(await repository.Warehouses(ct)).Where(w=>w.Active&&branches.Contains(w.BranchId)).Select(w=>w.Id).ToHashSet();
-        var visible=(await access.PublicVariants(tenant,variants,ct)).ToHashSet();var stock=await repository.Stock(null,variants,ct);var items=await repository.Items(ct);
+        var visible=(publicRead?await access.PublicVariants(tenant,variants,ct):await access.ShoppingVariants(tenant,variants,ct)).ToHashSet();var stock=await repository.Stock(null,variants,ct);var items=await repository.Items(ct);
         return variants.Select(id=>{var item=items.SingleOrDefault(i=>i.Id==id&&i.Active&&visible.Contains(id));var quantity=item is null?0:stock.Where(s=>s.Balance.VariantId==id&&warehouses.Contains(s.Balance.WarehouseId)&&(s.Batch.ExpiresAt is null||s.Batch.ExpiresAt>Now)).Sum(s=>s.Balance.OnHand-s.Balance.Reserved);return new AvailabilityView(id,quantity,item is not null&&quantity<=item.ReorderLevel,item is not null);}).ToArray();
     }
 }

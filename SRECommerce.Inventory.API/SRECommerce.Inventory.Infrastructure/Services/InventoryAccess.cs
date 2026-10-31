@@ -23,6 +23,12 @@ public sealed class InventoryAccess(ModuleAccess access,RemoteAccess remote,IHtt
         using var request=new HttpRequestMessage(HttpMethod.Get,$"api/v1/public/tenants/{tenant}/catalog/variants?"+string.Join("&",ids.Select(id=>"ids="+id)));
         using var response=await remote.Send("catalog",request,ct);if(response.StatusCode==HttpStatusCode.NotFound)return[];if(!response.IsSuccessStatusCode)throw new DependencyFault("Catalog");return await RemoteAccess.Read<Guid[]>(response,"Catalog",ct)??throw new DependencyFault("Catalog");
     }
+    public async Task<Guid[]> ShoppingVariants(Guid tenant,Guid[] ids,CancellationToken ct)
+    {
+        using var request=new HttpRequestMessage(HttpMethod.Get,$"api/v1/tenants/{tenant}/catalog/shopping-variants?"+string.Join("&",ids.Select(id=>"ids="+id)));request.Headers.Authorization=new AuthenticationHeaderValue("Bearer",remote.UserBearer());
+        var reason=contexts.HttpContext?.Request.Headers["X-Support-Reason"].ToString();if(!string.IsNullOrEmpty(reason))request.Headers.Add("X-Support-Reason",reason);
+        using var response=await remote.Send("catalog",request,ct);if(response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.Unauthorized)throw new BusinessFault("CatalogAccessDenied",403);if(!response.IsSuccessStatusCode)throw new DependencyFault("Catalog");return await RemoteAccess.Read<Guid[]>(response,"Catalog",ct)??throw new DependencyFault("Catalog");
+    }
     public async Task Machine(Guid tenant,string[] sources,CancellationToken ct)
     {
         access.MachineAsync(tenant,sources);var state=await remote.PublicTenantAsync(tenant,ct);

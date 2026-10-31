@@ -9,6 +9,7 @@ export const routes: Routes = [
   { path: 'workspace/:tenant/inventory', loadComponent: () => import('./features/commerce/inventory/inventory-workspace.component').then(m => m.InventoryWorkspaceComponent) },
   { path: 'workspace/:tenant/catalog', loadComponent: () => import('./features/commerce/workspace/catalog-workspace.component').then(m => m.CatalogWorkspaceComponent) },
   { path: 'commerce/callback', loadComponent: () => import('./features/commerce/auth/callback.component').then(m => m.CommerceCallbackComponent) },
+  { path: 'stores/:slug/cart', loadComponent: () => import('./features/commerce/cart/cart.component').then(m => m.CommerceCartComponent) },
   { path: 'stores/:slug', loadComponent: () => import('./features/commerce/catalog/catalog.component').then(m => m.CommerceCatalogComponent) },
   { path: 'stores/:slug/products/:product', loadComponent: () => import('./features/commerce/product/product.component').then(m => m.CommerceProductComponent) },
   // PUBLIC PAGES

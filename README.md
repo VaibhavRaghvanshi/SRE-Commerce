@@ -19,6 +19,7 @@ D:\Projects\SRECommerce\
   SRECommerce.Catalog.API\                same five-project pattern + own .sln
   SRECommerce.Inventory.API\              same five-project pattern + own .sln
   SRECommerce.Pricing.API\                same five-project pattern + own .sln
+  SRECommerce.Cart.API\                   same five-project pattern + own .sln
   SRECommerce.ApiGateway\                 YARP API + tests + own .sln
   SRECommerce.BuildingBlocks\             shared contracts/transport helpers
   SRECommerce.Legacy.API\                 preserved original .NET 8 application/data

@@ -1,0 +1,17 @@
+# Order service: next checkout boundary
+
+Order follows Cart in the approved batch. It will own `SRECommerce_OrderDB`, its own five-project solution, immutable item/price/shipping snapshots, status history, fulfillment records, returns, exchanges and checkout saga state. It must not reuse the legacy order database as an application dependency or copy another service's DbContext.
+
+Checkout starts from a verified Cart preparation. Human callers must own its customer cart; guests must prove possession of the cart capability and a separate order capability. Neither a preparation GUID nor a browser-supplied amount is authority. The owning APIs revalidate current tenant state, SKU eligibility, server quote/customer group context and available stock.
+
+The saga must persist its phase and deterministic external operation IDs before taking each externally visible step. Remote calls happen outside SQL transactions/leases, followed by version/lease-checked persistence. Required phases include preparation validation, shipping quote validation, pricing/coupon claim, stock reservation, sandbox payment initiation and final confirmation. Order owns compensations for failed/cancelled checkout: release pricing capacity and stock, cancel pending payment, or coordinate an audited refund if a payment already succeeded. Retrying after a lost HTTP response must not create another reservation, charge, order or redemption.
+
+Inventory currently exposes scoped reservation/commit/release APIs per warehouse. Order needs an owned, bounded allocation-planning HTTP contract for current active warehouses and stock; it must not infer that global availability guarantees one warehouse can fulfill the order. Multi-warehouse allocations need stable reservation IDs and explicit partial-failure compensation. Shipping quotes must state eligibility, method/charges and any pickup warehouse restriction, rather than trusting a browser-selected private warehouse.
+
+Payment and Shipping integrations require service-owned sandbox adapters and immutable request/response receipts. Payment must obtain its amount/currency from the authoritative Order context, verify callbacks using a configured private key, reject duplicate/conflicting events and never store card/CVV data. No real payment is authorized by local checkout tests.
+
+Order transitions must enforce a domain state machine. Cancellation after payment is a refund workflow, not an untracked status edit. Fulfillment cannot exceed unfulfilled quantities; partial returns/exchanges cannot exceed delivered/eligible quantities. Every transition retains status/audit/outbox history. Invoice references must be unique within a tenant and must not imply tax certification absent a configured provider.
+
+Retries and recovery run against durable SQL saga state using narrow machine credentials, bounded leases and backoff. Request access tokens and guest secrets must never be persisted for background recovery. Permanent business rejection is distinguished from dependency outage, timeout and exhausted/manual-review state. Integration tests must exercise process interruption, exact retries, partial reservation failure, payment rejection/refund, stale versions, cross-tenant IDs and duplicate callbacks/events.
+
+The three preserved source orders will be imported as clearly labeled historical records with original monetary/status snapshots and provenance. Importing that history must not trigger stock reservations, new charges or customer messages. Original SQLite and old SQL data remain intact.

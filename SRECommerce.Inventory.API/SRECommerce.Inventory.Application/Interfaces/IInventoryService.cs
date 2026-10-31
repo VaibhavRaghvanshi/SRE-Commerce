@@ -10,6 +10,7 @@ public interface IInventoryService
     Task<BalanceView[]> Balances(Guid tenant,Guid? warehouse,Guid? variant,CancellationToken ct);
     Task<object> Movements(Guid tenant,Guid? balance,int page,CancellationToken ct);
     Task<AvailabilityView[]> Availability(Guid tenant,Guid[] variants,CancellationToken ct);
+    Task<AvailabilityView[]> ShoppingAvailability(Guid tenant,Guid[] variants,CancellationToken ct);
     Task<BalanceView> Change(Guid tenant,StockChangeRequest request,CancellationToken ct);
     Task<ReservationView> Reserve(Guid tenant,ReserveRequest request,bool machine,CancellationToken ct);
     Task<ReservationView> Close(Guid tenant,Guid id,bool commit,CloseReservationRequest request,bool machine,CancellationToken ct);

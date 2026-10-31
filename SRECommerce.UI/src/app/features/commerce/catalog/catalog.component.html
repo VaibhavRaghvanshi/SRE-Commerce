@@ -3,6 +3,7 @@
     <a routerLink="/" class="platform">SRECommerce</a>
     <div><p class="eyebrow">{{ tenant()?.businessType || 'Independent stores' }}</p><h1>{{ tenant()?.displayName || 'Browse the store' }}</h1></div>
     <a class="workspace-link" [routerLink]="['/workspace', tenant()?.tenantId || '', 'catalog']" *ngIf="tenant()">Manage catalog</a>
+    <a class="workspace-link" [routerLink]="['/stores',tenant()!.slug,'cart']" *ngIf="tenant()?.modules?.includes('cart')">Cart →</a>
   </header>
   <section class="store-intro"><p class="eyebrow">The collection</p><h2>Discover something for your everyday.</h2><p>Explore products, compare variants and find the details that matter.</p></section>
   <form class="catalog-filters" (ngSubmit)="reload(1)" *ngIf="tenant()">

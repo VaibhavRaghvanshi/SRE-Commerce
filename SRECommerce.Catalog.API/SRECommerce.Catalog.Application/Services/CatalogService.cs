@@ -185,6 +185,12 @@ public sealed class CatalogService(ICatalogRepository repository,ICatalogAccess 
         if(ids.Length is <1 or >100||ids.Any(id=>id==Guid.Empty)||ids.Distinct().Count()!=ids.Length)throw new BusinessFault("InvalidVariantQuery",400);
         return await repository.PublishedSkus(ids,ct);
     }
+    public async Task<ProductView[]> ShoppingProducts(Guid tenant,Guid[] ids,bool publicRead,CancellationToken ct)
+    {
+        if(publicRead)await access.Public(tenant,ct);else await access.Authorize(tenant,ActorPermission.Customer,ct);
+        if(ids.Length is <1 or >50||ids.Any(id=>id==Guid.Empty)||ids.Distinct().Count()!=ids.Length)throw new BusinessFault("InvalidShoppingProductsQuery",400);
+        return await repository.ShoppingProducts(ids,!publicRead&&access.CanViewB2B,ct);
+    }
     public async Task Archive(Guid tenant,Guid id,string version,CancellationToken ct)
     {await access.Authorize(tenant,ActorPermission.Manager,ct);await repository.Transaction(async token=>{var value=await repository.Product(id,token)??throw new BusinessFault("ProductNotFound",404);repository.Version(value,version);value.Status=ProductStatus.Archived;value.UpdatedAt=DateTimeOffset.UtcNow;await repository.Commit("catalog.product.archived",id,new{productId=id,archived=true},token);return true;},ct);}
     public async Task<ProductView> PublicProduct(Guid tenant,string slug,CancellationToken ct)

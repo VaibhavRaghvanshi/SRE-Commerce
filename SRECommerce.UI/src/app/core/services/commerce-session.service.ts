@@ -34,6 +34,11 @@ export class CommerceSessionService {
     this.error.set('');
     await this.client().signinRedirect({ extraQueryParams: { tenant_id: tenant }, state: { returnTo: `/workspace/${tenant}/${area}` } });
   }
+  async signInStore(tenant: string, slug: string) {
+    if (!/^[a-f0-9-]{36}$/i.test(tenant) || !/^[a-z0-9-]{1,80}$/.test(slug)) throw new Error('Choose a valid store.');
+    this.error.set('');
+    await this.client().signinRedirect({ extraQueryParams: { tenant_id: tenant }, state: { returnTo: '/stores/' + slug + '/cart' } });
+  }
   async callback() {
     const user = await this.client().signinRedirectCallback(); this.user.set(user);
     window.history.replaceState({}, document.title, '/commerce/callback');
@@ -41,7 +46,7 @@ export class CommerceSessionService {
     this.access.set(access);
     const state = user.state as { returnTo?: string } | undefined;
     const path = state?.returnTo || '';
-    return /^\/workspace\/[a-f0-9-]{36}\/(catalog|inventory|pricing)$/i.test(path) ? path : '/';
+    return /^\/workspace\/[a-f0-9-]{36}\/(catalog|inventory|pricing)$/i.test(path) || /^\/stores\/[a-z0-9-]{1,80}\/cart$/.test(path) ? path : '/';
   }
   async signOut() {
     const token = this.token;

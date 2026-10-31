@@ -19,14 +19,14 @@ The owner also selected current SQLite data (1,000 products / 3 orders) for non-
 | Catalog | SRECommerce_CatalogDB | Categories/brands, typed attributes, products/SKUs/media/bundles/collections, publish/import | Native 21 tests; atomic batch publication and published staff/customer/B2B SKU contracts, main SQL migration/backup and initial Angular flow verified; media upload and Docker runtime pending |
 | Inventory | SRECommerce_InventoryDB | Warehouses/branches, balances/ledger/batches, transactional reservations/releases, purchasing | Native 19 tests; owned SQL migration/backup/restore, Angular/browser stock flow and 1,000-SKU/76,202-unit source backfill verified; broker notifications and Docker runtime pending |
 | Pricing | SRECommerce_PricingDB | Price lists/groups/tiers, promotions/coupons, authoritative quotes/tax metadata and redemption | Native 33 tests; three owned migrations/backup/restore, scoped OAuth tests, Angular/browser quotes and 1,000 source-price tiers verified; production tax/provider and Docker runtime pending |
-| Cart | SRECommerce_CartDB | Durable guest/customer carts, merge, quantities/expiry and authoritative checkout preparation | Pending |
+| Cart | SRECommerce_CartDB | Durable guest/customer carts, merge, quantities/expiry and authoritative checkout preparation | Native 16 tests; owned nine-table SQL schema/backup/restore, Angular 30-test suite and nine-check real PKCE/guest browser flow verified; Order completion, optional cache and Docker runtime pending |
 | Order | SRECommerce_OrderDB | Idempotent checkout saga, snapshots/status, cancellation/returns/exchanges and compensation | Pending |
 | Payment | SRECommerce_PaymentDB | Sandbox provider, verified/idempotent callbacks, refunds and reconciliation; no real money/card storage | Pending |
 | Shipping | SRECommerce_ShippingDB | Zones/methods/quotes, pickup/local delivery, partial shipments/tracking/return pickup | Pending |
 | Notification | SRECommerce_NotificationDB | Templates/preferences/jobs/retries/logs; real local Mailpit, mock SMS/WhatsApp adapters | Pending |
 | Manufacturing | SRECommerce_ManufacturingDB | Optional BOM/stages/materials/production batches/consumption/output/cost/quality | Pending |
 | Discovery | SRECommerce_DiscoveryDB | Tenant search projections, filters/facets/suggestions, reviews/moderation/verified purchase | Pending |
-| ApiGateway | None | YARP allowlisted routes, correlation/auth/rate/CORS/timeouts; no public internal endpoints | Native 8 tests and real browser flow verified for implemented services; production deployment/telemetry pending |
+| ApiGateway | None | YARP allowlisted routes, correlation/auth/rate/CORS/timeouts; no public internal endpoints | Native 9 tests and real browser flow verified for implemented services; production deployment/telemetry pending |
 
 Each remaining service has exactly API, Application, Domain, Infrastructure and Tests projects under `SRECommerce.{Service}.API`. Domain/application boundaries and business models stay service-owned. Building blocks contain transport contracts, scoped authorization, auditing/outbox/inbox plumbing, cache/resilience and hosting helpers, never a shared business DbContext or cross-service SQL connection.
 
