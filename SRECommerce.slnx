@@ -5,6 +5,18 @@
     <Project Path="SRECommerce.BuildingBlocks/SRECommerce.BuildingBlocks.Infrastructure/SRECommerce.BuildingBlocks.Infrastructure.csproj" />
   </Folder>
   <Folder Name="/Services/" />
+  <Folder Name="/SRECommerce.ApiGateway/">
+    <Project Path="SRECommerce.ApiGateway/SRECommerce.ApiGateway.Tests/SRECommerce.ApiGateway.Tests.csproj" />
+    <Project Path="SRECommerce.ApiGateway/SRECommerce.ApiGateway/SRECommerce.ApiGateway.csproj" />
+  </Folder>
+  <Folder Name="/SRECommerce.BuildingBlocks/" />
+  <Folder Name="/SRECommerce.Catalog.API/">
+    <Project Path="SRECommerce.Catalog.API/SRECommerce.Catalog.API/SRECommerce.Catalog.API.csproj" />
+    <Project Path="SRECommerce.Catalog.API/SRECommerce.Catalog.Application/SRECommerce.Catalog.Application.csproj" />
+    <Project Path="SRECommerce.Catalog.API/SRECommerce.Catalog.Domain/SRECommerce.Catalog.Domain.csproj" />
+    <Project Path="SRECommerce.Catalog.API/SRECommerce.Catalog.Infrastructure/SRECommerce.Catalog.Infrastructure.csproj" />
+    <Project Path="SRECommerce.Catalog.API/SRECommerce.Catalog.Tests/SRECommerce.Catalog.Tests.csproj" />
+  </Folder>
   <Folder Name="/SRECommerce.Identity.API/">
     <Project Path="SRECommerce.Identity.API/SRECommerce.Identity.API/SRECommerce.Identity.API.csproj" />
     <Project Path="SRECommerce.Identity.API/SRECommerce.Identity.Application/SRECommerce.Identity.Application.csproj" />

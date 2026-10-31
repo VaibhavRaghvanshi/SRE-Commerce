@@ -6,60 +6,41 @@ import {
 } from '@angular/ssr/node';
 import express from 'express';
 import { join } from 'node:path';
-import { Readable } from 'node:stream';
+import { request as httpRequest } from 'node:http';
+import { request as httpsRequest } from 'node:https';
+import { pipeline } from 'node:stream';
 
 const browserDistFolder = join(import.meta.dirname, '../browser');
 
 const app = express();
 const angularApp = new AngularNodeAppEngine();
 const apiProxyTarget = process.env['API_PROXY_TARGET'];
+const commerceProxyTarget = process.env['COMMERCE_PROXY_TARGET'];
 const apiProxyTimeoutMs = Number(process.env['API_PROXY_TIMEOUT_MS'] || 15000);
 
-if (apiProxyTarget) {
-  app.use(['/api', '/uploads'], async (req, res, next) => {
-    const abortController = new AbortController();
-    const timeoutId = setTimeout(() => abortController.abort(), apiProxyTimeoutMs);
-
-    try {
-      const targetUrl = new URL(req.originalUrl, apiProxyTarget);
-      const headers = new Headers();
-
-      for (const [key, value] of Object.entries(req.headers)) {
-        if (value === undefined || key.toLowerCase() === 'host') continue;
-        if (Array.isArray(value)) {
-          value.forEach(v => headers.append(key, v));
-        } else {
-          headers.set(key, value);
-        }
-      }
-
-      const upstream = await fetch(targetUrl, {
-        method: req.method,
-        headers,
-        body: ['GET', 'HEAD'].includes(req.method) ? undefined : Readable.toWeb(req) as BodyInit,
-        duplex: ['GET', 'HEAD'].includes(req.method) ? undefined : 'half',
-        redirect: 'manual',
-        signal: abortController.signal
-      } as RequestInit);
-
-      res.status(upstream.status);
-      upstream.headers.forEach((value, key) => {
-        if (!['content-encoding', 'transfer-encoding'].includes(key.toLowerCase())) {
-          res.setHeader(key, value);
-        }
-      });
-
-      if (!upstream.body) {
-        res.end();
-        return;
-      }
-
-      Readable.fromWeb(upstream.body as any).pipe(res);
-    } catch (error) {
-      next(error);
-    } finally {
-      clearTimeout(timeoutId);
-    }
+if (apiProxyTarget || commerceProxyTarget) {
+  app.use(['/api', '/uploads', '/commerce'], (req, res, next) => {
+    const commerce = req.originalUrl === '/commerce' || req.originalUrl.startsWith('/commerce/');
+    // Browser callback routes belong to Angular, not the resource gateway.
+    if (commerce && !/^\/commerce\/(identity|tenant|theme|storefront|catalog)(\/|\?|$)/.test(req.originalUrl)) { next(); return; }
+    const proxyTarget = commerce ? commerceProxyTarget : apiProxyTarget;
+    if (!proxyTarget) { next(); return; }
+    const targetUrl = new URL(req.originalUrl, proxyTarget);
+    const hopHeaders = new Set(['host', 'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization', 'te', 'trailer', 'transfer-encoding', 'upgrade']);
+    for (const header of (req.headers.connection || '').split(',')) hopHeaders.add(header.trim().toLowerCase());
+    const headers = Object.fromEntries(Object.entries(req.headers).filter(([key]) => !hopHeaders.has(key)));
+    const send = targetUrl.protocol === 'https:' ? httpsRequest : httpRequest;
+    const upstream = send(targetUrl, { method: req.method, headers }, response => {
+      res.status(response.statusCode || 502);
+      const excluded = new Set([...hopHeaders, ...(response.headers.connection || '').split(',').map(h => h.trim().toLowerCase())]);
+      for (const [key, value] of Object.entries(response.headers)) if (value !== undefined && !excluded.has(key)) res.setHeader(key, value);
+      pipeline(response, res, () => clearTimeout(deadline));
+    });
+    const deadline = setTimeout(() => upstream.destroy(new Error('Upstream request timed out')), apiProxyTimeoutMs);
+    upstream.on('error', () => { clearTimeout(deadline); if (!res.headersSent) res.status(502).json({ title: 'The API is temporarily unavailable.' }); else res.destroy(); });
+    res.on('close', () => { clearTimeout(deadline); upstream.destroy(); });
+    req.on('aborted', () => upstream.destroy());
+    req.pipe(upstream);
   });
 }
 

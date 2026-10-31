@@ -12,12 +12,12 @@ The owner also selected current SQLite data (1,000 products / 3 orders) for non-
 
 | Service | Database | Required backend slice | State |
 | --- | --- | --- | --- |
-| Identity | SRECommerce_IdentityDB | Existing PKCE/users/MFA; add bounded machine identity and commerce scopes/contracts | Existing verified; extension pending |
-| Tenant | SRECommerce_TenantDB | Existing lifecycle; member entitlements, public registry, quota/lifecycle integration | Existing verified; extension pending |
+| Identity | SRECommerce_IdentityDB | Existing PKCE/users/MFA; bounded machine identity and commerce scopes/contracts | Native 26 tests; Angular public PKCE client/browser flow verified; new confidential provisioning held |
+| Tenant | SRECommerce_TenantDB | Lifecycle; member entitlements, public registry, quota/lifecycle integration | 28 tests; registry/entitlements used by real Catalog/browser; earlier Docker verified |
 | Theme | SRECommerce_ThemeDB | Validated accessible tokens/presets, draft/preview/publish/version/rollback, cached/default fallback | Native verified: 17 full-suite tests + SQL-outage test; schema/backup/restore verified; Docker runtime pending credentials |
-| Storefront | SRECommerce_StorefrontDB | Sections/navigation/banners/field visibility, layout versions/preview/publish, fallback | 25/25 domain/real SQL integration tests passed; main database migration/backup and Docker runtime acceptance pending |
-| Catalog | SRECommerce_CatalogDB | Categories/brands, typed attributes, products/SKUs/media/bundles/collections, publish/import | Pending |
-| Inventory | SRECommerce_InventoryDB | Warehouses/branches, balances/ledger/batches, transactional reservations/releases, purchasing | Pending |
+| Storefront | SRECommerce_StorefrontDB | Sections/navigation/banners/field visibility, layout versions/preview/publish, fallback | 25 tests; main schema/backup/restore verified; Docker runtime pending |
+| Catalog | SRECommerce_CatalogDB | Categories/brands, typed attributes, products/SKUs/media/bundles/collections, publish/import | Native 19 tests, main SQL migration/backup verified, Legacy Demo draft import and initial Angular/browser flow verified; media upload and Docker runtime pending |
+| Inventory | SRECommerce_InventoryDB | Warehouses/branches, balances/ledger/batches, transactional reservations/releases, purchasing | In progress; not yet verified |
 | Pricing | SRECommerce_PricingDB | Price lists/groups/tiers, promotions/coupons, authoritative quotes/tax metadata and redemption | Pending |
 | Cart | SRECommerce_CartDB | Durable guest/customer carts, merge, quantities/expiry and authoritative checkout preparation | Pending |
 | Order | SRECommerce_OrderDB | Idempotent checkout saga, snapshots/status, cancellation/returns/exchanges and compensation | Pending |
@@ -26,7 +26,7 @@ The owner also selected current SQLite data (1,000 products / 3 orders) for non-
 | Notification | SRECommerce_NotificationDB | Templates/preferences/jobs/retries/logs; real local Mailpit, mock SMS/WhatsApp adapters | Pending |
 | Manufacturing | SRECommerce_ManufacturingDB | Optional BOM/stages/materials/production batches/consumption/output/cost/quality | Pending |
 | Discovery | SRECommerce_DiscoveryDB | Tenant search projections, filters/facets/suggestions, reviews/moderation/verified purchase | Pending |
-| ApiGateway | None | YARP allowlisted routes, correlation/auth/rate/CORS/timeouts; no public internal endpoints | Pending |
+| ApiGateway | None | YARP allowlisted routes, correlation/auth/rate/CORS/timeouts; no public internal endpoints | Native 8 tests and real browser flow verified for implemented services; production deployment/telemetry pending |
 
 Each remaining service has exactly API, Application, Domain, Infrastructure and Tests projects under `SRECommerce.{Service}.API`. Domain/application boundaries and business models stay service-owned. Building blocks contain transport contracts, scoped authorization, auditing/outbox/inbox plumbing, cache/resilience and hosting helpers, never a shared business DbContext or cross-service SQL connection.
 

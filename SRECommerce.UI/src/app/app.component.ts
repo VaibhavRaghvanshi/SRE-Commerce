@@ -18,9 +18,9 @@ export class AppComponent {
     this.router.events
       .pipe(filter(e => e instanceof NavigationEnd))
       .subscribe(() => {
-        this.isAdminRoute = this.router.url.startsWith('/admin');
+        this.isAdminRoute = /^\/(admin|stores|workspace|commerce)(\/|$)/.test(this.router.url);
       });
 
-    this.isAdminRoute = this.router.url.startsWith('/admin');
+    this.isAdminRoute = /^\/(admin|stores|workspace|commerce)(\/|$)/.test(this.router.url);
   }
 }

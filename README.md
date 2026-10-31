@@ -16,6 +16,8 @@ D:\Projects\SRECommerce\
   SRECommerce.Tenant.API\                 same five-project pattern + own .sln
   SRECommerce.Theme.API\                  same five-project pattern + own .sln
   SRECommerce.Storefront.API\             same five-project pattern + own .sln
+  SRECommerce.Catalog.API\                same five-project pattern + own .sln
+  SRECommerce.ApiGateway\                 YARP API + tests + own .sln
   SRECommerce.BuildingBlocks\             shared contracts/transport helpers
   SRECommerce.Legacy.API\                 preserved original .NET 8 application/data
   SRECommerce.UI\                         existing Angular application
@@ -52,7 +54,22 @@ npm run build
 npm run test:ci
 ```
 
-Angular's workspace/output identifier is `SRECommerce.UI`. Development proxies `/api` and `/uploads` to the preserved legacy API on 5027 until new commerce integration is implemented. The production Node server accepts `API_PROXY_TARGET`. Folder organization alone does not switch authentication/data authority.
+Angular's workspace/output identifier is `SRECommerce.UI`. `/api` and `/uploads` retain the legacy integration on 5027. New `/commerce/{service}` routes use the gateway on 5180; `/commerce/callback` belongs to the Angular router. The production Node server accepts `API_PROXY_TARGET` and `COMMERCE_PROXY_TARGET`. New commerce authentication uses Identity authorization code + PKCE, with user tokens held in memory.
+
+## Run the integrated Catalog workspace
+
+Apply the reviewed per-service SQL scripts first. The launcher never migrates or recreates databases. Development uses Windows-authenticated SQL Server on the laptop.
+
+```powershell
+Set-Location D:\Projects\SRECommerce
+.\scripts\Start-CommerceDevelopment.ps1 -Build -InitializeIdentity -StartUi
+# Public store: http://localhost:4200/stores/legacy-demo
+# Business workspace: http://localhost:4200/workspace/<tenant-id>/catalog
+# Stop only processes started by this launcher:
+.\scripts\Stop-CommerceDevelopment.ps1
+```
+
+The launcher starts Identity 5181, Tenant 5182, Theme 5183, Storefront 5184, Catalog 5185 and Gateway 5180. `-InitializeIdentity` explicitly registers the development public Angular PKCE client; it creates no confidential client secret or SQL runtime login. Private demo-owner credentials and migration mappings remain outside Git. See [local commerce runbook](docs/runbooks/commerce-local-development.md).
 
 ## Preserved legacy application
 

@@ -1,0 +1,1 @@
+{"profiles":{"catalog-http":{"commandName":"Project","launchBrowser":false,"applicationUrl":"http://localhost:5085","environmentVariables":{"ASPNETCORE_ENVIRONMENT":"Development"}}}}

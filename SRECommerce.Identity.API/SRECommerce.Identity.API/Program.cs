@@ -148,11 +148,12 @@ builder.Services.AddExceptionHandler<IdentityExceptionHandler>();
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 var app = builder.Build();
+var browserFormAction=IdentityBrowserPolicy.FormAction(app.Configuration,app.Environment);
 app.UseExceptionHandler();
 app.Use(async (context, next) =>
 {
     context.Response.Headers["X-Content-Type-Options"] = "nosniff";
-    context.Response.Headers["Content-Security-Policy"] = "default-src 'none'; form-action 'self'; frame-ancestors 'none'";
+    context.Response.Headers["Content-Security-Policy"] = "default-src 'none'; form-action "+browserFormAction+"; frame-ancestors 'none'; base-uri 'none'";
     context.Response.Headers.CacheControl = "no-store";
     await next();
 });

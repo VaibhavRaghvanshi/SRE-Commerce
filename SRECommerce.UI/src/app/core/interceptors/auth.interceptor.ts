@@ -4,12 +4,13 @@ import { AuthService } from '../services/auth.service';
 import { environment } from '../../../environments/environment';
 
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
-  const auth = inject(AuthService);
-  const token = auth.token;
-
   const base = environment.apiBase.replace(/\/$/, '');
   const targetsApi = req.url === base || req.url.startsWith(base + '/') || req.url.startsWith(base + '?');
-  if (!token || !targetsApi) {
+  if (!targetsApi) {
+    return next(req);
+  }
+  const token = inject(AuthService).token;
+  if (!token) {
     return next(req);
   }
 

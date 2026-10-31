@@ -39,6 +39,7 @@ public static class IdentitySetup
             await manager.UpdateAsync(application, descriptor);
         }
         var roles = services.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+        await AngularClientSetup.InitializeAsync(services,environment);
         if (!await roles.RoleExistsAsync("SuperAdmin")) await roles.CreateAsync(new IdentityRole<Guid>("SuperAdmin"));
         var email = config["Bootstrap:Email"];
         var password = config["Bootstrap:Password"];

@@ -1,0 +1,28 @@
+<main class="commerce-store">
+  <header class="store-heading">
+    <a routerLink="/" class="platform">SRECommerce</a>
+    <div><p class="eyebrow">{{ tenant()?.businessType || 'Independent stores' }}</p><h1>{{ tenant()?.displayName || 'Browse the store' }}</h1></div>
+    <a class="workspace-link" [routerLink]="['/workspace', tenant()?.tenantId || '', 'catalog']" *ngIf="tenant()">Manage catalog</a>
+  </header>
+  <section class="store-intro"><p class="eyebrow">The collection</p><h2>Discover something for your everyday.</h2><p>Explore products, compare variants and find the details that matter.</p></section>
+  <form class="catalog-filters" (ngSubmit)="reload(1)" *ngIf="tenant()">
+    <label>Search<input name="search" [(ngModel)]="search" placeholder="Search products" maxlength="100" /></label>
+    <label>Category<select name="category" [(ngModel)]="category" (change)="reload(1)"><option value="">All categories</option><option *ngFor="let item of lookups().categories" [value]="item.id">{{ item.name }}</option></select></label>
+    <label>Brand<select name="brand" [(ngModel)]="brand" (change)="reload(1)"><option value="">All brands</option><option *ngFor="let item of lookups().brands" [value]="item.id">{{ item.name }}</option></select></label>
+    <label>Collection<select name="collection" [(ngModel)]="collection" (change)="reload(1)"><option value="">All collections</option><option *ngFor="let item of lookups().collections" [value]="item.slug">{{ item.name }}</option></select></label>
+    <button type="submit" [disabled]="loading()">Search</button><button type="button" class="secondary" (click)="reset()">Reset</button>
+  </form>
+  <div class="state" role="status" *ngIf="loading()">Loading products…</div>
+  <div class="state error" role="alert" *ngIf="error()"><p>{{ error() }}</p><button type="button" (click)="reload(result().page)">Try again</button></div>
+  <ng-container *ngIf="!loading() && !error() && tenant()">
+    <div class="results-line"><p>{{ result().total }} products</p><span>Page {{ result().page }} of {{ pages() }}</span></div>
+    <div class="state" *ngIf="!result().items.length"><h3>No products found</h3><p>Try another search or check back when this store publishes new products.</p><button type="button" (click)="reset()">Clear filters</button></div>
+    <section class="product-grid" aria-label="Products"><article *ngFor="let product of result().items">
+      <a [routerLink]="['/stores', tenant()!.slug, 'products', product.slug]" class="product-image"><img *ngIf="product.media.length; else noImage" [src]="product.media[0].url" [alt]="product.media[0].alt || product.name" loading="lazy" /><ng-template #noImage><span class="image-placeholder">{{ product.name.slice(0, 2).toUpperCase() }}</span></ng-template></a>
+      <p class="product-kind">{{ product.kind === 2 ? 'Bundle' : product.variants.length > 1 ? product.variants.length + ' variants' : 'Selected for you' }}</p>
+      <h3><a [routerLink]="['/stores', tenant()!.slug, 'products', product.slug]">{{ product.name }}</a></h3>
+      <p class="description">{{ product.description }}</p><a class="details-link" [routerLink]="['/stores', tenant()!.slug, 'products', product.slug]">View details <span aria-hidden="true">↗</span></a>
+    </article></section>
+    <nav class="pagination" aria-label="Catalog pages"><button type="button" [disabled]="result().page <= 1" (click)="reload(result().page - 1)">Previous</button><span>{{ result().page }} / {{ pages() }}</span><button type="button" [disabled]="result().page >= pages()" (click)="reload(result().page + 1)">Next</button></nav>
+  </ng-container>
+</main>

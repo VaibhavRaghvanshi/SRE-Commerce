@@ -14,5 +14,40 @@
     "timeout": 15000,
     "proxyTimeout": 15000,
     "logLevel": "debug"
+  },
+  "/commerce/catalog/**": {
+    "target": "http://localhost:5180",
+    "secure": true,
+    "changeOrigin": true,
+    "timeout": 15000,
+    "proxyTimeout": 15000
+  },
+  "/commerce/tenant/**": {
+    "target": "http://localhost:5180",
+    "secure": true,
+    "changeOrigin": true,
+    "timeout": 15000,
+    "proxyTimeout": 15000
+  },
+  "/commerce/identity/**": {
+    "target": "http://localhost:5180",
+    "secure": true,
+    "changeOrigin": true,
+    "timeout": 15000,
+    "proxyTimeout": 15000
+  },
+  "/commerce/theme/**": {
+    "target": "http://localhost:5180",
+    "secure": true,
+    "changeOrigin": true,
+    "timeout": 15000,
+    "proxyTimeout": 15000
+  },
+  "/commerce/storefront/**": {
+    "target": "http://localhost:5180",
+    "secure": true,
+    "changeOrigin": true,
+    "timeout": 15000,
+    "proxyTimeout": 15000
   }
 }
