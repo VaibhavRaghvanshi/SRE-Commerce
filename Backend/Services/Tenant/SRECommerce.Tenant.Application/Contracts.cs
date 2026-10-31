@@ -41,6 +41,7 @@ public interface ITenantOperations
     Task<SettingsView> Settings(Guid id,CancellationToken ct);
     Task<TenantView> UpdateSettings(Guid id,SettingsRequest request,CancellationToken ct);
     Task<EntitlementView> Entitlements(Guid id,CancellationToken ct);
+    Task<EntitlementView> MemberEntitlements(Guid id,CancellationToken ct);
     Task<TenantView> SetModule(Guid id,string module,ModuleRequest request,CancellationToken ct);
     Task<TenantView> SetSubscription(Guid id,SubscriptionRequest request,CancellationToken ct);
     Task<IReadOnlyCollection<LocationView>> Locations(Guid id,CancellationToken ct);

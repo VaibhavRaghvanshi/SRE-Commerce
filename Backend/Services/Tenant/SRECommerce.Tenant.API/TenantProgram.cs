@@ -37,6 +37,7 @@ public partial class TenantProgram
             .ConfigurePrimaryHttpMessageHandler(()=>new HttpClientHandler{AllowAutoRedirect=false});
         builder.Services.AddScoped<IIdentityOwnerProvisioner>(p=>p.GetRequiredService<IdentityConnection>());
         builder.Services.AddSingleton<IDomainOwnershipVerifier,DnsOwnershipVerifier>();builder.Services.AddScoped<ITenantOperations,TenantOperations>();
+        builder.Services.AddScoped<ITenantRegistry,TenantRegistry>();
         builder.Services.AddAuthentication("IdentityContext").AddScheme<AuthenticationSchemeOptions,IdentityContextHandler>("IdentityContext",_=>{});
         builder.Services.AddAuthorization();builder.Services.AddControllers();builder.Services.AddOpenApi();builder.Services.AddProblemDetails();builder.Services.AddExceptionHandler<TenantExceptionHandler>();
         builder.Services.AddRateLimiter(o=>{o.RejectionStatusCode=429;o.AddPolicy("tenant",context=>RateLimitPartition.GetFixedWindowLimiter(context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value??context.Connection.RemoteIpAddress?.ToString()??"local",_=>new FixedWindowRateLimiterOptions{PermitLimit=120,Window=TimeSpan.FromMinutes(1),QueueLimit=0}));});

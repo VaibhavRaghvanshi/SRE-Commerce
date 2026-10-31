@@ -2,6 +2,8 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0.403 AS build
 WORKDIR /src
 COPY Backend/Directory.Build.props Backend/global.json Backend/
 WORKDIR /src/Backend
+COPY Backend/BuildingBlocks/SRECommerce.BuildingBlocks.Kernel/*.csproj BuildingBlocks/SRECommerce.BuildingBlocks.Kernel/
+COPY Backend/BuildingBlocks/SRECommerce.BuildingBlocks.Contracts/*.csproj BuildingBlocks/SRECommerce.BuildingBlocks.Contracts/
 COPY Backend/Services/Identity/SRECommerce.Identity.Domain/*.csproj Services/Identity/SRECommerce.Identity.Domain/
 COPY Backend/Services/Identity/SRECommerce.Identity.Application/*.csproj Services/Identity/SRECommerce.Identity.Application/
 COPY Backend/Services/Identity/SRECommerce.Identity.Infrastructure/*.csproj Services/Identity/SRECommerce.Identity.Infrastructure/
@@ -11,6 +13,8 @@ COPY Backend/Services/Identity/SRECommerce.Identity.Domain/ Services/Identity/SR
 COPY Backend/Services/Identity/SRECommerce.Identity.Application/ Services/Identity/SRECommerce.Identity.Application/
 COPY Backend/Services/Identity/SRECommerce.Identity.Infrastructure/ Services/Identity/SRECommerce.Identity.Infrastructure/
 COPY Backend/Services/Identity/SRECommerce.Identity.API/ Services/Identity/SRECommerce.Identity.API/
+COPY Backend/BuildingBlocks/SRECommerce.BuildingBlocks.Kernel/ BuildingBlocks/SRECommerce.BuildingBlocks.Kernel/
+COPY Backend/BuildingBlocks/SRECommerce.BuildingBlocks.Contracts/ BuildingBlocks/SRECommerce.BuildingBlocks.Contracts/
 RUN dotnet publish Services/Identity/SRECommerce.Identity.API -c Release -o /app --no-restore --nologo -m:1 /p:UseSharedCompilation=false
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0.14

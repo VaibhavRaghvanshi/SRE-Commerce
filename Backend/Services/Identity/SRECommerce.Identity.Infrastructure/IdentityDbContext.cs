@@ -27,7 +27,7 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
     {
         base.OnModelCreating(model);
         model.UseOpenIddict();
-        // All authorization subjects are this service's GUID user IDs. Bound
+        // Subjects are GUID user IDs or bounded svc:<service> identifiers. Bound
         // these indexed columns to keep SQL Server composite keys below 1700 bytes.
         model.Entity<OpenIddict.EntityFrameworkCore.Models.OpenIddictEntityFrameworkCoreAuthorization>().Property(x=>x.Subject).HasMaxLength(36);
         model.Entity<OpenIddict.EntityFrameworkCore.Models.OpenIddictEntityFrameworkCoreToken>().Property(x=>x.Subject).HasMaxLength(36);

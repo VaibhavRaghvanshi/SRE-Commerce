@@ -1,0 +1,42 @@
+# Opt-in backend transport/cache only. Credentials/config are generated privately.
+services:
+  rabbitmq:
+    image: rabbitmq:4.3.6-management-alpine
+    profiles: [backend-infra]
+    environment:
+      RABBITMQ_DEFAULT_USER: ${BACKEND_BROKER_ADMIN_USER:?Provision local broker credentials}
+      RABBITMQ_DEFAULT_PASS: ${BACKEND_BROKER_ADMIN_PASSWORD:?Provision local broker credentials}
+      RABBITMQ_DEFAULT_VHOST: srecommerce
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "-rabbit vm_memory_high_watermark 0.5 -rabbit disk_free_limit 1073741824"
+    ports: ["127.0.0.1:5672:5672", "127.0.0.1:15672:15672"]
+    volumes: [broker-data:/var/lib/rabbitmq]
+    networks: [identity-local]
+    mem_limit: 384m
+    cpus: 0.75
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD, rabbitmq-diagnostics, -q, ping]
+      interval: 15s
+      timeout: 7s
+      retries: 8
+  valkey:
+    image: valkey/valkey:8.1.11-alpine3.24
+    profiles: [backend-infra]
+    command: [valkey-server, /etc/valkey/valkey.conf]
+    ports: ["127.0.0.1:6379:6379"]
+    volumes:
+      - ./artifacts/backend-infra/valkey.conf:/etc/valkey/valkey.conf:ro
+      - ./artifacts/backend-infra/users.acl:/etc/valkey/users.acl:ro
+      - cache-data:/data
+    networks: [identity-local]
+    mem_limit: 128m
+    cpus: 0.25
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD-SHELL, "valkey-cli ping 2>&1 | grep -Eq 'PONG|NOAUTH'"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+volumes:
+  broker-data:
+  cache-data:

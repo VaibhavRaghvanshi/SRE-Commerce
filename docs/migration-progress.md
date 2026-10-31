@@ -1,10 +1,20 @@
 # SRECommerce migration progress
 
-Last updated: 2026-10-29 (Asia/Calcutta).
+Last updated: 2026-10-31 (Asia/Calcutta).
 
 ## Current checkpoint
 
-**WAITING_FOR_USER_APPROVAL.** Approved Tenant Management backend is complete locally: `SRECommerce.Tenant.*`, `SRECommerce_TenantDB`, required Identity HTTP-contract integration, migrations, tests, Docker packaging and recovery documentation. Final [Tenant completion report](architecture/tenant-completion-report.md) and [source inventory](architecture/tenant-source-inventory.md) are ready. No gateway/Angular/other service is approved. GitHub push still requires separate approval. The earlier Identity/Docker checkpoint is local commit `7eaf9a8`; Tenant work is saved in the subsequent local checkpoint.
+**LATEST OWNER OVERRIDE:** routine implementation and GitHub pushes to `migration/saas-modernization` are approved without repeated questions; backend and Angular now proceed together. Earlier backend-before-Angular / ask-before-each-push wording below is historical and superseded. Preserve source data/private credentials and avoid destructive resets. Prioritize a usable commerce flow while retaining the full delivery matrix; the requested two-day target is not a claim that the entire master scope is already implemented.
+
+2026-10-31: owner confirmed the same five-project/API-Controllers layout for all remaining services. Storefront suite has now completed **25/25 passed** (`artifacts/storefront-tests/storefront-full.trx`); main service database migration/backup and container integration remain pending. Do not confuse passing isolated SQL tests with full deployment acceptance.
+
+Latest owner decision: continue APIs/native Windows-auth SQL tests; **hold all new SQL runtime logins, OAuth clients and RabbitMQ/Valkey account provisioning**. Prepared scripts remain unexecuted. Existing Identity/Tenant runtime credentials were approved earlier. New-service Docker/messaging acceptance remains pending where it needs these credentials.
+
+Source visibility clarification: editable controllers are now organized under `Backend/Services/{Service}/SRECommerce.{Service}.API/Controllers`. `bin/Release/net10.0` contains build outputs, not C# controller source. Open `Backend/SRECommerce.Backend.slnx` and [Backend source guide](../Backend/README.md). Existing service folders: Identity, Tenant, Theme, Storefront; remaining services/gateway are still pending. Full 23-project solution build passed with zero warnings/errors after moving controllers.
+
+Theme native checkpoint: 17/17 full-suite tests plus an additional SQL-outage test passed. Migration `20261030144402_InitialTheme` applied to its owned SQL database; six development presets initialized explicitly, no tenant drafts seeded. COPY_ONLY/CHECKSUM backup, VERIFYONLY, isolated read-only restore and CHECKDB verified (`artifacts/theme-backup-manifest.json`). Storefront now has five substantive projects, typed layout rules/API/persistence, a generated initial migration and a running SQL integration suite; do not yet report its native/SQL acceptance as complete.
+
+**ALL BACKEND / SQL PHASE APPROVED — IN PROGRESS.** Owner explicitly requested all remaining separate Clean Architecture APIs and SQL work before Angular. This supersedes individual backend stop checkpoints. Continue through the [backend completion plan](architecture/backend-completion-plan.md); do not start Angular until its backend/SQL gate passes. Owner selected current SQLite data for explicit Legacy Demo tenant backfill, preserving both sources. GitHub push still requires separate approval; destructive/security-sensitive provisioning remains gated. Existing verified checkpoints: Identity/Docker `7eaf9a8`, Tenant `614fd46`.
 
 Current reports: [Identity completion](architecture/identity-completion-report.md), [Docker setup in Hinglish](docker-local-development.md), [Identity runbook](runbooks/identity-service.md). Identity 24/24 tests and original backend 33/33 regression tests passed. Native and Docker Identity smoke each passed 13 checks. Docker Client/Server 28.3.3, Linux mode, docker ps and hello-world passed; Identity/Mailpit are healthy with zero restarts. Host SQL connectivity works through a restricted runtime login. No migrations/business logic/auth behavior were changed during the Docker follow-up.
 
@@ -16,7 +26,7 @@ Owner clarified that this folder had no earlier Git history, authorized Git/GitH
 
 Earlier baseline delivery: [uploaded migration branch](https://github.com/VaibhavRaghvanshi/SRE-Commerce/tree/migration/saas-modernization), based on the owner's initial commit `1ab0d5d`. Stabilization import commit: `d25d509`, documentation commit: `7d811aa`. No pull request was created: connector returned HTTP 403 (Resource not accessible by integration); the browser fallback timed out while preparing the form. No merge/deployment occurred. Baseline smoke processes were stopped after testing. Backups and the read-only SQL restore clones remain available locally.
 
-Next single recommended task: one Identity Angular integration module, only after explicit owner approval. Do not begin another service/frontend module automatically. Source push also requires separate approval.
+Current task: complete shared backend foundation, gateway and the twelve remaining service backends/SQL, with Identity/Tenant integration extensions, sequential migrations/backfill and verification. Angular integration follows only after this full backend gate. Do not stop merely because one remaining service finishes; the owner has approved the backend batch. Source push still requires separate approval.
 
 Tenant implementation checkpoint: all five projects, lifecycle/configuration/plan/location/domain/audit APIs, SQL query/write guards and Identity HTTP context integration are present. Migration `20261029143617_InitialTenant` was reviewed/applied to the new database (13 tables including history); only five business types/two development plans initialized, zero real businesses before smoke. Owner explicitly approved the dedicated Tenant runtime login; provisioning and DML-only/no-cross-database privilege probes passed. Credentials remain in local user-secrets/ignored .env.
 

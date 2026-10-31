@@ -1,0 +1,31 @@
+# Opt-in only. New runtime credentials are currently on owner-requested hold.
+services:
+  identity:
+    profiles: [identity-api, tenant-api, theme-api]
+  tenant:
+    profiles: [tenant-api, theme-api]
+    environment:
+      AllowedHosts: localhost;127.0.0.1;tenant
+  mailpit:
+    profiles: [identity-email, identity-api, tenant-api, theme-api]
+  theme:
+    image: srecommerce-theme:dev
+    build:
+      context: .
+      dockerfile: Backend/Services/Theme/SRECommerce.Theme.API/Dockerfile
+    profiles: [theme-api]
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Theme: ${THEME_SQL_CONNECTION:?Theme runtime login provisioning is pending owner approval}
+      Identity__BaseUrl: http://identity:8080/
+      Tenant__BaseUrl: http://tenant:8080/
+    ports: ["127.0.0.1:5083:8080"]
+    networks: [identity-local]
+    depends_on:
+      identity:
+        condition: service_healthy
+      tenant:
+        condition: service_healthy
+    restart: unless-stopped
+    mem_limit: 384m
+    cpus: 0.75

@@ -13,11 +13,11 @@ public sealed class TenantOperations(TenantDbContext db,ITenantCaller accessor,T
     private static TenantView View(BusinessTenant t)=>new(t.Id,t.OwnerUserId,t.Name,t.Slug,t.BusinessTypeCode,t.CustomBusinessType,t.Status,t.SuspensionReason,t.DatabaseStrategy,Convert.ToBase64String(t.Version),t.CreatedAt);
     private void Admin() { if(!Caller.IsPlatformAdmin) throw new TenantRuleException("PlatformAdministratorRequired",403); }
     private static void Page(int page) { if(page is <1 or >10000) throw new TenantRuleException("InvalidPage",400); }
-    private async Task<BusinessTenant> Load(Guid id,bool manage,CancellationToken ct)
+    private async Task<BusinessTenant> Load(Guid id,bool manage,CancellationToken ct,bool allowMember=false)
     {
         var tenant=await db.Tenants.SingleOrDefaultAsync(t=>t.Id==id,ct) ?? throw new TenantRuleException("TenantNotFound",404);
         var onboarding=tenant.OwnerUserId==Caller.UserId && tenant.Status is TenantStatus.Draft or TenantStatus.PendingApproval;
-        var selected=Caller.SelectedTenantId==id && Caller.TenantRole is "Owner" or "Manager" or "Staff";
+        var selected=Caller.SelectedTenantId==id && (Caller.TenantRole is "Owner" or "Manager" or "Staff" || allowMember && Caller.TenantRole is "Customer" or "B2BBuyer");
         if(!Caller.IsPlatformAdmin && !onboarding && !selected) throw new TenantRuleException("TenantAccessDenied",403);
         if(manage && !Caller.IsPlatformAdmin && !onboarding && Caller.TenantRole is not ("Owner" or "Manager")) throw new TenantRuleException("TenantManagementRequired",403);
         dataScope.TenantId=id;
@@ -122,7 +122,15 @@ public sealed class TenantOperations(TenantDbContext db,ITenantCaller accessor,T
     }
     public async Task<EntitlementView> Entitlements(Guid id,CancellationToken ct)
     {
-        var tenant=await Load(id,false,ct);var (subscription,plan,allowed)=await Plan(id,ct);
+        var tenant=await Load(id,false,ct);return await Effective(tenant,ct);
+    }
+    public async Task<EntitlementView> MemberEntitlements(Guid id,CancellationToken ct)
+    {
+        var tenant=await Load(id,false,ct,true);return await Effective(tenant,ct);
+    }
+    private async Task<EntitlementView> Effective(BusinessTenant tenant,CancellationToken ct)
+    {
+        var id=tenant.Id;var (subscription,plan,allowed)=await Plan(id,ct);
         var active=tenant.Status==TenantStatus.Active && subscription.IsEffective(DateTimeOffset.UtcNow) && plan.IsActive;
         var configured=await db.Modules.AsNoTracking().Where(m=>m.TenantId==id).ToListAsync(ct);
         return new(id,active,plan.Code,subscription.EndsAt,plan.MaxLocations,plan.MaxDomains,plan.MaxUsers,configured.Select(m=>new ModuleView(m.Module,m.Enabled,allowed.Contains(m.Module),active && m.Enabled && allowed.Contains(m.Module))).ToList());

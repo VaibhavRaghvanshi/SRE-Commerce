@@ -9,6 +9,7 @@ using OpenIddict.Validation.AspNetCore;
 using SRECommerce.Identity.API;
 using SRECommerce.Identity.Application;
 using SRECommerce.Identity.Infrastructure;
+using SRECommerce.BuildingBlocks.Contracts;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 
 if (args.Contains("--healthcheck"))
@@ -26,7 +27,7 @@ if (args.Contains("--healthcheck"))
 var hostArguments = new List<string>();
 for (var index=0; index<args.Length; index++)
 {
-    if (args[index]=="--import-legacy") { index++; continue; }
+    if (args[index] is "--import-legacy" or "--initialize-service-clients") { index++; continue; }
     if (args[index] is "--initialize" or "--apply-import" or "--link-reviewed-legacy-aliases") continue;
     hostArguments.Add(args[index]);
 }
@@ -98,8 +99,8 @@ builder.Services.AddOpenIddict()
         o.SetIssuer(new Uri(builder.Configuration["Identity:Issuer"]!));
         o.SetAuthorizationEndpointUris("/connect/authorize").SetTokenEndpointUris("/connect/token")
             .SetRevocationEndpointUris("/connect/revoke").SetEndSessionEndpointUris("/connect/logout");
-        o.AllowAuthorizationCodeFlow().RequireProofKeyForCodeExchange().AllowRefreshTokenFlow();
-        o.RegisterScopes(Scopes.OpenId, Scopes.Profile, Scopes.Email, Scopes.OfflineAccess, "identity_api", "tenant_api");
+        o.AllowAuthorizationCodeFlow().RequireProofKeyForCodeExchange().AllowRefreshTokenFlow().AllowClientCredentialsFlow();
+        o.RegisterScopes(new[]{Scopes.OpenId,Scopes.Profile,Scopes.Email,Scopes.OfflineAccess,"identity_api","tenant_api","commerce_api"}.Concat(ServiceManifest.All.Select(s=>s.InternalScope)).ToArray());
         o.SetAccessTokenLifetime(TimeSpan.FromMinutes(5)).SetRefreshTokenLifetime(TimeSpan.FromDays(7));
         o.SetRefreshTokenReuseLeeway(TimeSpan.Zero);
         o.DisableAccessTokenEncryption();
@@ -114,13 +115,22 @@ builder.Services.AddOpenIddict()
         var host = o.UseAspNetCore().EnableAuthorizationEndpointPassthrough().EnableTokenEndpointPassthrough().EnableEndSessionEndpointPassthrough();
         if (builder.Environment.IsDevelopment()) host.DisableTransportSecurityRequirement();
     })
-    .AddValidation(o => { o.UseLocalServer(); o.UseAspNetCore(); o.AddAudiences("srecommerce.identity"); o.EnableTokenEntryValidation(); o.EnableAuthorizationEntryValidation(); });
+    .AddValidation(o => { o.UseLocalServer(); o.UseAspNetCore(); o.AddAudiences("srecommerce.identity","srecommerce.internal"); o.EnableTokenEntryValidation(); o.EnableAuthorizationEntryValidation(); });
 builder.Services.AddAuthentication(o =>
 {
     o.DefaultAuthenticateScheme = OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme;
     o.DefaultChallengeScheme = OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme;
 });
-builder.Services.AddAuthorization(o => o.AddPolicy("ActiveSession", p => p.RequireAuthenticatedUser().AddRequirements(new ActiveSessionRequirement())));
+builder.Services.AddAuthorization(o =>
+{
+    o.AddPolicy("ActiveSession",p=>p.RequireAuthenticatedUser().AddRequirements(new ActiveSessionRequirement()));
+    o.AddPolicy("ServiceAccess",p=>p.RequireAuthenticatedUser().RequireAssertion(context=>
+    {
+        var name=context.User.GetClaim("service_name");
+        return name is not null && ServiceManifest.All.Any(s=>s.Name==name) && context.User.HasClaim("gty","client_credentials")
+            && context.User.GetClaim("client_id")==ServiceManifest.ClientId(name) && context.User.GetAudiences().Contains("srecommerce.internal");
+    }));
+});
 builder.Services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, ActiveSessionHandler>();
 builder.Services.AddRateLimiter(o =>
 {
@@ -163,10 +173,16 @@ app.MapGet("/health/ready", async (IdentityDbContext db, CancellationToken ct) =
     try { await db.Profiles.OrderBy(x => x.UserId).Select(x => x.UserId).Take(1).ToListAsync(ct); return Results.Ok(new { status = "ready" }); }
     catch (Exception ex) when (ex is not OperationCanceledException) { return Results.StatusCode(503); }
 });
-if (args.Contains("--initialize") || args.Contains("--import-legacy"))
+if (args.Contains("--initialize") || args.Contains("--import-legacy") || args.Contains("--initialize-service-clients"))
 {
     using var scope = app.Services.CreateScope();
     if (args.Contains("--initialize")) await IdentitySetup.InitializeAsync(scope.ServiceProvider, app.Configuration, app.Environment);
+    if(args.Contains("--initialize-service-clients"))
+    {
+        var index=Array.IndexOf(args,"--initialize-service-clients");
+        if(index+1>=args.Length)throw new InvalidOperationException("Provide the reviewed private service-client manifest path");
+        await ServiceClientProvisioning.RegisterAsync(scope.ServiceProvider,args[index+1]);
+    }
     if (args.Contains("--import-legacy"))
     {
         var index = Array.IndexOf(args, "--import-legacy");

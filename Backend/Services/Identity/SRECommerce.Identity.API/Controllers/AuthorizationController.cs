@@ -13,6 +13,7 @@ using OpenIddict.Server.AspNetCore;
 using SRECommerce.Identity.Application;
 using SRECommerce.Identity.Domain;
 using SRECommerce.Identity.Infrastructure;
+using SRECommerce.BuildingBlocks.Contracts;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 
 namespace SRECommerce.Identity.API;
@@ -94,6 +95,18 @@ public sealed class AuthorizationController(IdentityDbContext db, UserManager<Ap
     public async Task<IActionResult> Token(CancellationToken ct)
     {
         var request = HttpContext.GetOpenIddictServerRequest()!;
+        if(request.IsClientCredentialsGrantType())
+        {
+            var service=ServiceManifest.All.SingleOrDefault(s=>ServiceManifest.ClientId(s.Name)==request.ClientId);
+            if(service is null || request.GetScopes().Any(scope=>!ServiceManifest.Scopes(service.Name).Contains(scope)))return Denied();
+            var serviceIdentity=new ClaimsIdentity(TokenValidationParameters.DefaultAuthenticationType);
+            serviceIdentity.SetClaim(Claims.Subject,"svc:"+service.Name);serviceIdentity.SetClaim("service_name",service.Name);
+            serviceIdentity.SetClaim("client_id",request.ClientId);serviceIdentity.SetClaim("gty","client_credentials");
+            var servicePrincipal=new ClaimsPrincipal(serviceIdentity);servicePrincipal.SetScopes(request.GetScopes());servicePrincipal.SetResources("srecommerce.internal");
+            servicePrincipal.SetDestinations(_=>[Destinations.AccessToken]);
+            await accounts.AuditAsync(null,null,"service.token.issue",service.Name,ct);
+            return SignIn(servicePrincipal,OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+        }
         if (!request.IsAuthorizationCodeGrantType() && !request.IsRefreshTokenGrantType()) return BadRequest(new { error = "unsupported_grant_type" });
         var authentication = await HttpContext.AuthenticateAsync(OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
         var principal = authentication.Principal;
@@ -156,6 +169,7 @@ public sealed class AuthorizationController(IdentityDbContext db, UserManager<Ap
         var resources = new List<string>();
         if (principal.HasScope("identity_api")) resources.Add("srecommerce.identity");
         if (principal.HasScope("tenant_api")) resources.Add("srecommerce.tenant");
+        if (principal.HasScope("commerce_api")) resources.Add("srecommerce.commerce");
         principal.SetResources(resources);
         principal.SetDestinations(claim => claim.Type switch
         {

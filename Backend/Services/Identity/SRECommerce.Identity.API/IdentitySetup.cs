@@ -23,17 +23,19 @@ public static class IdentitySetup
                 DisplayName = "SRECommerce first-party development client", RedirectUris = { redirect },
                 Permissions = { Permissions.Endpoints.Authorization, Permissions.Endpoints.Token, Permissions.Endpoints.Revocation, Permissions.Endpoints.EndSession,
                     Permissions.GrantTypes.AuthorizationCode, Permissions.GrantTypes.RefreshToken, Permissions.ResponseTypes.Code,
-                    Permissions.Scopes.Email, Permissions.Scopes.Profile, Permissions.Prefixes.Scope + "identity_api", Permissions.Prefixes.Scope + "tenant_api" },
+                    Permissions.Scopes.Email, Permissions.Scopes.Profile, Permissions.Prefixes.Scope + "identity_api", Permissions.Prefixes.Scope + "tenant_api", Permissions.Prefixes.Scope + "commerce_api" },
                 Requirements = { Requirements.Features.ProofKeyForCodeExchange }
             });
         // Explicit initialization upgrades this client's allowed API scope while
         // preserving its existing redirects, requirements and other settings.
         var application = (await manager.FindByClientIdAsync(clientId))!;
-        if (!(await manager.GetPermissionsAsync(application)).Contains(Permissions.Prefixes.Scope + "tenant_api"))
+        var currentPermissions = await manager.GetPermissionsAsync(application);
+        if (new[]{"tenant_api","commerce_api"}.Any(scope=>!currentPermissions.Contains(Permissions.Prefixes.Scope+scope)))
         {
             var descriptor = new OpenIddictApplicationDescriptor();
             await manager.PopulateAsync(descriptor, application);
             descriptor.Permissions.Add(Permissions.Prefixes.Scope + "tenant_api");
+            descriptor.Permissions.Add(Permissions.Prefixes.Scope + "commerce_api");
             await manager.UpdateAsync(application, descriptor);
         }
         var roles = services.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
