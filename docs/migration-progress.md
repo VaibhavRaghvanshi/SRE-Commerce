@@ -1,5 +1,9 @@
 # SRECommerce migration progress
 
+## Historical Order backfill — 2026-11-01
+
+All three approved source orders have now been imported into the dedicated Legacy Demo tenant's main OrderDB through normal owner PKCE and the owning API. **Three orders, six lines, eight source units, INR 474,789 total and INR 297 shipping** reconcile; exact replay preserved IDs. Original payment/structured destination/tax details were not recorded and remain explicitly marked, while source references and all original financial/contact/item facts remain preserved in immutable historical snapshots. No unverified customer account links were created. SQL verification confirms zero checkout intents, zero Order integration-outbox events and zero Payment transactions from this import. Order post-import backup/restore/CHECKDB passed; original SQLite hash is unchanged. Native verification used only Identity/Tenant/Order and these owned processes were stopped afterward. Source code remains in the same service folders; the launcher now supports explicitly selecting Order/Payment without enabling them by default.
+
 ## Latest checkpoint — Payment and main checkout schemas, 2026-11-01
 
 Payment now has five substantive Clean Architecture projects and its own solution; the root modern solution contains 55 projects. Real sandbox Payment replaces the Payment test double in **14 passing integration/unit cases** with actual Order/Cart/Pricing/Inventory/Catalog/Identity/Tenant test APIs and isolated SQL. Shipping is still a named test double. Card/UPI/NetBanking, COD delivery guard, authoritative amounts/precision, replay, bounded concurrent partial refunds, HMAC callback verification/late-event rejection, customer isolation, immutable history and disabled-module recovery are covered. Order regression **9/9** and Gateway **11/11** also pass.

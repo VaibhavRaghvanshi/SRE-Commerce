@@ -13,7 +13,13 @@ public sealed partial class OrderService(IOrderRepository repository,IOrderAcces
   if(value.CountryCode.Length!=2||value.CountryCode.Any(c=>c is <'A' or >'Z')||value.PostalCode.Length is <2 or >16||value.PostalCode.Any(c=>!char.IsAsciiLetterOrDigit(c)&&c!=' '&&c!='-'))throw new BusinessFault("InvalidShippingRegion",400);
   return value with{FullName=value.FullName.Trim(),Email=email.Address,AddressLine1=value.AddressLine1.Trim(),AddressLine2=value.AddressLine2?.Trim(),City=value.City.Trim(),PostalCode=value.PostalCode.Trim().ToUpperInvariant()};
  }
- internal static OrderView View(SalesOrder o)=>new(o.Id,o.Number,o.Status,o.PaymentState,o.PaymentMethod,o.Currency,o.DecimalPlaces,o.Subtotal,o.Discount,o.Net,o.Tax,o.ItemsTotal,o.ShippingTotal,o.Total,ContractJson.Read<OrderContact>(o.ContactDocument),o.Items.OrderBy(i=>i.Sku).Select(i=>new OrderLineView(i.ProductId,i.VariantId,i.Sku,i.Name,i.Quantity,i.Fulfilled,i.Delivered,i.ReturnRequested,i.Returned,i.UnitPrice,i.Subtotal,i.Discount,i.Net,i.Tax,i.Total,i.ShipmentRequested,i.RefundAllocated)).ToArray(),o.InvoiceReference,o.Historical,o.CreatedAt,Version(o.Version),o.Refunded,o.DeliveredAt);
+ private static bool TaxRecorded(SalesOrder order)
+ {
+  if(!order.Historical)return true;
+  using var document=System.Text.Json.JsonDocument.Parse(order.PriceSnapshot);
+  return !document.RootElement.TryGetProperty("source",out var source)||source.ValueKind!=System.Text.Json.JsonValueKind.Object||!source.TryGetProperty("taxSplitRecorded",out var recorded)||recorded.ValueKind!=System.Text.Json.JsonValueKind.False;
+ }
+ internal static OrderView View(SalesOrder o)=>new(o.Id,o.Number,o.Status,o.PaymentState,o.PaymentMethod,o.Currency,o.DecimalPlaces,o.Subtotal,o.Discount,o.Net,o.Tax,o.ItemsTotal,o.ShippingTotal,o.Total,ContractJson.Read<OrderContact>(o.ContactDocument),o.Items.OrderBy(i=>i.Sku).Select(i=>new OrderLineView(i.ProductId,i.VariantId,i.Sku,i.Name,i.Quantity,i.Fulfilled,i.Delivered,i.ReturnRequested,i.Returned,i.UnitPrice,i.Subtotal,i.Discount,i.Net,i.Tax,i.Total,i.ShipmentRequested,i.RefundAllocated)).ToArray(),o.InvoiceReference,o.Historical,o.CreatedAt,Version(o.Version),o.Refunded,o.DeliveredAt,TaxRecorded(o));
  private async Task<CheckoutView> CheckoutView(CheckoutIntent intent,CancellationToken ct)=>new(intent.Id,intent.State,intent.Phase,intent.State==Domain.CheckoutState.ManualReview?"CheckoutNeedsSupport":intent.State==Domain.CheckoutState.Cancelled?"CheckoutCancelled":intent.State==Domain.CheckoutState.Failed?"CheckoutFailed":null,intent.CreatedAt,await repository.Order(intent.Id,ct) is {} order?View(order):null);
  private void Owner(CheckoutIntent intent,bool guest,string? capability)
  {

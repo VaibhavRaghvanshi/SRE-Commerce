@@ -14,6 +14,32 @@ namespace SRECommerce.Order.Tests;
 
 public sealed class OrderApiTests(OrderFixture fixture) : IClassFixture<OrderFixture>
 {
+    [Fact]
+    public async Task Historical_shipping_and_unknown_payment_address_metadata_are_preserved_without_invented_facts()
+    {
+        using var business = await fixture.Business();
+        var source = new HistoricalSourceInfo(new string('A', 64), "123", "legacy-customer-3", "Pending", "2026-05-31 17:40:50.4673517", "Original unstructured address", false, [new("line-1", "1", "/assets/source.jpg", 0)]);
+        var line = new OrderLineView(business.Pricing.Product, business.Variant, "SOURCE-1", "Source item", 1, 0, 0, 0, 0, 100, 100, 0, 100, 0, 100);
+        var row = new HistoricalOrderRow("legacy:unknown:1", null, "LEGACY-UNKNOWN-1", OrderStatus.AwaitingPayment, PaymentState.NotRecorded,
+            "NotRecorded", "INR", 2, business.Request.Contact with { AddressLine1 = source.ShippingAddress, City = "", CountryCode = "", PostalCode = "" },
+            DateTimeOffset.Parse("2026-05-31T17:40:50.4673517Z", System.Globalization.CultureInfo.InvariantCulture), 100, 0, 100, 0, 199, [line], 99, source);
+        var path = Manage(business.Tenant) + "/historical-imports";
+        var ids = await Read<Guid[]>(await business.Owner.PostAsJsonAsync(path, new HistoricalOrderImport(Guid.NewGuid(), "isolated-legacy", [row])));
+        var order = (await business.Owner.GetFromJsonAsync<OrderView>(Manage(business.Tenant) + $"/orders/{Assert.Single(ids)}"))!;
+        Assert.Equal(199, order.Total); Assert.Equal(99, order.ShippingTotal); Assert.Equal(100, order.ItemsTotal);
+        Assert.Equal(PaymentState.NotRecorded, order.PaymentState); Assert.Equal("NotRecorded", order.PaymentMethod);
+        Assert.False(order.TaxDetailsRecorded);
+        Assert.Equal("", order.Contact.CountryCode); Assert.Equal("", order.Contact.PostalCode);
+        Assert.Equal(source.ShippingAddress, order.Contact.AddressLine1);
+        using var scope = fixture.Factory.Services.CreateScope(); scope.ServiceProvider.GetRequiredService<ModuleScope>().BindEvent(business.Tenant, "Order");
+        var db = scope.ServiceProvider.GetRequiredService<OrderDbContext>(); var stored = await db.Orders.SingleAsync();
+        Assert.Contains("legacy-customer-3", stored.PriceSnapshot); Assert.Null(stored.UserId); Assert.Empty(await db.Outbox.ToListAsync());
+        // One malformed row rolls back the entire new batch, including preceding valid rows.
+        var invalid = new HistoricalOrderImport(Guid.NewGuid(), "invalid-atomic-batch", [row with { Reference = "new-valid", Number = "NEW-VALID" }, row with { Reference = "new-invalid", Number = "NEW-INVALID", Total = 198 }]);
+        Assert.Equal(HttpStatusCode.BadRequest, (await business.Owner.PostAsJsonAsync(path, invalid)).StatusCode);
+        Assert.Equal(1, await db.Orders.CountAsync());
+    }
+
     private async Task<FulfillmentView> Deliver(OrderBusiness business, OrderView order, decimal quantity)
     {
         var fulfillment = await Read<FulfillmentView>(await business.Owner.PostAsJsonAsync(

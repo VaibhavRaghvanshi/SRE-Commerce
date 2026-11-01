@@ -13,7 +13,7 @@ export interface CommerceOrder {
   currency: string; decimalPlaces: number; subtotal: number; discount: number; net: number;
   tax: number; itemsTotal: number; shippingTotal: number; total: number; refunded: number;
   contact: OrderContact; items: CommerceOrderLine[]; invoiceReference: string | null;
-  historical: boolean; createdAt: string; deliveredAt: string | null; version: string;
+  historical: boolean; createdAt: string; deliveredAt: string | null; version: string; taxDetailsRecorded: boolean;
 }
 export interface CommerceOrderPage { items: CommerceOrder[]; total: number; page: number; pageSize: number; }
 export interface CommerceOrderHistory { previous: number | null; current: number; reason: string; createdAt: string; }
@@ -24,4 +24,4 @@ export interface CommerceOrderPolicy {
 export const ORDER_STATUSES = ['Awaiting payment', 'Confirmed', 'Processing', 'Partially fulfilled',
   'Fulfilled', 'Delivered', 'Completed', 'Cancelled', 'Failed', 'Needs review', 'Cancellation pending'];
 export const PAYMENT_STATES = ['Pending', 'Authorized', 'Captured', 'Cash on delivery',
-  'Partially refunded', 'Refunded', 'Failed'];
+  'Partially refunded', 'Refunded', 'Failed', 'Not recorded'];

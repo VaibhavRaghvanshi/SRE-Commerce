@@ -46,3 +46,22 @@ Before/after verification commands:
 ```
 
 Each script makes a COPY_ONLY checksum backup, verifies it, restores to a new isolated database, runs CHECKDB and makes that restore read-only. Existing databases and backups are preserved.
+# Historical Order backfill — verified 2026-11-01
+
+The three original SQLite orders are now preserved in the dedicated Legacy Demo tenant's OrderDB: **3 orders, 6 lines, 8 ordered units, total INR 474,789 and shipping INR 297**. Exact replay returned the same three target IDs. SQL verification found zero checkout intents, zero Order integration-outbox events and zero Payment transactions from this backfill. It does not deduct the opening inventory a second time. COPY_ONLY/checksum backup, VERIFYONLY, separate read-only restore and CHECKDB passed after import. The original SQLite SHA256 remains unchanged.
+
+The legacy schema did not record payment verification/method, structured city/country/postal fields or a separate tax allocation. The import uses explicit `NotRecorded` payment state/method, blank missing destination fields and `taxSplitRecorded:false`; it does not invent payment success, a destination or a tax exemption. Original name/email/phone/address, order number/status/amounts/shipping, all seven timestamp fractional digits, source customer references, source item IDs/product IDs/image URLs/per-unit discounts and source fingerprint are retained. Legacy application code wrote UTC timestamps; their original text also remains in provenance. Customer links remain null until a separate verified account-link workflow exists.
+
+```powershell
+# Review only; reads approved SQLite originals/backups in read-only mode.
+node scripts/import-legacy-demo-orders.mjs
+# Requires the existing private Legacy Demo owner and already-migrated OrderDB.
+./scripts/Start-CommerceDevelopment.ps1 -Services Identity,Tenant,Order
+node scripts/import-legacy-demo-orders.mjs --apply --verify-replay
+./scripts/Verify-ServiceDatabaseBackup.ps1 -Service Order
+./scripts/Stop-CommerceDevelopment.ps1 -Services Identity,Tenant,Order
+```
+
+The exact request and results are in ignored `artifacts/legacy-demo-order-import.json`. It contains private historical contacts and must never enter Git. The coordinator uses normal owner PKCE login and the owning Order API. It calls no stock, payment or messaging mutation API. Historical records are read-only and reject live fulfillment/checkout/return operations. The ten-case Order suite passes, including missing metadata, exact financial/shipping snapshots, atomic invalid-batch rollback and the existing operational workflows.
+
+The earlier product/price/stock checkpoint follows.
