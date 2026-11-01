@@ -1,3 +1,5 @@
+IF DB_NAME() <> N'SRECommerce_InventoryDB' THROW 50001, 'Wrong service migration database', 1;
+GO
 BEGIN TRANSACTION;
 IF NOT EXISTS (
     SELECT * FROM [__EFMigrationsHistory]

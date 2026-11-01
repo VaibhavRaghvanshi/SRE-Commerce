@@ -14,7 +14,7 @@ if(Test-Path -LiteralPath $environmentFile){
     foreach($line in Get-Content -LiteralPath $environmentFile){
         if($line -match '^([^#=]+)=(.+)$'){
             $entryName=$Matches[1];$entryValue=$Matches[2]
-            if($entryName -match '(?i)PASSWORD|SECRET|TOKEN|CONNECTION'){AddPrivateValue $entryValue.Trim().Trim('"').Trim("'")}
+            if($entryName -match '(?i)PASSWORD|SECRET|TOKEN|SIGNINGKEY|WEBHOOKKEY|APIKEY|HMACKEY|CONNECTION'){AddPrivateValue $entryValue.Trim().Trim('"').Trim("'")}
         }
     }
 }
@@ -25,7 +25,7 @@ if(Test-Path -LiteralPath $secretRoot){
         if(Test-Path -LiteralPath $file){
             $values=Get-Content -LiteralPath $file -Raw|ConvertFrom-Json
             foreach($property in $values.PSObject.Properties){
-                if($property.Name -match '(?i)PASSWORD|SECRET|TOKEN|PRIVATEKEY|CONNECTION') {AddPrivateValue ([string]$property.Value)}
+                if($property.Name -match '(?i)PASSWORD|SECRET|TOKEN|PRIVATEKEY|SIGNINGKEY|WEBHOOKKEY|APIKEY|HMACKEY|CONNECTION') {AddPrivateValue ([string]$property.Value)}
             }
         }
     }

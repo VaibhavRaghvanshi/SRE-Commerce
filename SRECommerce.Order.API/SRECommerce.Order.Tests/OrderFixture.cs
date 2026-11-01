@@ -14,7 +14,7 @@ public sealed class OrderFactory(OrderFixture fixture):WebApplicationFactory<Ord
    services.AddSingleton<TimeProvider>(fixture.Cart.Pricing.Factory.Clock);foreach(var descriptor in services.Where(d=>d.ServiceType==typeof(IHostedService)&&d.ImplementationType==typeof(OrderRecoveryWorker)).ToArray())services.Remove(descriptor);
    services.AddHttpClient("identity").ConfigurePrimaryHttpMessageHandler(()=>fixture.Cart.Pricing.Catalog.Tenant.Identity.Factory.Server.CreateHandler());services.AddHttpClient("service-identity").ConfigurePrimaryHttpMessageHandler(()=>fixture.Cart.Pricing.Catalog.Tenant.Identity.Factory.Server.CreateHandler());
    services.AddHttpClient("tenant").ConfigurePrimaryHttpMessageHandler(()=>fixture.Cart.Pricing.Catalog.Tenant.Factory.Server.CreateHandler());services.AddHttpClient("catalog").ConfigurePrimaryHttpMessageHandler(()=>fixture.Cart.Pricing.Catalog.Factory.Server.CreateHandler());services.AddHttpClient("cart").ConfigurePrimaryHttpMessageHandler(()=>fixture.Cart.Factory.Server.CreateHandler());services.AddHttpClient("inventory").ConfigurePrimaryHttpMessageHandler(()=>fixture.Cart.Inventory.Server.CreateHandler());services.AddHttpClient("pricing").ConfigurePrimaryHttpMessageHandler(()=>fixture.Cart.Pricing.Factory.Server.CreateHandler());
-   services.AddHttpClient("payment").ConfigurePrimaryHttpMessageHandler(()=>new PendingProviderHandler(fixture,"Payment"));services.AddHttpClient("shipping").ConfigurePrimaryHttpMessageHandler(()=>new PendingProviderHandler(fixture,"Shipping"));
+   services.AddHttpClient("payment").ConfigurePrimaryHttpMessageHandler(()=>fixture.PaymentHandler?.Invoke()??new PendingProviderHandler(fixture,"Payment"));services.AddHttpClient("shipping").ConfigurePrimaryHttpMessageHandler(()=>fixture.ShippingHandler?.Invoke()??new PendingProviderHandler(fixture,"Shipping"));
   });builder.ConfigureLogging(o=>o.SetMinimumLevel(LogLevel.Error));
  }
  public HttpClient Client(string? token=null,string? orderKey=null,string? cartKey=null)
@@ -27,6 +27,8 @@ public sealed record OrderBusiness(PricingBusiness Pricing,HttpClient Client,Htt
 public sealed class OrderFixture:IDisposable
 {
  public CartFixture Cart{get;}=new();public OrderFactory Factory{get;}public PendingProviders Providers{get;}=new();internal string OrderSecret{get;}=Convert.ToHexString(RandomNumberGenerator.GetBytes(32));private readonly Dictionary<string,string> secrets=[];
+ public Func<HttpMessageHandler>? PaymentHandler{get;set;}public Func<HttpMessageHandler>? ShippingHandler{get;set;}
+ public string ClientSecret(string source)=>secrets[source];
  public OrderFixture()
  {
   Register("Order",OrderSecret).GetAwaiter().GetResult();foreach(var source in new[]{"Payment","Shipping"})Register(source,Convert.ToHexString(RandomNumberGenerator.GetBytes(32))).GetAwaiter().GetResult();Factory=new(this);using var client=Factory.Client();using var scope=Factory.Services.CreateScope();var db=scope.ServiceProvider.GetRequiredService<OrderDbContext>();if(db.Database.GetDbConnection().Database!=Factory.DatabaseName||!Factory.DatabaseName.StartsWith("SRECommerce_OrderTests_",StringComparison.Ordinal))throw new InvalidOperationException("Wrong Order test database");db.Database.Migrate();

@@ -4,6 +4,8 @@ Owner instruction on 2026-10-31: first match `D:\Projects\Cruds\GrowthStack`. Ea
 
 Identity, Tenant, Theme, Storefront, Catalog, Inventory, Pricing and Cart contain substantive code. Interfaces/DTOs, entities/enums/value objects/rules, data/services/integrations/initialization/repositories and controllers have named directories and named type files. Splitting preserves namespaces, attributes and executable members. This change does not claim new repository implementations or use cases merely because folders exist.
 
+Order and Payment now also follow the same five-project layout, each with its own solution and actual domain/application/persistence/API/test code. The current root modern solution includes 55 projects. Order is still in progress; Payment is explicitly sandbox-only. The older relocation verification counts below are historical.
+
 `SRECommerce.BuildingBlocks` holds existing shared contracts/primitives/transport helpers, not shared business tables. `SRECommerce.slnx` aggregates modern backend projects. Each service `.sln` contains its five projects and resolves shared references normally.
 
 The monolith is preserved under `SRECommerce.Legacy.API`, including own solution, .NET 8 SDK pin, regression tests and private SQLite/media. Root SDK/build properties apply to modern services; legacy has an isolated SDK/property boundary. SQLite hash was checked before/after moving. SQL databases, secret IDs, Docker volumes and business/authentication behavior are preserved.

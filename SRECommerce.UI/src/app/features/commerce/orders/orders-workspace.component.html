@@ -1,6 +1,6 @@
 <main>
   <header><div><p class="eyebrow">Business workspace</p><h1>Orders</h1><p>Review checkout, delivery and payment records for your business.</p></div>
-    <nav aria-label="Business workspace"><a [routerLink]="['/workspace',tenant,'catalog']">Catalog</a><a [routerLink]="['/workspace',tenant,'inventory']">Inventory</a><a [routerLink]="['/workspace',tenant,'pricing']">Pricing</a></nav></header>
+    <nav aria-label="Business workspace"><a [routerLink]="['/workspace',tenant,'catalog']">Catalog</a><a [routerLink]="['/workspace',tenant,'inventory']">Inventory</a><a [routerLink]="['/workspace',tenant,'pricing']">Pricing</a><a [routerLink]="['/workspace',tenant,'payments']">Payments</a></nav></header>
   <p role="alert" class="error" *ngIf="error()">{{error()}}</p><p role="status" class="notice" *ngIf="message()">{{message()}}</p>
   <section class="panel" *ngIf="!session.token || !canRead"><h2>Sign in to your business</h2><p>An owner, manager or staff membership is required to view orders.</p><button type="button" (click)="signIn()">Sign in</button></section>
   <ng-container *ngIf="session.token && canRead">

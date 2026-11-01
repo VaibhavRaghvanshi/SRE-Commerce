@@ -45,6 +45,13 @@
     <Project Path="SRECommerce.Order.API/SRECommerce.Order.Infrastructure/SRECommerce.Order.Infrastructure.csproj" />
     <Project Path="SRECommerce.Order.API/SRECommerce.Order.Tests/SRECommerce.Order.Tests.csproj" />
   </Folder>
+  <Folder Name="/SRECommerce.Payment.API/">
+    <Project Path="SRECommerce.Payment.API/SRECommerce.Payment.API/SRECommerce.Payment.API.csproj" />
+    <Project Path="SRECommerce.Payment.API/SRECommerce.Payment.Application/SRECommerce.Payment.Application.csproj" />
+    <Project Path="SRECommerce.Payment.API/SRECommerce.Payment.Domain/SRECommerce.Payment.Domain.csproj" />
+    <Project Path="SRECommerce.Payment.API/SRECommerce.Payment.Infrastructure/SRECommerce.Payment.Infrastructure.csproj" />
+    <Project Path="SRECommerce.Payment.API/SRECommerce.Payment.Tests/SRECommerce.Payment.Tests.csproj" />
+  </Folder>
   <Folder Name="/SRECommerce.Pricing.API/">
     <Project Path="SRECommerce.Pricing.API/SRECommerce.Pricing.API/SRECommerce.Pricing.API.csproj" />
     <Project Path="SRECommerce.Pricing.API/SRECommerce.Pricing.Application/SRECommerce.Pricing.Application.csproj" />

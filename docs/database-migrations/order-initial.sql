@@ -1,3 +1,5 @@
+IF DB_NAME() <> N'SRECommerce_OrderDB' THROW 50001, 'Wrong service migration database', 1;
+GO
 IF OBJECT_ID(N'[__EFMigrationsHistory]') IS NULL
 BEGIN
     CREATE TABLE [__EFMigrationsHistory] (

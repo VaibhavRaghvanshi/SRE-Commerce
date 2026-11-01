@@ -1,5 +1,15 @@
 # SRECommerce migration progress
 
+## Latest checkpoint — Payment and main checkout schemas, 2026-11-01
+
+Payment now has five substantive Clean Architecture projects and its own solution; the root modern solution contains 55 projects. Real sandbox Payment replaces the Payment test double in **14 passing integration/unit cases** with actual Order/Cart/Pricing/Inventory/Catalog/Identity/Tenant test APIs and isolated SQL. Shipping is still a named test double. Card/UPI/NetBanking, COD delivery guard, authoritative amounts/precision, replay, bounded concurrent partial refunds, HMAC callback verification/late-event rejection, customer isolation, immutable history and disabled-module recovery are covered. Order regression **9/9** and Gateway **11/11** also pass.
+
+Angular Payments workspace implements transaction filters, method settings, sandbox decisions, history and local reconciliation. The frontend build (474.40 KB initial) and **39/39 tests** pass. Full customer checkout and real Shipping UI/integration remain pending. Private sandbox signing configuration was initialized in user-secrets and preserved outside Git; the secret scanner now includes signing/HMAC/API key names. No runtime SQL login or confidential OAuth client was provisioned.
+
+Main SQL changes were sequential and non-destructive: Inventory checkout-compensation expansion, new **OrderDB (15 tables)** and **PaymentDB (9 tables)**. Migrations and owning-database guards were reviewed/applied. Inventory before/after and Order/Payment COPY_ONLY/checksum backups, VERIFYONLY, separate read-only restores and CHECKDB passed. No original database was reset. The three legacy orders still await their historical backfill; unknown source payment/address metadata must be preserved accurately. Older source-only migration statements below describe their earlier checkpoint, not the current main schema state.
+
+Established backend slices now include Payment in addition to the previous eight services; Order remains active until real Shipping and the full customer flow are integrated. Shipping, Notification, Manufacturing and Discovery are the four unimplemented services. Publishing/deployment remains on hold; source commits/pushes continue.
+
 ## Active code checkpoint — 2026-11-01
 
 The owner has prioritized backend and Angular implementation together, authorized regular GitHub source pushes, and put application publishing/deployment on hold until the code is complete. Earlier approval gates and frontend-after-all-backends ordering below are historical. Local builds and isolated automated tests continue during development. Existing runtime credential provisioning remains on its earlier explicit hold.

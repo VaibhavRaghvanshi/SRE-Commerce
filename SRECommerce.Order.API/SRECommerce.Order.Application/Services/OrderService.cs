@@ -95,5 +95,5 @@ public sealed partial class OrderService(IOrderRepository repository,IOrderAcces
   {var order=await Owned(id,false,null,true,token);var prior=await Replay(request.OperationId,id,"order.invoice.referenced",hash,token);if(prior is not null)return prior;repository.Version(order,request.Version);if(order.InvoiceReference is not null&&order.InvoiceReference!=reference)throw new BusinessFault("InvoiceReferenceImmutable");order.InvoiceReference=reference;return await Record(order,request.OperationId,"order.invoice.referenced",hash,token);},ct);
  }
  public async Task<MachineOrderContext> Context(Guid tenant,Guid id,CancellationToken ct)
- {access.Recovery(tenant,["Payment","Shipping","Notification","Discovery"]);var value=await repository.Order(id,ct)??throw new BusinessFault("OrderNotFound",404);return new(value.Id,tenant,value.UserId,value.Currency,value.Total,value.PaymentMethod,value.Status,value.PaymentState,value.Historical,View(value).Items);}
+ {access.Recovery(tenant,["Payment","Shipping","Notification","Discovery"]);var value=await repository.Order(id,ct)??throw new BusinessFault("OrderNotFound",404);return new(value.Id,tenant,value.UserId,value.Currency,value.Total,value.PaymentMethod,value.Status,value.PaymentState,value.Historical,View(value).Items,value.DecimalPlaces);}
 }

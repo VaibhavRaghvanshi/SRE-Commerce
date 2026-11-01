@@ -64,6 +64,13 @@
     "secure": true,
     "changeOrigin": true
   },
+  "/commerce/payment/**": {
+    "target": "http://localhost:5180",
+    "proxyTimeout": 15000,
+    "timeout": 15000,
+    "secure": true,
+    "changeOrigin": true
+  },
   "/commerce/order/**": {
     "target": "http://localhost:5180",
     "proxyTimeout": 15000,
