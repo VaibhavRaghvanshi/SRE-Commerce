@@ -17,6 +17,7 @@ public interface ICatalogService
     Task Archive(Guid tenant,Guid id,string version,CancellationToken ct);
     Task<ProductView> PublicProduct(Guid tenant,string slug,CancellationToken ct);
     Task<ProductView> SellableVariant(Guid tenant,Guid id,CancellationToken ct);
+    Task<ProductView[]> SellableProducts(Guid tenant,Guid[] ids,CancellationToken ct);
     Task<ProductView> PublishedVariantForStaff(Guid tenant,Guid id,CancellationToken ct);
     Task<Guid[]> PublicVariantIds(Guid tenant,Guid[] ids,CancellationToken ct);
     Task<Guid[]> ShoppingVariantIds(Guid tenant,Guid[] ids,CancellationToken ct);

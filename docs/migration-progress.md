@@ -1,5 +1,36 @@
 # SRECommerce migration progress
 
+## Active code checkpoint — 2026-11-01
+
+The owner has prioritized backend and Angular implementation together, authorized regular GitHub source pushes, and put application publishing/deployment on hold until the code is complete. Earlier approval gates and frontend-after-all-backends ordering below are historical. Local builds and isolated automated tests continue during development. Existing runtime credential provisioning remains on its earlier explicit hold.
+
+| Service | Backend | Modern Angular frontend |
+| --- | --- | --- |
+| Identity | Implemented and tested | PKCE sign-in integrated; full identity administration pending |
+| Tenant | Implemented and tested | Full tenant administration pending |
+| Theme | Implemented and tested | Theme editor and dynamic storefront integration pending |
+| Storefront | Implemented and tested | Layout editor and dynamic storefront integration pending |
+| Catalog | Implemented and tested | Catalog workspace, browsing and product details implemented |
+| Inventory | Implemented and tested | Inventory workspace implemented |
+| Pricing | Implemented and tested | Pricing workspace and store quotes implemented |
+| Cart | Implemented and tested | Guest/customer cart and merge implemented |
+| Order | In progress; nine isolated SQL/API integration cases pass | Orders workspace source added; customer checkout and full integration pending |
+| Payment | Pending | Pending |
+| Shipping | Pending | Pending |
+| Notification | Pending | Pending |
+| Manufacturing | Pending | Pending |
+| Discovery | Pending | Pending |
+
+Counts: eight established service backends, one active service, five pending service backends; four established modules have both backend and their current Angular flows. Identity and Order have partial UI integration, and eight other service frontends remain pending. YARP is additional infrastructure and is excluded from the fourteen service count. These counts do not imply the entire master prompt or production readiness is complete.
+
+Order now has its own five-project solution and actual controllers, DTOs, entities, repository, SQL migration, recoverable checkout saga, fulfillment/return/exchange services and tests. The root modern solution contains fifty projects. Its nine tests use real isolated SQL Server databases, real Identity machine authorization and the existing Cart/Catalog/Pricing/Inventory APIs. Only Payment and Shipping are explicitly test-only contract doubles; this is not proof of their runtime implementation. Tests cover guest/customer checkout, authoritative totals, replay, capability protection, decline recovery, cancellation refund and stock compensation, immutable snapshots/history, partial-delivery returns with quarantine, sandbox COD settlement and historical import replay. The Order main database and the latest Inventory compensation migration have not been applied in this code checkpoint. No application was published or deployed.
+
+Cart claim and Inventory service-ownership migrations from the preceding contract checkpoint were already applied with verified backups. Newer compensation/return schema changes are present as source migrations for isolated tests. Existing original data is preserved. The previous full regression checkpoint remains 195 backend and 30 Angular tests; it is historical and must not be confused with a new full regression run.
+
+Current affected-scope verification: Order **9/9**, Cart **23/23** and Gateway **10/10** cases pass, including cancellation fences against delayed cart/price/stock claims, cross-service ownership and blocked internal Order routes. Angular **34/34** cases and the local optimized build pass (474.04 KB initial bundle), including staff read-only controls, required platform support reason and stable cancellation retry IDs. Generated idempotent SQL scripts `order-initial.sql` and `inventory-checkout-compensation.sql` are source artifacts only and have not been applied to main databases in this checkpoint.
+
+## Previous checkpoints
+
 Latest checkpoint (2026-10-31): approved Legacy Demo price/stock backfill complete. All 1,000 source products published, 1,000 price tiers copied with fixed per-unit discounts and null unknown costs, and 76,202 opening units reconciled through owning APIs. Catalog/Inventory/Pricing passed 73 affected-service tests; additive PricingImports migration reviewed/applied. Import requests are tenant-scoped, atomic and replay-safe. Original SQLite hash remains unchanged; original SQL preserved. See the source migration runbook. Cart is the next active service; remaining master phases are not complete.
 
 Last updated: 2026-10-31 (Asia/Calcutta).

@@ -1,2 +1,2 @@
 namespace SRECommerce.Inventory.Domain;
-public enum StockAction { Receipt, Adjustment, Damage, ReturnToSale, Reconciliation, Reservation, Release, Commit, Expire }
+public enum StockAction { Receipt, Adjustment, Damage, ReturnToSale, Reconciliation, Reservation, Release, Commit, Expire, Compensation, CustomerReturn }

@@ -26,7 +26,7 @@ public sealed class CartFixture:IDisposable
  public PricingFixture Pricing{get;}=new();public InventoryFactory Inventory{get;}public CartFactory Factory{get;}private readonly Dictionary<string,string> secrets=[];
  public CartFixture()
  {
-  Inventory=new(Pricing.Catalog);using var inventoryClient=Inventory.Client();using(var scope=Inventory.Services.CreateScope()){
+  Inventory=new(Pricing.Catalog,Pricing.Factory.Clock);using var inventoryClient=Inventory.Client();using(var scope=Inventory.Services.CreateScope()){
    var db=scope.ServiceProvider.GetRequiredService<InventoryDbContext>();if(db.Database.GetDbConnection().Database!=Inventory.DatabaseName||!Inventory.DatabaseName.StartsWith("SRECommerce_InventoryTests_",StringComparison.Ordinal))throw new InvalidOperationException("Wrong Inventory test database");db.Database.Migrate();
   }
   Factory=new(Pricing,Inventory);using var client=Factory.Client();using var cartScope=Factory.Services.CreateScope();var cartDb=cartScope.ServiceProvider.GetRequiredService<CartDbContext>();if(cartDb.Database.GetDbConnection().Database!=Factory.DatabaseName||!Factory.DatabaseName.StartsWith("SRECommerce_CartTests_",StringComparison.Ordinal))throw new InvalidOperationException("Wrong Cart test database");cartDb.Database.Migrate();
@@ -45,11 +45,11 @@ public sealed class CartFixture:IDisposable
   if(opening>0)await Read<JsonElement>(await inventory.PostAsJsonAsync(path+"/stock-changes",new SRECommerce.Inventory.Application.StockChangeRequest(Guid.NewGuid(),warehouse.GetProperty("id").GetGuid(),business.Variant,SRECommerce.Inventory.Domain.StockAction.Receipt,opening,"Test opening")));
   return business;
  }
- public async Task<string> Machine(string source)
+ public async Task<string> Machine(string source,string requestedScope="internal_cart")
  {
   using var scope=Pricing.Catalog.Tenant.Identity.Factory.Services.CreateScope();var manager=scope.ServiceProvider.GetRequiredService<IOpenIddictApplicationManager>();
   if(!secrets.TryGetValue(source,out var secret)){secret=Key()+Key();secrets[source]=secret;var descriptor=new OpenIddictApplicationDescriptor{ClientId=ServiceManifest.ClientId(source),ClientSecret=secret,ClientType=ClientTypes.Confidential};descriptor.Permissions.UnionWith([Permissions.Endpoints.Token,Permissions.GrantTypes.ClientCredentials]);foreach(var value in ServiceManifest.Scopes(source))descriptor.Permissions.Add(Permissions.Prefixes.Scope+value);await manager.CreateAsync(descriptor);}
-  using var identity=Pricing.Catalog.Tenant.Identity.Factory.Client();return(await Read<JsonElement>(await identity.PostAsync("/connect/token",new FormUrlEncodedContent(new Dictionary<string,string>{{"grant_type","client_credentials"},{"client_id",ServiceManifest.ClientId(source)},{"client_secret",secret},{"scope","internal_cart"}})))).GetProperty("access_token").GetString()!;
+  using var identity=Pricing.Catalog.Tenant.Identity.Factory.Client();return(await Read<JsonElement>(await identity.PostAsync("/connect/token",new FormUrlEncodedContent(new Dictionary<string,string>{{"grant_type","client_credentials"},{"client_id",ServiceManifest.ClientId(source)},{"client_secret",secret},{"scope",requestedScope}})))).GetProperty("access_token").GetString()!;
  }
  public void Dispose(){Factory.Dispose();Inventory.Dispose();Pricing.Dispose();}
 }

@@ -68,12 +68,34 @@ public sealed partial class PricingService
     }
     public async Task<RedemptionView> Finish(Guid tenant,Guid id,bool redeem,string version,CancellationToken ct)
     {
-        await access.Machine(tenant,["Order"],ct);
+        if(redeem)await access.Machine(tenant,["Order"],ct);else access.Recovery(tenant);
         return await repository.Transaction(async token=>
         {
             var value=await repository.Redemption(id,token)??throw new BusinessFault("RedemptionNotFound",404);var target=redeem?RedemptionStatus.Redeemed:RedemptionStatus.Released;
             if(value.Status==target||value.Status==RedemptionStatus.Expired)return View(value);if(value.Status!=RedemptionStatus.Reserved)throw new BusinessFault("RedemptionAlreadyFinal");repository.Version(value,version);
             value.Status=value.ExpiresAt<=Now?RedemptionStatus.Expired:target;await repository.Commit("pricing.redemption."+value.Status.ToString().ToLowerInvariant(),value.Id,new{OrderId=value.Id,value.QuoteId,value.CouponId,Status=value.Status},token);return View(value);
+        },ct);
+    }
+    public async Task<RedemptionView> Redemption(Guid tenant,Guid id,CancellationToken ct)
+    {access.Recovery(tenant);return View(await repository.Redemption(id,ct)??throw new BusinessFault("RedemptionNotFound",404));}
+    public async Task<RedemptionView> CancelCheckout(Guid tenant,RedemptionRequest request,CancellationToken ct)
+    {
+        access.Recovery(tenant);Id(request.OrderId);Id(request.QuoteId);
+        return await repository.Transaction(async token=>
+        {
+            var value=await repository.Redemption(request.OrderId,token);
+            if(value is not null)
+            {
+                if(value.QuoteId!=request.QuoteId||value.UserId!=request.UserId)throw new BusinessFault("CheckoutPriceKeyReused");
+                if(value.Status is RedemptionStatus.Released or RedemptionStatus.Expired)return View(value);
+                value.Status=RedemptionStatus.Released;
+            }
+            else
+            {
+                var quote=await repository.Quote(request.QuoteId,token)??throw new BusinessFault("QuoteNotFound",404);if(quote.UserId!=request.UserId)throw new BusinessFault("QuoteCustomerMismatch",403);
+                value=new CouponRedemption{TenantId=tenant,Id=request.OrderId,QuoteId=quote.Id,CouponId=quote.CouponId,UserId=quote.UserId,CreatedAt=Now,ExpiresAt=Now,Status=RedemptionStatus.Released};repository.Add(value);
+            }
+            await repository.Commit("pricing.checkout.cancelled",request.OrderId,new{request.OrderId,request.QuoteId},token);return View(value);
         },ct);
     }
 }

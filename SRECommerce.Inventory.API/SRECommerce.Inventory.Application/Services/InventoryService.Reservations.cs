@@ -3,6 +3,8 @@ using SRECommerce.Inventory.Domain;
 namespace SRECommerce.Inventory.Application;
 public sealed partial class InventoryService
 {
+    private void ReservationOwner(StockReservation value,bool machine)
+    {if(machine&&access.MachineSource is null)throw new BusinessFault("ServiceIdentityRequired",401);if(value.SourceService!=(machine?access.MachineSource:null))throw new BusinessFault("ReservationOwnerMismatch",403);}
     public async Task<ReservationView> Reserve(Guid tenant,ReserveRequest request,bool machine,CancellationToken ct)
     {
         if(machine)await access.Machine(tenant,["Cart","Order","Manufacturing"],ct);else await access.Authorize(tenant,ActorPermission.Manager,ct);
@@ -11,10 +13,11 @@ public sealed partial class InventoryService
         foreach(var item in request.Items){Id(item.VariantId);InventoryRules.Quantity(item.Quantity);}
         return await repository.Transaction(async token=>
         {
-            var previous=await repository.Reservation(request.Id,token);if(previous is not null){if(previous.PayloadHash!=hash)throw new BusinessFault("ReservationKeyReused");return previous.Status==ReservationStatus.Active&&previous.ExpiresAt<=Now?await Finish(tenant,previous,ReservationStatus.Expired,token):View(previous);}
+            if(await repository.Cancellation(request.Id,token) is not null)throw new BusinessFault("ReservationCancelled");
+            var previous=await repository.Reservation(request.Id,token);if(previous is not null){ReservationOwner(previous,machine);if(previous.PayloadHash!=hash)throw new BusinessFault("ReservationKeyReused");return previous.Status==ReservationStatus.Active&&previous.ExpiresAt<=Now?await Finish(tenant,previous,ReservationStatus.Expired,token):View(previous);}
             InventoryRules.Reservation(Now,request.ExpiresAt);
             await WarehouseAvailable(request.WarehouseId,token);var ids=request.Items.Select(i=>i.VariantId).Order().ToArray();var items=await repository.Items(token);if(ids.Any(id=>!items.Any(i=>i.Id==id&&i.Active)))throw new BusinessFault("StockItemUnavailable");
-            var balances=await repository.Stock(request.WarehouseId,ids,token);var reservation=new StockReservation{TenantId=tenant,Id=request.Id,WarehouseId=request.WarehouseId,Reference=reference,PayloadHash=hash,ExpiresAt=request.ExpiresAt,CreatedAt=Now};
+            var balances=await repository.Stock(request.WarehouseId,ids,token);var reservation=new StockReservation{TenantId=tenant,Id=request.Id,WarehouseId=request.WarehouseId,Reference=reference,PayloadHash=hash,SourceService=machine?access.MachineSource:null,ExpiresAt=request.ExpiresAt,CreatedAt=Now};
             foreach(var item in request.Items.OrderBy(i=>i.VariantId))
             {
                 var remaining=item.Quantity;
@@ -40,16 +43,18 @@ public sealed partial class InventoryService
     }
     public async Task<ReservationView> Close(Guid tenant,Guid id,bool commit,CloseReservationRequest request,bool machine,CancellationToken ct)
     {
-        if(machine)await access.Machine(tenant,["Cart","Order","Manufacturing"],ct);else await access.Authorize(tenant,ActorPermission.Manager,ct);
+        if(machine){if(commit)await access.Machine(tenant,["Cart","Order","Manufacturing"],ct);else access.Recovery(tenant,["Cart","Order","Manufacturing"]);}else await access.Authorize(tenant,ActorPermission.Manager,ct);
         return await repository.Transaction(async token=>
         {
-            var value=await repository.Reservation(id,token)??throw new BusinessFault("ReservationNotFound",404);var desired=commit?ReservationStatus.Committed:ReservationStatus.Released;
+            var value=await repository.Reservation(id,token)??throw new BusinessFault("ReservationNotFound",404);ReservationOwner(value,machine);var desired=commit?ReservationStatus.Committed:ReservationStatus.Released;
             if(value.Status==desired||value.Status==ReservationStatus.Expired)return View(value);if(value.Status!=ReservationStatus.Active)throw new BusinessFault("ReservationAlreadyFinal");repository.Version(value,request.Version);
             return await Finish(tenant,value,value.ExpiresAt<=Now?ReservationStatus.Expired:desired,token);
         },ct);
     }
     public async Task<ReservationView> Reservation(Guid tenant,Guid id,CancellationToken ct)
     {await access.Authorize(tenant,ActorPermission.Staff,ct);return View(await repository.Reservation(id,ct)??throw new BusinessFault("ReservationNotFound",404));}
+    public async Task<ReservationView> RecoveryReservation(Guid tenant,Guid id,CancellationToken ct)
+    {access.Recovery(tenant,["Cart","Order","Manufacturing"]);var value=await repository.Reservation(id,ct)??throw new BusinessFault("ReservationNotFound",404);ReservationOwner(value,true);return View(value);}
     public async Task<int> Expire(Guid tenant,CancellationToken ct)
     {await access.Authorize(tenant,ActorPermission.Manager,ct);return await ExpireBound(ct);}
     public async Task<int> ExpireBound(CancellationToken ct)

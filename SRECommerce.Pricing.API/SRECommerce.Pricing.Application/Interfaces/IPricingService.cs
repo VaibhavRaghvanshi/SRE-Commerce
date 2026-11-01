@@ -18,4 +18,6 @@ public interface IPricingService
     Task<QuoteView> QuoteById(Guid tenant,Guid id,bool machine,CancellationToken ct);
     Task<RedemptionView> Reserve(Guid tenant,RedemptionRequest request,CancellationToken ct);
     Task<RedemptionView> Finish(Guid tenant,Guid id,bool redeem,string version,CancellationToken ct);
+    Task<RedemptionView> Redemption(Guid tenant,Guid id,CancellationToken ct);
+    Task<RedemptionView> CancelCheckout(Guid tenant,RedemptionRequest request,CancellationToken ct);
 }

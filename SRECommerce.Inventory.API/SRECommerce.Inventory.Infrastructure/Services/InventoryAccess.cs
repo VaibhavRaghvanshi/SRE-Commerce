@@ -6,8 +6,9 @@ using SRECommerce.BuildingBlocks.Contracts;
 using SRECommerce.BuildingBlocks.Infrastructure;
 using SRECommerce.Inventory.Application;
 namespace SRECommerce.Inventory.Infrastructure;
-public sealed class InventoryAccess(ModuleAccess access,RemoteAccess remote,IHttpContextAccessor contexts):IInventoryAccess
+public sealed class InventoryAccess(ModuleAccess access,RemoteAccess remote,IHttpContextAccessor contexts,ModuleScope scope):IInventoryAccess
 {
+    public string? MachineSource=>scope.Machine?.Service;
     public async Task<PublishedSku[]> CatalogItems(Guid tenant,Guid[] variants,CancellationToken ct)
     {
         using var request=new HttpRequestMessage(HttpMethod.Get,$"api/v1/tenants/{tenant}/catalog/published-skus?"+string.Join("&",variants.Select(id=>"ids="+id)));
@@ -34,6 +35,7 @@ public sealed class InventoryAccess(ModuleAccess access,RemoteAccess remote,IHtt
         access.MachineAsync(tenant,sources);var state=await remote.PublicTenantAsync(tenant,ct);
         if(state is null||state.TenantId!=tenant||!state.Modules.Contains("inventory"))throw new BusinessFault("ModuleUnavailable",403);
     }
+    public void Recovery(Guid tenant,string[] sources)=>access.MachineAsync(tenant,sources);
     public async Task<CatalogStockItem> CatalogItem(Guid tenant,Guid product,Guid variant,CancellationToken ct)
     {
         using var request=new HttpRequestMessage(HttpMethod.Get,$"api/v1/tenants/{tenant}/catalog/variants/{variant}");request.Headers.Authorization=new AuthenticationHeaderValue("Bearer",remote.UserBearer());

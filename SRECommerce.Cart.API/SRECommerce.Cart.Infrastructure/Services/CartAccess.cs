@@ -6,6 +6,7 @@ public sealed class CartAccess(ModuleAccess access,ModuleScope scope,RemoteAcces
  public UserAccess? Actor=>scope.User;
  public async Task Authorize(Guid tenant,bool guest,CancellationToken ct){if(guest){await access.PublicAsync(tenant,ct);scope.BindGuest(tenant);}else await access.AuthorizeAsync(tenant,ActorPermission.Customer,ct);}
  public async Task Machine(Guid tenant,CancellationToken ct){access.MachineAsync(tenant,"Order");var state=await remote.PublicTenantAsync(tenant,ct);if(state is null||!state.Modules.Contains("cart"))throw new BusinessFault("CartUnavailable",403);}
+ public void Recovery(Guid tenant)=>access.MachineAsync(tenant,"Order");
  private void Delegate(HttpRequestMessage request,bool guest)
  {if(guest)return;request.Headers.Authorization=new AuthenticationHeaderValue("Bearer",remote.UserBearer());var reason=contexts.HttpContext?.Request.Headers["X-Support-Reason"].ToString();if(!string.IsNullOrEmpty(reason))request.Headers.Add("X-Support-Reason",reason);}
  private static string Prefix(Guid tenant,bool guest)=>guest?$"api/v1/public/tenants/{tenant}/":$"api/v1/tenants/{tenant}/";

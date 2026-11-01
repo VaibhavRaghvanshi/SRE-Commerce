@@ -9,4 +9,8 @@ public interface ICartService
  Task<CartPreview> Preview(Guid tenant,Guid id,CartPreviewRequest request,bool guest,string? capability,CancellationToken ct);
  Task<PreparedCartView> Prepare(Guid tenant,Guid id,PrepareCartRequest request,bool guest,string? capability,CancellationToken ct);
  Task<PreparedCartView> ForOrder(Guid tenant,Guid id,PreparationProof proof,string? capability,CancellationToken ct);
+ Task<CartClaimView> Claim(Guid tenant,CartClaimRequest request,string? capability,CancellationToken ct);
+ Task<CartClaimView> OrderClaim(Guid tenant,Guid order,CancellationToken ct);
+ Task<CartClaimView> CloseClaim(Guid tenant,Guid order,bool complete,string version,CancellationToken ct);
+ Task<object> CancelClaim(Guid tenant,CartClaimRequest request,CancellationToken ct);
 }

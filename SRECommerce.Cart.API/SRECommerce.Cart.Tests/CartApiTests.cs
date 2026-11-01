@@ -4,9 +4,87 @@ using static SRECommerce.Cart.Tests.CartFixture;
 namespace SRECommerce.Cart.Tests;
 public sealed class CartApiTests(CartFixture fixture):IClassFixture<CartFixture>
 {
+ [Fact]public async Task Cancellation_fences_block_delayed_cart_price_and_stock_claims_without_mutating_an_unproved_cart()
+ {
+  var b=await fixture.Business();using var owner=b.Client;using var catalog=b.Catalog.Client;var key=Key();using var guest=fixture.Factory.Client(capability:key);
+  var cart=await Set(guest,b.Catalog.Id,await Create(guest,b.Catalog.Id,true),b.Variant,1,true);var path=Path(b.Catalog.Id,true)+$"/{cart.Id}";
+  var prepared=await Read<PreparedCartView>(await guest.PostAsJsonAsync(path+"/prepare",new PrepareCartRequest(Guid.NewGuid(),cart.Version)));
+  var orderId=Guid.NewGuid();using var cartOrder=fixture.Factory.Client(await fixture.Machine("Order"),key);var cartClaims=$"/internal/v1/tenants/{b.Catalog.Id}/cart/claims";var claim=new CartClaimRequest(orderId,prepared.Id,null);
+  await Read<JsonElement>(await cartOrder.PostAsJsonAsync(cartClaims+"/cancel",claim));
+  Assert.Equal(CartClaimStatus.Released,(await Read<CartClaimView>(await cartOrder.PostAsJsonAsync(cartClaims,claim))).Status);
+  cart=await Set(guest,b.Catalog.Id,cart,b.Variant,2,true);Assert.Equal(2,Assert.Single(cart.Items).Quantity);
+
+  using var priceOrder=fixture.Pricing.Factory.Client(await fixture.Machine("Order","internal_pricing"));var redemptions=$"/internal/v1/tenants/{b.Catalog.Id}/pricing/redemptions";
+  var priceClaim=new SRECommerce.Pricing.Application.RedemptionRequest(orderId,prepared.Quote.Id,null);
+  Assert.Equal(SRECommerce.Pricing.Domain.RedemptionStatus.Released,(await Read<SRECommerce.Pricing.Application.RedemptionView>(await priceOrder.PostAsJsonAsync(redemptions+"/cancel",priceClaim))).Status);
+  Assert.Equal(SRECommerce.Pricing.Domain.RedemptionStatus.Released,(await Read<SRECommerce.Pricing.Application.RedemptionView>(await priceOrder.PostAsJsonAsync(redemptions,priceClaim))).Status);
+
+  using var inventoryOwner=fixture.Inventory.Client(b.Catalog.Token);var stockPath=$"/api/v1/tenants/{b.Catalog.Id}/inventory";var lookups=await inventoryOwner.GetFromJsonAsync<JsonElement>(stockPath+"/lookups");var warehouse=lookups.GetProperty("warehouses")[0].GetProperty("id").GetGuid();
+  using var stockOrder=fixture.Inventory.Client(await fixture.Machine("Order","internal_inventory"));var reservations=$"/internal/v1/tenants/{b.Catalog.Id}/inventory/reservations";var reservationId=Guid.NewGuid();var cancel=new SRECommerce.Inventory.Application.ReservationAbortRequest(Guid.NewGuid(),"Checkout cancelled before delayed reserve");
+  await Read<JsonElement>(await stockOrder.PostAsJsonAsync(reservations+$"/{reservationId}/cancel",cancel));
+  Assert.Equal(HttpStatusCode.Conflict,(await stockOrder.PostAsJsonAsync(reservations,new SRECommerce.Inventory.Application.ReserveRequest(reservationId,warehouse,"Delayed order",fixture.Inventory.Clock.GetUtcNow().AddMinutes(5),[new(b.Variant,1)]))).StatusCode);
+  using var other=fixture.Inventory.Client(await fixture.Machine("Manufacturing","internal_inventory"));Assert.Equal(HttpStatusCode.Forbidden,(await other.PostAsJsonAsync(reservations+$"/{reservationId}/cancel",cancel)).StatusCode);
+  using var publicStock=fixture.Inventory.Client();var available=(await publicStock.GetFromJsonAsync<SRECommerce.Inventory.Application.AvailabilityView[]>($"/api/v1/public/tenants/{b.Catalog.Id}/inventory/availability?variants={b.Variant}"))!;Assert.Equal(10,Assert.Single(available).Available);
+ }
  private static async Task<CartView> Create(HttpClient client,Guid tenant,bool guest=false)=>await Read<CartView>(await client.PostAsJsonAsync(Path(tenant,guest),new CreateCartRequest(Guid.NewGuid())));
  private static async Task<CartView> Set(HttpClient client,Guid tenant,CartView cart,Guid variant,decimal quantity,bool guest=false)=>await Read<CartView>(await client.PutAsJsonAsync(Path(tenant,guest)+$"/{cart.Id}/items",new CartItemRequest(Guid.NewGuid(),variant,quantity,cart.Version)));
 
+
+
+ [Fact]public async Task Allocation_options_are_machine_only_respect_expiry_horizon_and_support_recovery_after_disablement()
+ {
+  var b=await fixture.Business();using var owner=b.Client;using var catalog=b.Catalog.Client;var stockPath=$"/api/v1/tenants/{b.Catalog.Id}/inventory";using var inventoryOwner=fixture.Inventory.Client(b.Catalog.Token);var metadata=await inventoryOwner.GetFromJsonAsync<JsonElement>(stockPath+"/lookups");var warehouse=metadata.GetProperty("warehouses")[0].GetProperty("id").GetGuid();
+  await Read<JsonElement>(await inventoryOwner.PostAsJsonAsync(stockPath+"/stock-changes",new SRECommerce.Inventory.Application.StockChangeRequest(Guid.NewGuid(),warehouse,b.Variant,SRECommerce.Inventory.Domain.StockAction.Receipt,7,"Short lived lot",Lot:"SHORT",ExpiresAt:fixture.Inventory.Clock.GetUtcNow().AddMinutes(3))));
+  var machine=$"/internal/v1/tenants/{b.Catalog.Id}/inventory";var expires=fixture.Inventory.Clock.GetUtcNow().AddMinutes(10);var options=machine+"/allocation-options?variants="+b.Variant+"&expiresAt="+Uri.EscapeDataString(expires.ToString("O"));
+  Assert.Equal(HttpStatusCode.Unauthorized,(await inventoryOwner.GetAsync(options)).StatusCode);using var order=fixture.Inventory.Client(await fixture.Machine("Order","internal_inventory"));var warehouses=(await order.GetFromJsonAsync<SRECommerce.Inventory.Application.WarehouseAvailability[]>(options))!;Assert.Equal(10,Assert.Single(Assert.Single(warehouses).Items).Available);
+  using var catalogOrder=fixture.Pricing.Catalog.Factory.Client(await fixture.Machine("Order","internal_catalog"));var sellable=(await catalogOrder.GetFromJsonAsync<SRECommerce.Catalog.Application.ProductView[]>($"/internal/v1/tenants/{b.Catalog.Id}/catalog/products?ids={b.Variant}"))!;Assert.Equal(b.Product,Assert.Single(sellable).Id);
+  var hold=new SRECommerce.Inventory.Application.ReserveRequest(Guid.NewGuid(),warehouse,"Order recovery test",expires,[new(b.Variant,2)]);var reservation=await Read<SRECommerce.Inventory.Application.ReservationView>(await order.PostAsJsonAsync(machine+"/reservations",hold));
+  using var otherService=fixture.Inventory.Client(await fixture.Machine("Manufacturing","internal_inventory"));Assert.Equal(HttpStatusCode.Forbidden,(await otherService.GetAsync(machine+$"/reservations/{reservation.Id}")).StatusCode);Assert.Equal(HttpStatusCode.Forbidden,(await otherService.PostAsJsonAsync(machine+$"/reservations/{reservation.Id}/release",new SRECommerce.Inventory.Application.CloseReservationRequest(reservation.Version))).StatusCode);Assert.Equal(HttpStatusCode.Forbidden,(await inventoryOwner.PostAsJsonAsync(stockPath+$"/reservations/{reservation.Id}/release",new SRECommerce.Inventory.Application.CloseReservationRequest(reservation.Version))).StatusCode);
+
+  using var tenant=fixture.Pricing.Catalog.Tenant.Factory.Client(b.Catalog.Token);var state=(await tenant.GetFromJsonAsync<SRECommerce.Tenant.Application.TenantView>($"/api/v1/tenants/{b.Catalog.Id}"))!;await Read<SRECommerce.Tenant.Application.TenantView>(await tenant.PutAsJsonAsync($"/api/v1/tenants/{b.Catalog.Id}/modules/inventory",new SRECommerce.Tenant.Application.ModuleRequest(state.Version,false)));
+  Assert.Equal(HttpStatusCode.Forbidden,(await order.GetAsync(options)).StatusCode);Assert.Equal(reservation.Id,(await order.GetFromJsonAsync<SRECommerce.Inventory.Application.ReservationView>(machine+$"/reservations/{reservation.Id}"))!.Id);
+  Assert.Equal(SRECommerce.Inventory.Domain.ReservationStatus.Released,(await Read<SRECommerce.Inventory.Application.ReservationView>(await order.PostAsJsonAsync(machine+$"/reservations/{reservation.Id}/release",new SRECommerce.Inventory.Application.CloseReservationRequest(reservation.Version)))).Status);
+ }
+ [Fact]public async Task Pricing_capacity_can_be_inspected_and_released_after_module_disablement()
+ {
+  var b=await fixture.Business();using var owner=b.Client;using var catalog=b.Catalog.Client;using var anonymous=fixture.Pricing.Factory.Client();var quote=await Read<SRECommerce.Pricing.Application.QuoteView>(await anonymous.PostAsJsonAsync($"/api/v1/public/tenants/{b.Catalog.Id}/pricing/quotes",new SRECommerce.Pricing.Application.QuoteRequest(Guid.NewGuid(),[new(b.Variant,1)])));
+  using var order=fixture.Pricing.Factory.Client(await fixture.Machine("Order","internal_pricing"));var machine=$"/internal/v1/tenants/{b.Catalog.Id}/pricing/redemptions";var hold=await Read<SRECommerce.Pricing.Application.RedemptionView>(await order.PostAsJsonAsync(machine,new SRECommerce.Pricing.Application.RedemptionRequest(Guid.NewGuid(),quote.Id,null)));
+  using var tenant=fixture.Pricing.Catalog.Tenant.Factory.Client(b.Catalog.Token);var state=(await tenant.GetFromJsonAsync<SRECommerce.Tenant.Application.TenantView>($"/api/v1/tenants/{b.Catalog.Id}"))!;await Read<SRECommerce.Tenant.Application.TenantView>(await tenant.PutAsJsonAsync($"/api/v1/tenants/{b.Catalog.Id}/modules/pricing",new SRECommerce.Tenant.Application.ModuleRequest(state.Version,false)));
+  Assert.Equal(hold.OrderId,(await order.GetFromJsonAsync<SRECommerce.Pricing.Application.RedemptionView>(machine+$"/{hold.OrderId}"))!.OrderId);
+  Assert.Equal(SRECommerce.Pricing.Domain.RedemptionStatus.Released,(await Read<SRECommerce.Pricing.Application.RedemptionView>(await order.PostAsJsonAsync(machine+$"/{hold.OrderId}/release",new SRECommerce.Pricing.Application.RedemptionVersionRequest(hold.Version)))).Status);
+ }
+ [Fact]public async Task Checkout_claims_freeze_a_cart_revision_prevent_duplicate_orders_and_release_safely()
+ {
+  var b=await fixture.Business();using var owner=b.Client;using var catalog=b.Catalog.Client;var key=Key();using var guest=fixture.Factory.Client(capability:key);var cart=await Set(guest,b.Catalog.Id,await Create(guest,b.Catalog.Id,true),b.Variant,1,true);var path=Path(b.Catalog.Id,true)+$"/{cart.Id}";
+  var first=await Read<PreparedCartView>(await guest.PostAsJsonAsync(path+"/prepare",new PrepareCartRequest(Guid.NewGuid(),cart.Version)));var second=await Read<PreparedCartView>(await guest.PostAsJsonAsync(path+"/prepare",new PrepareCartRequest(Guid.NewGuid(),cart.Version)));
+  using var order=fixture.Factory.Client(await fixture.Machine("Order"),key);var machine=$"/internal/v1/tenants/{b.Catalog.Id}/cart/claims";var request=new CartClaimRequest(Guid.NewGuid(),first.Id,null);var claim=await Read<CartClaimView>(await order.PostAsJsonAsync(machine,request));Assert.Equal(CartClaimStatus.Held,claim.Status);
+  Assert.Equal(claim.Version,(await Read<CartClaimView>(await order.PostAsJsonAsync(machine,request))).Version);Assert.Equal(HttpStatusCode.Conflict,(await order.PostAsJsonAsync(machine,new CartClaimRequest(Guid.NewGuid(),second.Id,null))).StatusCode);
+  Assert.Equal(HttpStatusCode.Conflict,(await guest.PutAsJsonAsync(path+"/items",new CartItemRequest(Guid.NewGuid(),b.Variant,2,cart.Version))).StatusCode);
+  order.DefaultRequestHeaders.Remove("X-Cart-Key");Assert.Equal(claim.OrderId,(await order.GetFromJsonAsync<CartClaimView>(machine+$"/{claim.OrderId}"))!.OrderId);
+  var released=await Read<CartClaimView>(await order.PostAsJsonAsync(machine+$"/{claim.OrderId}/release",new CartClaimVersion(claim.Version)));Assert.Equal(CartClaimStatus.Released,released.Status);Assert.Equal(released.Version,(await Read<CartClaimView>(await order.PostAsJsonAsync(machine+$"/{claim.OrderId}/release",new CartClaimVersion(claim.Version)))).Version);
+  cart=(await guest.GetFromJsonAsync<CartView>(path))!;cart=await Set(guest,b.Catalog.Id,cart,b.Variant,2,true);Assert.Equal(2,Assert.Single(cart.Items).Quantity);
+ }
+ [Fact]public async Task Claim_completion_is_idempotent_closes_the_cart_and_checks_the_prepared_customer_role()
+ {
+  var b=await fixture.Business();using var owner=b.Client;using var catalog=b.Catalog.Client;using var customer=fixture.Factory.Client(b.Catalog.Token);var cart=await Set(customer,b.Catalog.Id,await Create(customer,b.Catalog.Id),b.Variant,1);var path=Path(b.Catalog.Id)+$"/{cart.Id}";var prepared=await Read<PreparedCartView>(await customer.PostAsJsonAsync(path+"/prepare",new PrepareCartRequest(Guid.NewGuid(),cart.Version)));
+  using var order=fixture.Factory.Client(await fixture.Machine("Order"));var machine=$"/internal/v1/tenants/{b.Catalog.Id}/cart/claims";
+  Assert.Equal(HttpStatusCode.Conflict,(await order.PostAsJsonAsync(machine,new CartClaimRequest(Guid.NewGuid(),prepared.Id,prepared.UserId,"Customer"))).StatusCode);
+  var claim=await Read<CartClaimView>(await order.PostAsJsonAsync(machine,new CartClaimRequest(Guid.NewGuid(),prepared.Id,prepared.UserId,"Owner")));var completed=await Read<CartClaimView>(await order.PostAsJsonAsync(machine+$"/{claim.OrderId}/complete",new CartClaimVersion(claim.Version)));Assert.Equal(CartClaimStatus.Completed,completed.Status);
+  Assert.Equal(completed.Version,(await Read<CartClaimView>(await order.PostAsJsonAsync(machine+$"/{claim.OrderId}/complete",new CartClaimVersion(claim.Version)))).Version);Assert.Equal(HttpStatusCode.Conflict,(await customer.GetAsync(path)).StatusCode);Assert.NotEqual(cart.Id,(await Create(customer,b.Catalog.Id)).Id);
+ }
+ [Fact]public async Task Existing_checkout_claims_can_be_released_after_module_disablement()
+ {
+  var b=await fixture.Business();using var owner=b.Client;using var catalog=b.Catalog.Client;var key=Key();using var guest=fixture.Factory.Client(capability:key);var cart=await Set(guest,b.Catalog.Id,await Create(guest,b.Catalog.Id,true),b.Variant,1,true);var prepared=await Read<PreparedCartView>(await guest.PostAsJsonAsync(Path(b.Catalog.Id,true)+$"/{cart.Id}/prepare",new PrepareCartRequest(Guid.NewGuid(),cart.Version)));
+  using var order=fixture.Factory.Client(await fixture.Machine("Order"),key);var machine=$"/internal/v1/tenants/{b.Catalog.Id}/cart/claims";var claim=await Read<CartClaimView>(await order.PostAsJsonAsync(machine,new CartClaimRequest(Guid.NewGuid(),prepared.Id,null)));
+  using var tenant=fixture.Pricing.Catalog.Tenant.Factory.Client(b.Catalog.Token);var value=(await tenant.GetFromJsonAsync<SRECommerce.Tenant.Application.TenantView>($"/api/v1/tenants/{b.Catalog.Id}"))!;await Read<SRECommerce.Tenant.Application.TenantView>(await tenant.PutAsJsonAsync($"/api/v1/tenants/{b.Catalog.Id}/modules/cart",new SRECommerce.Tenant.Application.ModuleRequest(value.Version,false)));
+  Assert.Equal(HttpStatusCode.Forbidden,(await order.PostAsJsonAsync(machine+$"/{claim.OrderId}/complete",new CartClaimVersion(claim.Version))).StatusCode);Assert.Equal(CartClaimStatus.Released,(await Read<CartClaimView>(await order.PostAsJsonAsync(machine+$"/{claim.OrderId}/release",new CartClaimVersion(claim.Version)))).Status);
+ }
+ [Fact]public async Task Expired_checkout_claims_stop_blocking_guest_mutations()
+ {
+  var b=await fixture.Business();using var owner=b.Client;using var catalog=b.Catalog.Client;var key=Key();using var guest=fixture.Factory.Client(capability:key);var cart=await Set(guest,b.Catalog.Id,await Create(guest,b.Catalog.Id,true),b.Variant,1,true);var prepared=await Read<PreparedCartView>(await guest.PostAsJsonAsync(Path(b.Catalog.Id,true)+$"/{cart.Id}/prepare",new PrepareCartRequest(Guid.NewGuid(),cart.Version)));
+  using var order=fixture.Factory.Client(await fixture.Machine("Order"),key);var machine=$"/internal/v1/tenants/{b.Catalog.Id}/cart/claims";var claim=await Read<CartClaimView>(await order.PostAsJsonAsync(machine,new CartClaimRequest(Guid.NewGuid(),prepared.Id,null)));fixture.Pricing.Factory.Clock.Advance(TimeSpan.FromMinutes(16));Assert.Equal(CartClaimStatus.Expired,(await order.GetFromJsonAsync<CartClaimView>(machine+$"/{claim.OrderId}"))!.Status);
+  cart=await Set(guest,b.Catalog.Id,cart,b.Variant,2,true);Assert.Equal(2,Assert.Single(cart.Items).Quantity);
+ }
  [Fact]public async Task B2B_items_require_current_membership_and_are_hidden_from_guest_catalog_and_stock()
  {
   var b=await fixture.Business();using var owner=b.Client;using var catalog=b.Catalog.Client;var cp=$"/api/v1/tenants/{b.Catalog.Id}/catalog";

@@ -196,7 +196,13 @@ public sealed class CatalogService(ICatalogRepository repository,ICatalogAccess 
     public async Task<ProductView> PublicProduct(Guid tenant,string slug,CancellationToken ct)
     {await access.Public(tenant,ct);return await repository.PublishedProduct(CatalogRules.Slug(slug),ct)??throw new BusinessFault("PublishedProductNotFound",404);}
     public async Task<ProductView> SellableVariant(Guid tenant,Guid id,CancellationToken ct)
-    {access.Machine(tenant,["Inventory","Pricing","Cart","Order","Manufacturing","Discovery"]);return await repository.PublishedVariant(id,ct)??throw new BusinessFault("VariantNotSellable",404);}
+    {await access.Machine(tenant,["Inventory","Pricing","Cart","Order","Manufacturing","Discovery"],ct);return await repository.PublishedVariant(id,ct)??throw new BusinessFault("VariantNotSellable",404);}
+    public async Task<ProductView[]> SellableProducts(Guid tenant,Guid[] ids,CancellationToken ct)
+    {
+        await access.Machine(tenant,["Inventory","Pricing","Cart","Order","Manufacturing","Discovery"],ct);
+        if(ids.Length is <1 or >50||ids.Any(id=>id==Guid.Empty)||ids.Distinct().Count()!=ids.Length)throw new BusinessFault("InvalidShoppingProductsQuery",400);
+        return await repository.ShoppingProducts(ids,true,ct);
+    }
     public async Task<ProductView> PublishedVariantForStaff(Guid tenant,Guid id,CancellationToken ct)
     {await access.Authorize(tenant,ActorPermission.Staff,ct);return await repository.PublishedVariant(id,ct)??throw new BusinessFault("VariantNotSellable",404);}
     public async Task<Guid[]> PublicVariantIds(Guid tenant,Guid[] ids,CancellationToken ct)

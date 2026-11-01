@@ -5,6 +5,8 @@ namespace SRECommerce.Pricing.API;
 [ApiController,Authorize(Policy="Machine"),Route("internal/v1/tenants/{tenant:guid}/pricing")]
 public sealed class InternalPricingController(IPricingService pricing):ControllerBase
 {
+    [HttpPost("redemptions/cancel")]public async Task<IActionResult> Cancel(Guid tenant,RedemptionRequest request,CancellationToken ct)=>Ok(await pricing.CancelCheckout(tenant,request,ct));
+    [HttpGet("redemptions/{id:guid}")]public async Task<IActionResult> Redemption(Guid tenant,Guid id,CancellationToken ct)=>Ok(await pricing.Redemption(tenant,id,ct));
     [HttpGet("quotes/{id:guid}")]public async Task<IActionResult> Quote(Guid tenant,Guid id,CancellationToken ct)=>Ok(await pricing.QuoteById(tenant,id,true,ct));
     [HttpPost("redemptions")]public async Task<IActionResult> Reserve(Guid tenant,RedemptionRequest request,CancellationToken ct)=>Ok(await pricing.Reserve(tenant,request,ct));
     [HttpPost("redemptions/{id:guid}/redeem")]public async Task<IActionResult> Redeem(Guid tenant,Guid id,RedemptionVersionRequest request,CancellationToken ct)=>Ok(await pricing.Finish(tenant,id,true,request.Version,ct));

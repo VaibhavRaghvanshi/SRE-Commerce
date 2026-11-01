@@ -20,6 +20,7 @@ D:\Projects\SRECommerce\
   SRECommerce.Inventory.API\              same five-project pattern + own .sln
   SRECommerce.Pricing.API\                same five-project pattern + own .sln
   SRECommerce.Cart.API\                   same five-project pattern + own .sln
+  SRECommerce.Order.API\                  five projects + own .sln; implementation in progress
   SRECommerce.ApiGateway\                 YARP API + tests + own .sln
   SRECommerce.BuildingBlocks\             shared contracts/transport helpers
   SRECommerce.Legacy.API\                 preserved original .NET 8 application/data
@@ -88,3 +89,5 @@ dotnet run --project SRECommerce.Api
 New checkouts require restoring private data separately. Database initialization/demo seeding remain disabled. No original SQL database or Docker volume was deleted/replaced. Relocation evidence is in ignored `artifacts/source-relocation-manifest.json`.
 
 Routine tested commits/pushes on `migration/saas-modernization` and backend/UI work together are owner-approved. See [migration progress](docs/migration-progress.md) and the [folder-layout decision](docs/architecture/source-folder-layout.md).
+
+Publishing/deployment is currently on hold at the owner's request. The active work is Order backend and its Angular workspace; Payment/Shipping runtime integration and customer checkout remain pending. The Orders screen source is at `/workspace/{tenant-id}/orders`; the existing native launcher does not yet start Order or provision its service identities. See [Order implementation status](SRECommerce.Order.API/README.md) before attempting to run it.

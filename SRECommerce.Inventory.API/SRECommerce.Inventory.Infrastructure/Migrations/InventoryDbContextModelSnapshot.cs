@@ -373,6 +373,30 @@ namespace SRECommerce.Inventory.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SRECommerce.Inventory.Domain.ReservationCancellation", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("OperationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("SourceService")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.HasKey("TenantId", "Id");
+
+                    b.ToTable("ReservationCancellations", (string)null);
+                });
+
             modelBuilder.Entity("SRECommerce.Inventory.Domain.ReservationLine", b =>
                 {
                     b.Property<Guid>("TenantId")
@@ -556,6 +580,16 @@ namespace SRECommerce.Inventory.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(120)
                         .HasColumnType("nvarchar(120)");
+
+                    b.Property<Guid?>("RestoreOperationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("RestoredAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("SourceService")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
 
                     b.Property<int>("Status")
                         .HasColumnType("int");

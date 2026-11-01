@@ -11,4 +11,5 @@ public interface IPricingAccess
     Task<Guid[]> VisibleVariants(Guid tenant,Guid[] ids,bool publicRead,CancellationToken ct);
     Task CustomerMember(Guid tenant,Guid user,CancellationToken ct);
     Task Machine(Guid tenant,string[] sources,CancellationToken ct);
+    void Recovery(Guid tenant);
 }

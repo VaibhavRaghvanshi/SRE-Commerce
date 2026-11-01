@@ -1,6 +1,6 @@
 using System.Security.Cryptography;using System.Text;using SRECommerce.BuildingBlocks.Contracts;using SRECommerce.Cart.Domain;
 namespace SRECommerce.Cart.Application;
-public sealed class CartService(ICartRepository repository,ICartAccess access,TimeProvider clock):ICartService
+public sealed partial class CartService(ICartRepository repository,ICartAccess access,TimeProvider clock):ICartService
 {
  private DateTimeOffset Now=>clock.GetUtcNow();
  private static void Id(Guid id){if(id==Guid.Empty)throw new BusinessFault("InvalidCartId",400);}
@@ -66,7 +66,7 @@ public sealed class CartService(ICartRepository repository,ICartAccess access,Ti
   await access.Authorize(tenant,guest,ct);Id(request.VariantId);CartRules.Quantity(request.Quantity);var hash=Hash(new{Action="set",request});
   return await repository.Transaction(async token=>
   {
-   var cart=await Owned(id,guest,capability,token);var prior=await Replay(cart,request.OperationId,hash,token);if(prior is not null)return prior;repository.Version(cart,request.Version);
+   var cart=await Owned(id,guest,capability,token);var prior=await Replay(cart,request.OperationId,hash,token);if(prior is not null)return prior;await Mutable(cart,token);repository.Version(cart,request.Version);
    var products=await access.Products(tenant,[request.VariantId],guest,token);var product=products.SingleOrDefault(p=>p.Variants.Any(v=>v.Id==request.VariantId&&v.Active))??throw new BusinessFault("CartProductUnavailable");
    Set(cart,product,product.Variants.Single(v=>v.Id==request.VariantId),request.Quantity);return await Record(cart,request.OperationId,hash,"cart.item.saved",token);
   },ct);
@@ -76,7 +76,7 @@ public sealed class CartService(ICartRepository repository,ICartAccess access,Ti
   await access.Authorize(tenant,guest,ct);Id(variant);var hash=Hash(new{Action="remove",Variant=variant,request});
   return await repository.Transaction(async token=>
   {
-   var cart=await Owned(id,guest,capability,token);var prior=await Replay(cart,request.OperationId,hash,token);if(prior is not null)return prior;repository.Version(cart,request.Version);
+   var cart=await Owned(id,guest,capability,token);var prior=await Replay(cart,request.OperationId,hash,token);if(prior is not null)return prior;await Mutable(cart,token);repository.Version(cart,request.Version);
    var row=cart.Items.SingleOrDefault(i=>i.VariantId==variant&&i.Active)??throw new BusinessFault("CartItemNotFound",404);row.Active=false;return await Record(cart,request.OperationId,hash,"cart.item.removed",token);
   },ct);
  }
@@ -86,7 +86,7 @@ public sealed class CartService(ICartRepository repository,ICartAccess access,Ti
   return await repository.Transaction(async token=>
   {
    var target=await Owned(id,false,null,token);var source=await Owned(request.GuestCartId,true,guestCapability,token,true);var prior=await Replay(target,request.OperationId,hash,token);if(prior is not null)return prior;
-   Active(source);repository.Version(target,request.Version);repository.Version(source,request.GuestVersion);
+   Active(source);await Mutable(target,token);await Mutable(source,token);repository.Version(target,request.Version);repository.Version(source,request.GuestVersion);
    var ids=source.Items.Where(i=>i.Active).Select(i=>i.VariantId).Concat(target.Items.Where(i=>i.Active).Select(i=>i.VariantId)).Distinct().ToArray();if(ids.Length>50)throw new BusinessFault("CartItemLimit",400);
    var products=ids.Length==0?[]:await access.Products(tenant,ids,false,token);
    foreach(var variant in ids)if(!products.Any(p=>p.Variants.Any(v=>v.Id==variant&&v.Active)))throw new BusinessFault("CartProductUnavailable");
@@ -110,12 +110,13 @@ public sealed class CartService(ICartRepository repository,ICartAccess access,Ti
   await access.Authorize(tenant,guest,ct);Id(request.Id);var hash=Hash(new{CartId=id,request,Role=access.Actor?.TenantRole});
   return await repository.Transaction(async token=>
   {
-   var cart=await Owned(id,guest,capability,token);var prior=await repository.Preparation(request.Id,token);
+   var cart=await Owned(id,guest,capability,token);await Mutable(cart,token);var prior=await repository.Preparation(request.Id,token);
    if(prior is not null){if(prior.CartId!=id||prior.Hash!=hash)throw new BusinessFault("PreparationKeyReused");if(prior.ExpiresAt<=Now||prior.CartRevision!=cart.Revision)throw new BusinessFault("PreparationExpiredOrCartChanged");return ContractJson.Read<PreparedCartView>(prior.Document);}
    repository.Version(cart,request.Version);var preview=await PreviewCore(cart,request.Id,request.CouponCode,guest,token);if(!preview.CanPrepare)throw new BusinessFault("CartStockUnavailable");
-   var result=new PreparedCartView(request.Id,id,tenant,cart.UserId,cart.Revision,preview.Quote.ExpiresAt,preview.Cart.Items,preview.Quote);var document=ContractJson.Write(result);
+   var role=access.Actor is {IsPlatformAdmin:true}?"PlatformAdmin":access.Actor?.TenantRole;
+   var result=new PreparedCartView(request.Id,id,tenant,cart.UserId,cart.Revision,preview.Quote.ExpiresAt,preview.Cart.Items,preview.Quote,role);var document=ContractJson.Write(result);
    if(Encoding.UTF8.GetByteCount(document)>131072)throw new BusinessFault("PreparationTooLarge",400);
-   repository.Add(new CheckoutPreparation{TenantId=tenant,Id=request.Id,CartId=id,UserId=cart.UserId,CartRevision=cart.Revision,QuoteId=preview.Quote.Id,Hash=hash,Document=document,CreatedAt=Now,ExpiresAt=result.ExpiresAt});
+   repository.Add(new CheckoutPreparation{TenantId=tenant,Id=request.Id,CartId=id,UserId=cart.UserId,CartRevision=cart.Revision,QuoteId=preview.Quote.Id,CustomerRole=role,Hash=hash,Document=document,CreatedAt=Now,ExpiresAt=result.ExpiresAt});
    await repository.Commit("cart.checkout.prepared",request.Id,new{PreparationId=request.Id,CartId=id,QuoteId=preview.Quote.Id},token);return result;
   },ct);
  }
@@ -123,6 +124,7 @@ public sealed class CartService(ICartRepository repository,ICartAccess access,Ti
  {
   await access.Machine(tenant,ct);var preparation=await repository.Preparation(id,ct)??throw new BusinessFault("PreparationNotFound",404);var cart=await repository.Cart(preparation.CartId,ct)??throw new BusinessFault("CartNotFound",404);Active(cart);
   if(preparation.UserId!=proof.UserId||cart.UserId!=proof.UserId)throw new BusinessFault("PreparationNotFound",404);
+  if(preparation.CustomerRole!=proof.TenantRole)throw new BusinessFault("CheckoutRoleChanged");
   if(proof.UserId is null){var session=await repository.Session(cart.Id,ct)??throw new BusinessFault("PreparationNotFound",404);CartRules.Match(session.CapabilityHash,capability);if(session.RevokedAt is not null||session.ExpiresAt<=Now)throw new BusinessFault("CartClosed");}
   if(preparation.ExpiresAt<=Now||preparation.CartRevision!=cart.Revision)throw new BusinessFault("PreparationExpiredOrCartChanged");return ContractJson.Read<PreparedCartView>(preparation.Document);
  }

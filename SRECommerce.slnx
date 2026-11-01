@@ -38,6 +38,13 @@
     <Project Path="SRECommerce.Inventory.API/SRECommerce.Inventory.Infrastructure/SRECommerce.Inventory.Infrastructure.csproj" />
     <Project Path="SRECommerce.Inventory.API/SRECommerce.Inventory.Tests/SRECommerce.Inventory.Tests.csproj" />
   </Folder>
+  <Folder Name="/SRECommerce.Order.API/">
+    <Project Path="SRECommerce.Order.API/SRECommerce.Order.API/SRECommerce.Order.API.csproj" />
+    <Project Path="SRECommerce.Order.API/SRECommerce.Order.Application/SRECommerce.Order.Application.csproj" />
+    <Project Path="SRECommerce.Order.API/SRECommerce.Order.Domain/SRECommerce.Order.Domain.csproj" />
+    <Project Path="SRECommerce.Order.API/SRECommerce.Order.Infrastructure/SRECommerce.Order.Infrastructure.csproj" />
+    <Project Path="SRECommerce.Order.API/SRECommerce.Order.Tests/SRECommerce.Order.Tests.csproj" />
+  </Folder>
   <Folder Name="/SRECommerce.Pricing.API/">
     <Project Path="SRECommerce.Pricing.API/SRECommerce.Pricing.API/SRECommerce.Pricing.API.csproj" />
     <Project Path="SRECommerce.Pricing.API/SRECommerce.Pricing.Application/SRECommerce.Pricing.Application.csproj" />

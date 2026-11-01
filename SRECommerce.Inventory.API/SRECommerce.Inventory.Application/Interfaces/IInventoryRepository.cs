@@ -12,6 +12,7 @@ public interface IInventoryRepository
     Task<StockReservation?> Reservation(Guid id,CancellationToken ct);
     Task<IReadOnlyCollection<StockReservation>> Expired(DateTimeOffset now,int count,CancellationToken ct);
     Task<StockOperation?> Operation(Guid id,CancellationToken ct);
+    Task<ReservationCancellation?> Cancellation(Guid id,CancellationToken ct);
     Task<PurchaseOrder?> Purchase(Guid id,CancellationToken ct);
     Task<IReadOnlyCollection<PurchaseOrder>> Purchases(int page,CancellationToken ct);
     void Add<T>(T entity)where T:class;

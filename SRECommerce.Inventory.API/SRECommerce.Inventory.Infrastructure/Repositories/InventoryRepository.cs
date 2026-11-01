@@ -21,6 +21,7 @@ public sealed class InventoryRepository(InventoryDbContext db,ModuleScope scope,
     public async Task<IReadOnlyCollection<InventoryMovement>> Movements(Guid? balance,int page,CancellationToken ct)=>await db.Movements.AsNoTracking().Where(m=>balance==null||m.BalanceId==balance).OrderByDescending(m=>m.OccurredAt).ThenBy(m=>m.Id).Skip((page-1)*100).Take(100).ToListAsync(ct);
     public Task<StockReservation?> Reservation(Guid id,CancellationToken ct)=>db.Reservations.Include(r=>r.Lines).SingleOrDefaultAsync(r=>r.Id==id,ct);
     public async Task<IReadOnlyCollection<StockReservation>> Expired(DateTimeOffset now,int count,CancellationToken ct)=>await db.Reservations.Include(r=>r.Lines).Where(r=>r.Status==ReservationStatus.Active&&r.ExpiresAt<=now).OrderBy(r=>r.ExpiresAt).ThenBy(r=>r.Id).Take(count).ToListAsync(ct);
+    public Task<ReservationCancellation?> Cancellation(Guid id,CancellationToken ct)=>db.Cancellations.SingleOrDefaultAsync(c=>c.Id==id,ct);
     public Task<StockOperation?> Operation(Guid id,CancellationToken ct)=>db.Operations.SingleOrDefaultAsync(o=>o.Id==id,ct);
     public Task<PurchaseOrder?> Purchase(Guid id,CancellationToken ct)=>db.Purchases.Include(p=>p.Lines).SingleOrDefaultAsync(p=>p.Id==id,ct);
     public async Task<IReadOnlyCollection<PurchaseOrder>> Purchases(int page,CancellationToken ct)=>await db.Purchases.Include(p=>p.Lines).OrderByDescending(p=>p.CreatedAt).ThenBy(p=>p.Id).Skip((page-1)*50).Take(50).ToListAsync(ct);

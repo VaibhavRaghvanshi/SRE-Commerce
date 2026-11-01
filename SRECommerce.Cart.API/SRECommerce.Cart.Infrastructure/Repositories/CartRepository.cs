@@ -8,6 +8,9 @@ public sealed class CartRepository(CartDbContext db,ModuleScope scope,IHttpConte
  public Task<CartSession?> Session(Guid id,CancellationToken ct)=>db.Sessions.SingleOrDefaultAsync(s=>s.CartId==id,ct);
  public Task<CartOperation?> Operation(Guid cart,Guid id,CancellationToken ct)=>db.Operations.SingleOrDefaultAsync(o=>o.CartId==cart&&o.Id==id,ct);
  public Task<CheckoutPreparation?> Preparation(Guid id,CancellationToken ct)=>db.Preparations.SingleOrDefaultAsync(p=>p.Id==id,ct);
+ public Task<CartCheckoutClaim?> Claim(Guid id,CancellationToken ct)=>db.Claims.SingleOrDefaultAsync(c=>c.Id==id,ct);
+ public Task<CartCheckoutClaim?> ActiveClaim(Guid cart,CancellationToken ct)=>db.Claims.SingleOrDefaultAsync(c=>c.CartId==cart&&c.Status==CartClaimStatus.Held,ct);
+ public void ClaimVersion(CartCheckoutClaim value,string expected)=>db.ExpectedVersion(value,expected);
  public void Add<T>(T value)where T:class=>db.Add(value);public void Version(ShoppingCart value,string expected)=>db.ExpectedVersion(value,expected);
  public async Task Commit(string action,Guid resource,object? integrationEvent,CancellationToken ct){db.Record(scope,contexts,action,resource.ToString());if(integrationEvent is not null)db.Emit(scope,service,contexts,action+".v1",integrationEvent);await db.SaveChangesAsync(ct);}
 }

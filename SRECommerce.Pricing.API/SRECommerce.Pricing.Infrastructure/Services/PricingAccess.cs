@@ -24,6 +24,7 @@ public sealed class PricingAccess(ModuleAccess access,ModuleScope scope,RemoteAc
     {var value=await access.PublicAsync(tenant,ct);scope.BindGuest(tenant);return value;}
     public async Task Machine(Guid tenant,string[] sources,CancellationToken ct)
     {access.MachineAsync(tenant,sources);_=await Tenant(tenant,ct);}
+    public void Recovery(Guid tenant)=>access.MachineAsync(tenant,"Order");
     private void Delegate(HttpRequestMessage request)
     {request.Headers.Authorization=new AuthenticationHeaderValue("Bearer",remote.UserBearer());var reason=contexts.HttpContext?.Request.Headers["X-Support-Reason"].ToString();if(!string.IsNullOrEmpty(reason))request.Headers.Add("X-Support-Reason",reason);}
     public async Task<CatalogPriceItem> CatalogItem(Guid tenant,Guid product,Guid variant,CancellationToken ct)

@@ -156,6 +156,57 @@ namespace SRECommerce.Cart.Infrastructure.Migrations
                     b.ToTable("IntegrationOutbox", (string)null);
                 });
 
+            modelBuilder.Entity("SRECommerce.Cart.Domain.CartCheckoutClaim", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CartId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("CartRevision")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("PreparationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("Version")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.HasKey("TenantId", "Id");
+
+                    b.HasIndex("Status", "ExpiresAt");
+
+                    b.HasIndex("TenantId", "PreparationId");
+
+                    b.HasIndex("TenantId", "CartId", "CartRevision")
+                        .IsUnique()
+                        .HasFilter("[Status]<2");
+
+                    b.ToTable("CartCheckoutClaims", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_CartCheckoutClaims_Status", "[Status] BETWEEN 0 AND 3");
+                        });
+                });
+
             modelBuilder.Entity("SRECommerce.Cart.Domain.CartItem", b =>
                 {
                     b.Property<Guid>("TenantId")
@@ -274,6 +325,10 @@ namespace SRECommerce.Cart.Infrastructure.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<string>("CustomerRole")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
                     b.Property<string>("Document")
                         .IsRequired()
                         .HasMaxLength(131072)
@@ -352,6 +407,21 @@ namespace SRECommerce.Cart.Infrastructure.Migrations
 
                             t.HasCheckConstraint("CK_Carts_State", "[Status] BETWEEN 0 AND 3");
                         });
+                });
+
+            modelBuilder.Entity("SRECommerce.Cart.Domain.CartCheckoutClaim", b =>
+                {
+                    b.HasOne("SRECommerce.Cart.Domain.ShoppingCart", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CartId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SRECommerce.Cart.Domain.CheckoutPreparation", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "PreparationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("SRECommerce.Cart.Domain.CartItem", b =>

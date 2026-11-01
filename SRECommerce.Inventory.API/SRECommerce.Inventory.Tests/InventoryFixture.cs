@@ -16,16 +16,17 @@ using SRECommerce.Inventory.Application;
 using SRECommerce.Inventory.Infrastructure;
 using Xunit;
 namespace SRECommerce.Inventory.Tests;
-public sealed class InventoryClock:TimeProvider
+public sealed class InventoryClock(TimeProvider? parent=null):TimeProvider
 {
     private long ticks=DateTimeOffset.UtcNow.UtcTicks;
-    public override DateTimeOffset GetUtcNow()=>new(Interlocked.Read(ref ticks),TimeSpan.Zero);
-    public void Advance(TimeSpan interval)=>Interlocked.Add(ref ticks,interval.Ticks);
+    private long offset;
+    public override DateTimeOffset GetUtcNow()=>parent is null?new(Interlocked.Read(ref ticks),TimeSpan.Zero):parent.GetUtcNow().AddTicks(Interlocked.Read(ref offset));
+    public void Advance(TimeSpan interval){if(parent is null)Interlocked.Add(ref ticks,interval.Ticks);else Interlocked.Add(ref offset,interval.Ticks);}
 }
-public sealed class InventoryFactory(CatalogFixture catalog):WebApplicationFactory<InventoryProgram>
+public sealed class InventoryFactory(CatalogFixture catalog,TimeProvider? parentClock=null):WebApplicationFactory<InventoryProgram>
 {
     public string DatabaseName{get;}="SRECommerce_InventoryTests_"+Guid.NewGuid().ToString("N");
-    public InventoryClock Clock{get;}=new();public bool CatalogOffline{get;set;}public bool TenantOffline{get;set;}public bool IdentityOffline{get;set;}
+    public InventoryClock Clock{get;}=new(parentClock);public bool CatalogOffline{get;set;}public bool TenantOffline{get;set;}public bool IdentityOffline{get;set;}
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Development");builder.UseSetting("ConnectionStrings:Inventory",$"Server=localhost,1433;Database={DatabaseName};Integrated Security=true;Encrypt=true;TrustServerCertificate=true");builder.UseSetting("RateLimiting:PermitLimit","1000");

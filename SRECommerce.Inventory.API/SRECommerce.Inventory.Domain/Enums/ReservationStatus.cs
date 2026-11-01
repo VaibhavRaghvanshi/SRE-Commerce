@@ -1,2 +1,2 @@
 namespace SRECommerce.Inventory.Domain;
-public enum ReservationStatus { Active, Committed, Released, Expired }
+public enum ReservationStatus { Active, Committed, Released, Expired, Compensated }

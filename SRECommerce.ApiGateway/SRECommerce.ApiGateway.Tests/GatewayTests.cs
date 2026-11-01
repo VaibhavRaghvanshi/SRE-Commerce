@@ -26,10 +26,18 @@ public sealed class GatewayFixture:IAsyncLifetime
 public sealed class GatewayFactory(string address):WebApplicationFactory<GatewayProgram>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
-    {builder.UseEnvironment("Development");foreach(var name in new[]{"Identity","Tenant","Theme","Storefront","Catalog","Inventory","Pricing","Cart"})builder.UseSetting("Services:"+name,address);builder.ConfigureLogging(o=>o.SetMinimumLevel(LogLevel.Error));}
+    {builder.UseEnvironment("Development");foreach(var name in new[]{"Identity","Tenant","Theme","Storefront","Catalog","Inventory","Pricing","Cart","Order"})builder.UseSetting("Services:"+name,address);builder.ConfigureLogging(o=>o.SetMinimumLevel(LogLevel.Error));}
 }
 public sealed class GatewayTests(GatewayFixture fixture):IClassFixture<GatewayFixture>
 {
+    [Fact]
+    public async Task Order_workspace_routes_are_rewritten_and_internal_context_stays_private()
+    {
+        using var client=fixture.Factory.CreateClient();
+        var result=await client.GetFromJsonAsync<JsonElement>("/commerce/order/tenants/test/order-management/orders");
+        Assert.Equal("/api/v1/tenants/test/order-management/orders",result.GetProperty("path").GetString());
+        Assert.Equal(HttpStatusCode.NotFound,(await client.GetAsync("/commerce/order/internal/v1/tenants/test/orders/example/context")).StatusCode);
+    }
     [Fact]
     public async Task Cart_routes_are_rewritten_but_internal_preparations_stay_private()
     {

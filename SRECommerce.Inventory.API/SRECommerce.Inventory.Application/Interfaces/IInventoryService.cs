@@ -15,6 +15,10 @@ public interface IInventoryService
     Task<ReservationView> Reserve(Guid tenant,ReserveRequest request,bool machine,CancellationToken ct);
     Task<ReservationView> Close(Guid tenant,Guid id,bool commit,CloseReservationRequest request,bool machine,CancellationToken ct);
     Task<ReservationView> Reservation(Guid tenant,Guid id,CancellationToken ct);
+    Task<ReservationView> RecoveryReservation(Guid tenant,Guid id,CancellationToken ct);
+    Task<WarehouseAvailability[]> AllocationOptions(Guid tenant,Guid[] variants,DateTimeOffset expiresAt,CancellationToken ct);
+    Task<object> Abort(Guid tenant,Guid reservation,ReservationAbortRequest request,CancellationToken ct);
+    Task<BalanceView[]> CustomerReturn(Guid tenant,CustomerReturnReceipt request,CancellationToken ct);
     Task<int> Expire(Guid tenant,CancellationToken ct);
     Task<PurchaseView> Purchase(Guid tenant,PurchaseRequest request,CancellationToken ct);
     Task<PurchaseView[]> Purchases(Guid tenant,int page,CancellationToken ct);
