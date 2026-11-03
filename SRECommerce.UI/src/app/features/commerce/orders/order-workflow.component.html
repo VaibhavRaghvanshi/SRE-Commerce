@@ -1,0 +1,52 @@
+<main>
+  <a [routerLink]="['/workspace',tenant,'orders']">← Orders</a>
+  <h1>Fulfillment and after-sales</h1>
+  <p role="alert" *ngIf="error()">{{error()}}</p><p role="status" *ngIf="busy() || message()">{{busy() ? 'Working…' : message()}}</p>
+  <button type="button" *ngIf="!allowed" (click)="signIn()">Sign in to your business</button>
+  <ng-container *ngIf="allowed">
+    <label *ngIf="support">Support reason <input [(ngModel)]="supportReason" maxlength="300" /></label>
+    <button type="button" (click)="reload()" [disabled]="busy() || support && !supportReason.trim()">Refresh order workflow</button>
+    <button *ngIf="pendingCount() && canManage" type="button" (click)="retryUnconfirmed()" [disabled]="busy()">Retry exact unconfirmed request</button>
+    <ng-container *ngIf="order() as o">
+      <h2>{{o.number}}</h2><p *ngIf="o.historical">Imported history has no current fulfillment or return actions.</p>
+      <article><h3>Parcels</h3>
+        <p *ngIf="!fulfillments().length">No parcels requested.</p>
+        <ul><li *ngFor="let f of fulfillments()">{{parcelStates[f.status]}} · {{warehouseName(f.warehouseId)}} <span *ngIf="f.courierReference">· {{f.courierReference}}</span>
+          <ul><li *ngFor="let line of f.items">{{sku(line.variantId)}} × {{line.quantity}}</li></ul></li></ul>
+        <p><a [routerLink]="['/workspace',tenant,'shipping']">Open shipping workspace</a></p>
+        <form *ngIf="canFulfill" #parcel="ngForm" (ngSubmit)="fulfill()">
+          <label>Warehouse <select name="warehouse" [(ngModel)]="warehouse" required><option value="">Choose a warehouse</option><option *ngFor="let w of warehouses()" [value]="w.id">{{w.name}}</option></select></label>
+          <p>Choose quantities for this parcel. The server checks committed stock in the selected warehouse.</p>
+          <ng-container *ngFor="let line of o.items">
+            <label *ngIf="line.quantity > line.shipmentRequested">{{line.sku}} ({{line.quantity - line.shipmentRequested}} available to request)
+              <input type="number" [name]="line.variantId" [(ngModel)]="quantities[line.variantId]" min="0" [attr.max]="line.quantity - line.shipmentRequested" step="0.001" /></label>
+          </ng-container>
+          <button [disabled]="busy() || parcel.invalid || pendingCount() > 0">Request parcel</button>
+        </form>
+      </article>
+      <article><h3>Returns</h3><p *ngIf="!returns().length">No returns requested.</p>
+        <section *ngFor="let r of returns()"><h4>{{returnStates[r.status]}} · {{r.refundAmount | currency:o.currency}}</h4>
+          <p>{{r.reason}}</p><ul><li *ngFor="let line of r.items">{{sku(line.variantId)}} × {{line.quantity}}</li></ul>
+          <div *ngIf="canManage && r.status === 0">
+            <button type="button" (click)="changeReturn(r,1)" [disabled]="busy() || pendingCount() > 0">Approve return</button>
+            <button type="button" (click)="changeReturn(r,5)" [disabled]="busy() || pendingCount() > 0">Reject return</button>
+            <button type="button" (click)="changeReturn(r,6)" [disabled]="busy() || pendingCount() > 0">Cancel return</button>
+          </div>
+          <div *ngIf="canManage && r.status === 1">
+            <label>Receiving warehouse <select [(ngModel)]="returnWarehouse[r.id]"><option value="">Choose warehouse</option><option *ngFor="let w of warehouses()" [value]="w.id">{{w.name}}</option></select></label>
+            <label><input type="checkbox" [(ngModel)]="resalable[r.id]" /> Quality checked and resalable</label>
+            <button type="button" (click)="changeReturn(r,2)" [disabled]="busy() || pendingCount() > 0 || !returnWarehouse[r.id]">Record physical receipt</button>
+          </div>
+        </section>
+      </article>
+      <article><h3>Exchanges</h3><p *ngIf="!exchanges().length">No exchanges requested.</p>
+        <section *ngFor="let x of exchanges()"><h4>{{exchangeStates[x.status]}}</h4><p>{{sku(x.originalVariantId)}} → {{sku(x.replacementVariantId)}} × {{x.quantity}}</p>
+          <p *ngIf="x.replacementOrderId">Replacement order: {{x.replacementOrderId}}</p>
+          <div *ngIf="canManage && x.status === 2"><label>Confirmed replacement order ID <input [(ngModel)]="replacement[x.id]" maxlength="36" /></label>
+            <button type="button" (click)="changeExchange(x,3)" [disabled]="busy() || pendingCount() > 0 || !replacement[x.id]">Link replacement order</button></div>
+          <button *ngIf="canManage && x.status === 3" type="button" (click)="changeExchange(x,4)" [disabled]="busy() || pendingCount() > 0">Complete delivered and refunded exchange</button>
+        </section>
+      </article>
+    </ng-container>
+  </ng-container>
+</main>

@@ -43,7 +43,12 @@ foreach($spec in $specs|Where-Object {$_.Name -in $Services}){
         if($spec.Name -eq 'Identity' -and $InitializeIdentity){Push-Location $working;try{& $runtime $dll --initialize;if($LASTEXITCODE -ne 0){throw 'Explicit Identity client initialization failed'}}finally{Pop-Location}}
         $process=Start-Process -FilePath $runtime -ArgumentList @($dll,'--urls',('http://localhost:'+$spec.Port)) -WorkingDirectory $working -WindowStyle Hidden -RedirectStandardOutput (Join-Path $runDirectory ($spec.Name+'.out.log')) -RedirectStandardError (Join-Path $runDirectory ($spec.Name+'.err.log')) -PassThru
         $processes[$spec.Name]=@{Service=$spec.Name;Port=$spec.Port;ProcessId=$process.Id;Executable=$runtime}
-    }finally{foreach($key in $previous.Keys){[Environment]::SetEnvironmentVariable($key,$previous[$key],'Process')}}
+    }finally{
+        foreach($key in $previous.Keys){
+            if($null -eq $previous[$key]){Remove-Item -LiteralPath ('Env:'+$key) -ErrorAction SilentlyContinue}
+            else{[Environment]::SetEnvironmentVariable($key,$previous[$key],'Process')}
+        }
+    }
     $ready=$false
     for($attempt=0;$attempt -lt 15;$attempt++){try{$health=Invoke-RestMethod -Uri ('http://localhost:'+$spec.Port+'/health/live') -TimeoutSec 2;if($health.service -eq $spec.Name){$ready=$true;break}}catch{};if($process.HasExited){break};Start-Sleep -Milliseconds 400}
     if(!$ready){@($processes.Values)|ConvertTo-Json -Depth 4|Set-Content -LiteralPath $processManifest;throw ($spec.Name+' failed to start. Logs and previously started services were preserved under ignored artifacts.')}

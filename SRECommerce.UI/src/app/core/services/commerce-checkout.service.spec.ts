@@ -52,4 +52,20 @@ describe('CommerceCheckoutService', () => {
     await status;
     expect(service.active(tenant)).toBeNull();
   });
+  it('cancels a pending guest checkout with only the order capability', async () => {
+    const submit = service.submit(tenant, preparation, shipping, 'COD', contact);
+    const start = http.expectOne(base + '/checkout');
+    const id = start.request.body.id;
+    const proof = start.request.headers.get('X-Order-Key');
+    start.flush({ id, state: 1 });
+    await submit;
+    const cancel = service.cancelPending(tenant, id, 'Customer requested checkout cancellation');
+    const request = http.expectOne(base + '/checkouts/' + id + '/cancel');
+    expect(request.request.headers.get('X-Order-Key')).toBe(proof);
+    expect(request.request.headers.has('X-Cart-Key')).toBeFalse();
+    expect(request.request.body).toEqual({ reason: 'Customer requested checkout cancellation' });
+    request.flush({ id, state: 3 });
+    await cancel;
+    expect(service.active(tenant)?.state).toBe(3);
+  });
 });

@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { timeout } from 'rxjs';
 import { CommerceOrder, CommerceOrderHistory, CommerceOrderPage, CommerceOrderPolicy } from '../models/commerce-order.models';
+import { CheckoutReview, CommerceCheckout } from '../models/commerce-checkout.models';
 
 @Injectable({ providedIn: 'root' })
 export class MerchantOrderService {
@@ -18,6 +19,13 @@ export class MerchantOrderService {
   }
   history(tenant: string, id: string, reason: string) {
     return this.http.get<CommerceOrderHistory[]>(this.base(tenant) + '/orders/' + encodeURIComponent(id) + '/history', this.options(reason)).pipe(timeout(15000));
+  }
+  reviews(tenant: string, page: number, reason: string) {
+    return this.http.get<CheckoutReview[]>(this.base(tenant) + '/checkout-reviews', { ...this.options(reason), params: { page } }).pipe(timeout(15000));
+  }
+  recover(tenant: string, review: CheckoutReview, cancel: boolean, note: string, reason: string) {
+    return this.http.post<CommerceCheckout>(this.base(tenant) + '/checkout-reviews/' + encodeURIComponent(review.id) + '/recover',
+      { version: review.version, cancel, reason: note.trim() }, this.options(reason)).pipe(timeout(15000));
   }
   policy(tenant: string, reason: string) {
     return this.http.get<CommerceOrderPolicy>(this.base(tenant) + '/policy', this.options(reason)).pipe(timeout(15000));

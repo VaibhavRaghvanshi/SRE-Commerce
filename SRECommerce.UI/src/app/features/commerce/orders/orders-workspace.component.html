@@ -7,6 +7,21 @@
     <label *ngIf="session.access()?.isPlatformAdmin">Business support reason<input maxlength="300" [(ngModel)]="supportReason" /></label>
     <form class="toolbar" (ngSubmit)="filter()"><label>Order state<select name="state" [(ngModel)]="status"><option [ngValue]="null">All orders</option><option *ngFor="let label of statuses;let i=index" [ngValue]="i">{{label}}</option></select></label><button [disabled]="busy()">Refresh orders</button><button type="button" class="secondary" *ngIf="canConfigure" (click)="loadPolicy()" [disabled]="busy()">Order policy</button></form>
     <p *ngIf="busy()" role="status">Loading…</p>
+    <section class="panel" *ngIf="canManage">
+      <h2>Checkout recovery</h2>
+      <button type="button" class="secondary" (click)="loadReviews()" [disabled]="busy()">Load checkouts needing review</button>
+      <ng-container *ngIf="reviews() as rows">
+        <p *ngIf="!rows.length">No checkouts need review on this page.</p>
+        <label *ngIf="rows.length">Recovery reason<input [(ngModel)]="reviewNote" maxlength="300" /></label>
+        <ul><li *ngFor="let r of rows"><strong>{{r.id}}</strong><p>{{phases[r.phase]}} · {{r.attempts}} attempts <span *ngIf="r.issue">· {{r.issue}}</span></p>
+          <p>Original quote deadline: {{r.deadline | date:'short'}}</p>
+          <button type="button" class="secondary" (click)="recover(r,false)" [disabled]="busy() || !reviewNote.trim()">Retry safe recovery</button>
+          <button type="button" class="secondary" (click)="recover(r,true)" [disabled]="busy() || !reviewNote.trim()">Cancel and restore</button>
+        </li></ul>
+        <button type="button" class="secondary" (click)="loadReviews(reviewPage-1)" [disabled]="busy() || reviewPage===1">Previous</button>
+        <button type="button" class="secondary" (click)="loadReviews(reviewPage+1)" [disabled]="busy() || rows.length<50">Next</button>
+      </ng-container>
+    </section>
     <section class="panel table-wrap"><table><caption>{{result().total}} orders · page {{result().page}}</caption><thead><tr><th>Order</th><th>Placed</th><th>State</th><th>Payment</th><th>Total</th><th>Details</th></tr></thead><tbody>
       <tr *ngFor="let o of result().items"><td>{{o.number}}<small *ngIf="o.historical">Imported history</small></td><td>{{o.createdAt|date:'mediumDate'}}</td><td>{{statuses[o.status]}}</td><td>{{o.total===0?'No charge':payments[o.paymentState]}}</td><td>{{o.total|currency:o.currency:'code'}}</td><td><button class="secondary" type="button" (click)="open(o)" [disabled]="busy()">View order</button></td></tr>
       <tr *ngIf="!result().items.length && !busy()"><td colspan="6">No orders in this view.</td></tr></tbody></table></section>
@@ -14,6 +29,7 @@
     <article class="panel" *ngIf="selected() as o"><h2>{{o.number}}</h2><p>{{statuses[o.status]}} · {{o.total===0?'No charge':payments[o.paymentState]}} · {{o.paymentMethod==='NotRecorded'?'Not recorded':o.paymentMethod}}</p><p class="notice" *ngIf="o.historical">Imported order history. Some delivery, tax and payment details were not recorded in the original system.</p>
       <div class="details"><section><h3>Delivery contact</h3><p>{{o.contact.fullName}}<br />{{o.contact.email}}<br />{{o.contact.addressLine1}}<br />{{o.contact.addressLine2}}<br />{{o.contact.city}} · {{o.contact.postalCode}} · {{o.contact.countryCode}}</p></section><section><h3>Order totals</h3><p>Items {{o.itemsTotal|currency:o.currency:'code'}}<br />Shipping {{o.shippingTotal|currency:o.currency:'code'}}<br /><span *ngIf="o.taxDetailsRecorded;else unknownTax">Tax included {{o.tax|currency:o.currency:'code'}}</span><ng-template #unknownTax>Tax split not recorded</ng-template><br /><strong>Total {{o.total|currency:o.currency:'code'}}</strong><br />Refunded {{o.refunded|currency:o.currency:'code'}}</p></section></div>
       <div class="table-wrap"><table><thead><tr><th>Item</th><th>Ordered</th><th>Shipped</th><th>Delivered</th><th>Returned</th><th>Line total</th></tr></thead><tbody><tr *ngFor="let item of o.items"><td>{{item.name}}<small>{{item.sku}}</small></td><td>{{item.quantity}}</td><td>{{item.fulfilled}}</td><td>{{item.delivered}}</td><td>{{item.returned}}</td><td>{{item.total|currency:o.currency:'code'}}</td></tr></tbody></table></div>
+      <p *ngIf="!o.historical"><a [routerLink]="['/workspace',tenant,'orders',o.id,'workflow']">Fulfillment, returns and exchanges</a></p>
       <form *ngIf="canManage && !o.historical" (ngSubmit)="invoice()"><h3>Invoice reference</h3><label>Reference<input name="invoice" [(ngModel)]="invoiceReference" maxlength="80" required [readonly]="!!o.invoiceReference" /></label><p>A saved invoice reference cannot be replaced.</p><button [disabled]="busy()||!!o.invoiceReference">Save reference</button></form>
       <form *ngIf="canManage && canCancel" (ngSubmit)="cancel()"><h3>Cancel order</h3><label>Cancellation reason<textarea name="cancel-reason" [(ngModel)]="note" maxlength="300" required></textarea></label><p>Available before a shipment is requested. Cancellation completes after payment and stock recovery.</p><button [disabled]="busy()||!note.trim()">Request cancellation</button></form>
       <h3>Order history</h3><ol><li *ngFor="let event of history()"><strong>{{statuses[event.current]}}</strong> · {{event.createdAt|date:'short'}}<p>{{event.reason}}</p></li></ol><button type="button" class="secondary" (click)="open(o)" [disabled]="busy()">Refresh this order</button>

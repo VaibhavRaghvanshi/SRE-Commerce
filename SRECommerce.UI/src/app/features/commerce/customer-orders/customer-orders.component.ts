@@ -24,7 +24,7 @@ export class CommerceCustomerOrdersComponent {
   private destroyed = false;
   get customer() { const tenant = this.tenant(); return !!this.session.token && !!tenant && this.session.access()?.selectedTenantId === tenant.tenantId; }
   get returnable() { return this.order()?.items.filter(i => i.delivered > i.returnRequested) || []; }
-  get canCancel() { const order = this.order(); return !!order && !order.historical && [0, 1, 2, 9].includes(order.status) && order.items.every(i => i.shipmentRequested === 0); }
+  get canCancel() { const order = this.order(); return !!order && !order.historical && [1, 2].includes(order.status) && order.items.every(i => i.shipmentRequested === 0); }
   constructor() { inject(DestroyRef).onDestroy(() => this.destroyed = true); if (typeof window !== 'undefined') void this.initialize(); }
   private async initialize() {
     try { const tenant = await firstValueFrom(this.catalog.tenant(this.route.snapshot.paramMap.get('slug') || '')); this.tenant.set(tenant); this.refs.set(this.api.references(tenant.tenantId)); await this.load(); }

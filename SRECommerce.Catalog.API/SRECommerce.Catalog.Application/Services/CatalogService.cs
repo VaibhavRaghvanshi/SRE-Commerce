@@ -191,6 +191,13 @@ public sealed class CatalogService(ICatalogRepository repository,ICatalogAccess 
         if(ids.Length is <1 or >50||ids.Any(id=>id==Guid.Empty)||ids.Distinct().Count()!=ids.Length)throw new BusinessFault("InvalidShoppingProductsQuery",400);
         return await repository.ShoppingProducts(ids,!publicRead&&access.CanViewB2B,ct);
     }
+    public async Task<ProductView[]> PublicProductsById(Guid tenant,Guid[] productIds,CancellationToken ct)
+    {
+        await access.Public(tenant,ct);
+        if(productIds.Length is <1 or >50||productIds.Any(id=>id==Guid.Empty)||productIds.Distinct().Count()!=productIds.Length)
+            throw new BusinessFault("InvalidPublishedProductsQuery",400);
+        return await repository.PublicProductsById(productIds,ct);
+    }
     public async Task Archive(Guid tenant,Guid id,string version,CancellationToken ct)
     {await access.Authorize(tenant,ActorPermission.Manager,ct);await repository.Transaction(async token=>{var value=await repository.Product(id,token)??throw new BusinessFault("ProductNotFound",404);repository.Version(value,version);value.Status=ProductStatus.Archived;value.UpdatedAt=DateTimeOffset.UtcNow;await repository.Commit("catalog.product.archived",id,new{productId=id,archived=true},token);return true;},ct);}
     public async Task<ProductView> PublicProduct(Guid tenant,string slug,CancellationToken ct)

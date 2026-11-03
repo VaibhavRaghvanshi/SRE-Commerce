@@ -6,6 +6,8 @@ public sealed class OrderManagementController(IOrderService service):ControllerB
  [HttpGet("policy")]public async Task<IActionResult> Policy(Guid tenant,CancellationToken ct)=>Ok(await service.Policy(tenant,null,false,ct));
  [HttpPut("policy")]public async Task<IActionResult> Policy(Guid tenant,OrderPolicyRequest request,CancellationToken ct)=>Ok(await service.Policy(tenant,request,false,ct));
  [HttpGet("orders")]public async Task<IActionResult> List(Guid tenant,[FromQuery]int page=1,[FromQuery]OrderStatus? status=null,CancellationToken ct=default)=>Ok(await service.Orders(tenant,page,status,true,ct));
+ [HttpGet("checkout-reviews")]public async Task<IActionResult> Reviews(Guid tenant,[FromQuery]int page=1,CancellationToken ct=default)=>Ok(await service.Reviews(tenant,page,ct));
+ [HttpPost("checkout-reviews/{id:guid}/recover")]public async Task<IActionResult> Recover(Guid tenant,Guid id,CheckoutRecoveryRequest request,CancellationToken ct)=>Accepted(await service.RecoverCheckout(tenant,id,request,ct));
  [HttpGet("orders/{id:guid}")]public async Task<IActionResult> Get(Guid tenant,Guid id,CancellationToken ct)=>Ok(await service.Order(tenant,id,false,null,true,ct));
  [HttpGet("orders/{id:guid}/history")]public async Task<IActionResult> History(Guid tenant,Guid id,CancellationToken ct)=>Ok(await service.History(tenant,id,false,null,true,ct));
  [HttpPost("orders/{id:guid}/cancel")]public async Task<IActionResult> Cancel(Guid tenant,Guid id,CancelOrderRequest request,CancellationToken ct)=>Ok(await service.Cancel(tenant,id,request,false,null,true,ct));

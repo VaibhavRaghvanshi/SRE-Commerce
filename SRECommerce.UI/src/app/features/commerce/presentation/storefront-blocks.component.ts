@@ -51,7 +51,7 @@ export class StorefrontBlocksComponent {
       const ids = [...new Set(this.sections().filter(x => ['featured-products','new-arrivals','best-sellers','promotion'].includes(x.kind)).flatMap(x => x.references))].slice(0,50);
       const tenant = this.tenant(); this.products.set([]);
       if (this.footer() || !ids.length || typeof window === 'undefined') return;
-      const sub = this.catalog.shoppingProducts(tenant, ids).pipe(timeout(3000), catchError(() => of([]))).subscribe(x => this.products.set(x));
+      const sub = this.catalog.publicProductsById(tenant, ids).pipe(timeout(3000), catchError(() => of([]))).subscribe(x => this.products.set(x));
       onCleanup(() => sub.unsubscribe());
     });
   }

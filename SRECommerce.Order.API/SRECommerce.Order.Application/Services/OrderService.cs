@@ -81,7 +81,9 @@ public sealed partial class OrderService(IOrderRepository repository,IOrderAcces
   {
    var order=await Owned(id,guest,capability,admin,token);var prior=await Replay(request.OperationId,id,"order.cancel.requested",hash,token);if(prior is not null)return prior;repository.Version(order,request.Version);
    if(order.Historical||order.Items.Any(i=>i.ShipmentRequested>0)||order.Status is OrderStatus.Completed or OrderStatus.Delivered or OrderStatus.Cancelled or OrderStatus.Failed)throw new BusinessFault("OrderCannotBeCancelled");
-   var intent=await repository.Intent(id,token)??throw new BusinessFault("CheckoutNotFound",404);intent.State=Domain.CheckoutState.Compensating;intent.Phase=SagaPhase.CompensatePayment;intent.CancellationReason=request.Reason;intent.LeaseId=null;intent.LeaseUntil=null;intent.NextAttemptAt=Now;intent.Attempts=0;Transition(order,OrderStatus.CancellationPending,request.Reason);
+   var intent=await repository.Intent(id,token)??throw new BusinessFault("CheckoutNotFound",404);
+   if(intent.State!=Domain.CheckoutState.Accepted)throw new BusinessFault("OrderCheckoutNotConfirmed");
+   intent.State=Domain.CheckoutState.Compensating;intent.Phase=SagaPhase.CompensatePayment;intent.CancellationReason=request.Reason;ResetCheckoutLease(intent);Transition(order,OrderStatus.CancellationPending,request.Reason);
    return await Record(order,request.OperationId,"order.cancel.requested",hash,token);
   },ct);
  }

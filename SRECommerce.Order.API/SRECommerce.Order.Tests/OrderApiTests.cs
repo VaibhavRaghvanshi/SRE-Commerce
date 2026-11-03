@@ -15,6 +15,57 @@ namespace SRECommerce.Order.Tests;
 public sealed class OrderApiTests(OrderFixture fixture) : IClassFixture<OrderFixture>
 {
     [Fact]
+    public async Task Guest_can_cancel_a_checkout_before_an_order_exists_with_exact_replay()
+    {
+        using var business=await fixture.Business(guest:true);
+        var created=await fixture.Start(business);Assert.Null(created.Order);
+        var path=Path(business.Tenant,true)+$"/checkouts/{business.Request.Id}/cancel";
+        var request=new CancelCheckoutRequest("Customer stopped checkout");
+        using var stranger=fixture.Factory.Client(orderKey:SRECommerce.Cart.Tests.CartFixture.Key());
+        Assert.Equal(HttpStatusCode.NotFound,(await stranger.PostAsJsonAsync(path,request)).StatusCode);
+        var queued=await Read<CheckoutView>(await business.Client.PostAsJsonAsync(path,request),HttpStatusCode.Accepted);
+        Assert.Equal(CheckoutState.Compensating,queued.State);
+        Assert.Equal(queued.State,(await Read<CheckoutView>(await business.Client.PostAsJsonAsync(path,request),HttpStatusCode.Accepted)).State);
+        Assert.Equal(HttpStatusCode.Conflict,(await business.Client.PostAsJsonAsync(path,request with{Reason="A different request"})).StatusCode);
+        var cancelled=await fixture.Drain(business);
+        Assert.Equal(CheckoutState.Cancelled,cancelled.State);Assert.Null(cancelled.Order);
+        Assert.Equal(cancelled.State,(await Read<CheckoutView>(await business.Client.PostAsJsonAsync(path,request),HttpStatusCode.Accepted)).State);
+    }
+
+    [Fact]
+    public async Task Manager_can_resume_reviewed_cancellation_after_a_provider_outage_without_extending_deadline()
+    {
+        using var business=await fixture.Business();
+        await fixture.Start(business);var accepted=await fixture.Drain(business);var order=accepted.Order!;
+        var path=Manage(business.Tenant);
+        await Read<OrderView>(await business.Owner.PostAsJsonAsync(path+$"/orders/{order.Id}/cancel",new CancelOrderRequest(Guid.NewGuid(),order.Version,"Requested by customer")));
+        using(var scope=fixture.Factory.Services.CreateScope())
+        {
+            scope.ServiceProvider.GetRequiredService<ModuleScope>().BindEvent(business.Tenant,"Order");
+            var db=scope.ServiceProvider.GetRequiredService<OrderDbContext>();
+            var intent=await db.Intents.SingleAsync(x=>x.Id==order.Id);
+            intent.Attempts=11;await db.SaveChangesAsync();
+        }
+        fixture.Providers.PaymentOffline=true;
+        try{await fixture.Step(business);}finally{fixture.Providers.PaymentOffline=false;}
+        var review=Assert.Single(await Read<CheckoutReview[]>(await business.Owner.GetAsync(path+"/checkout-reviews")));
+        Assert.Equal(SagaPhase.CompensatePayment,review.Phase);
+        Assert.Equal(12,review.Attempts);
+        Assert.Equal(HttpStatusCode.Conflict,(await business.Owner.PostAsJsonAsync(path+$"/checkout-reviews/{order.Id}/recover",new CheckoutRecoveryRequest(Convert.ToBase64String(new byte[8]),false,"Provider back online"))).StatusCode);
+        fixture.Cart.Pricing.Factory.Clock.Advance(TimeSpan.FromMinutes(20));
+        var resumed=await Read<CheckoutView>(await business.Owner.PostAsJsonAsync(path+$"/checkout-reviews/{order.Id}/recover",new CheckoutRecoveryRequest(review.Version,false,"Provider back online")),HttpStatusCode.Accepted);
+        Assert.Equal(OrderStatus.CancellationPending,resumed.Order!.Status);
+        Assert.Empty(await Read<CheckoutReview[]>(await business.Owner.GetAsync(path+"/checkout-reviews")));
+        var finished=await fixture.Drain(business);
+        Assert.Equal(CheckoutState.Cancelled,finished.State);Assert.Equal(order.Total,finished.Order!.Refunded);
+        using var finalScope=fixture.Factory.Services.CreateScope();
+        finalScope.ServiceProvider.GetRequiredService<ModuleScope>().BindEvent(business.Tenant,"Order");
+        var finalDb=finalScope.ServiceProvider.GetRequiredService<OrderDbContext>();
+        Assert.Equal(review.Deadline,await finalDb.Intents.Where(x=>x.Id==order.Id).Select(x=>x.Deadline).SingleAsync());
+        Assert.Equal("Provider back online",await finalDb.Audit.Where(x=>x.Action=="order.checkout.review.reason"&&x.Resource==order.Id.ToString()).Select(x=>x.SupportReason).SingleAsync());
+    }
+
+    [Fact]
     public async Task Historical_shipping_and_unknown_payment_address_metadata_are_preserved_without_invented_facts()
     {
         using var business = await fixture.Business();

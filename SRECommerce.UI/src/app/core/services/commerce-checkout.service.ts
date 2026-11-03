@@ -83,6 +83,11 @@ export class CommerceCheckoutService {
     if ([2, 4, 6].includes(checkout.state)) this.pending.delete(this.attemptKey(tenant, reference.userId));
   }
   async status(tenant: string, id: string) { const reference = this.reference(tenant, id); const checkout = await this.request<CommerceCheckout>(this.base(tenant, reference.guest) + '/checkouts/' + encodeURIComponent(id), 'GET', undefined, this.headers(reference)); this.observe(tenant, reference, checkout); return checkout; }
+  async cancelPending(tenant: string, id: string, reason: string) {
+    const reference = this.reference(tenant, id);
+    const result = await this.request<CommerceCheckout>(this.base(tenant, reference.guest) + '/checkouts/' + encodeURIComponent(id) + '/cancel', 'POST', { reason: reason.trim() }, this.headers(reference));
+    this.observe(tenant, reference, result); return result;
+  }
   order(tenant: string, id: string) { const r = this.reference(tenant, id); return this.request<CommerceOrder>(this.base(tenant, r.guest) + '/' + encodeURIComponent(id), 'GET', undefined, this.headers(r)); }
   history(tenant: string, id: string) { const r = this.reference(tenant, id); return this.request<CommerceOrderHistory[]>(this.base(tenant, r.guest) + '/' + encodeURIComponent(id) + '/history', 'GET', undefined, this.headers(r)); }
   returns(tenant: string, id: string) { const r = this.reference(tenant, id); return this.request<CommerceReturn[]>(this.base(tenant, r.guest) + '/' + encodeURIComponent(id) + '/returns', 'GET', undefined, this.headers(r)); }

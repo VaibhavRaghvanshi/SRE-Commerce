@@ -57,6 +57,11 @@ public sealed class CatalogRepository(CatalogDbContext db,ModuleScope scope,IHtt
         var documents=await(from variant in db.Variants.AsNoTracking() join snapshot in Active(includeB2B) on new{variant.TenantId,Id=variant.ProductId} equals new{snapshot.TenantId,Id=snapshot.ProductId} where ids.Contains(variant.Id) select snapshot.Document).Distinct().ToListAsync(ct);
         return documents.Select(ContractJson.Read<ProductView>).Where(p=>p.Variants.Any(v=>v.Active&&v.Id is {} id&&ids.Contains(id))).ToArray();
     }
+    public async Task<ProductView[]> PublicProductsById(Guid[] productIds,CancellationToken ct)
+    {
+        var rows=await Active().Where(p=>productIds.Contains(p.ProductId)).Select(p=>p.Document).ToArrayAsync(ct);
+        return rows.Select(ContractJson.Read<ProductView>).ToArray();
+    }
     public async Task<IReadOnlyCollection<ProductCollection>> Collections(CancellationToken ct)=>await db.Collections.Include(c=>c.Products).OrderBy(c=>c.Name).ToListAsync(ct);
     public Task<CatalogImport?> Import(Guid id,CancellationToken ct)=>db.Imports.SingleOrDefaultAsync(i=>i.Id==id,ct);
     public void Add<T>(T entity)where T:class=>db.Add(entity);

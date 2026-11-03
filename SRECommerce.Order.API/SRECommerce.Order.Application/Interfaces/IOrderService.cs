@@ -14,4 +14,7 @@ public interface IOrderService
  Task<MachineOrderContext> Context(Guid tenant,Guid id,CancellationToken ct);Task<object> ShipmentContext(Guid tenant,Guid id,CancellationToken ct);Task<object> ReturnContext(Guid tenant,Guid id,CancellationToken ct);
  Task<object> NotificationContext(Guid tenant,Guid id,Guid eventId,int kind,CancellationToken ct);
  Task<bool> VerifiedPurchase(Guid tenant,Guid user,Guid product,CancellationToken ct);
+ Task<CheckoutReview[]> Reviews(Guid tenant,int page,CancellationToken ct);
+ Task<CheckoutView> RecoverCheckout(Guid tenant,Guid id,CheckoutRecoveryRequest request,CancellationToken ct);
+ Task<CheckoutView> CancelCheckout(Guid tenant,Guid id,CancelCheckoutRequest request,bool guest,string? capability,CancellationToken ct);
 }

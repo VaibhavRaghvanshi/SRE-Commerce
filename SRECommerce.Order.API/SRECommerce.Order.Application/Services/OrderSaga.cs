@@ -27,7 +27,7 @@ public sealed class OrderSaga(IOrderRepository repository,IOrderAccess access,IO
    intent.Attempts++;intent.LastFault=error is BusinessFault known?known.Code:error is DependencyFault dependency?dependency.Dependency:"CheckoutDependencyFailure";
    intent.LeaseId=null;intent.LeaseUntil=null;intent.NextAttemptAt=Now.AddSeconds(Math.Min(60,Math.Pow(2,Math.Min(intent.Attempts,5))));
    if(permanent&&intent.State!=CheckoutState.Compensating){intent.State=CheckoutState.Compensating;intent.Phase=SagaPhase.CompensatePayment;intent.Attempts=0;}
-   else if(intent.Attempts>=12){intent.State=CheckoutState.ManualReview;intent.NextAttemptAt=DateTimeOffset.MaxValue;if(await repository.Order(id,token) is {} order&&order.Status is not(OrderStatus.Cancelled or OrderStatus.Failed or OrderStatus.Completed)){var previous=order.Status;order.Status=OrderStatus.ManualReview;repository.Add(new OrderStatusHistory{TenantId=order.TenantId,OrderId=id,Previous=previous,Current=order.Status,Reason="Checkout recovery needs store review",CreatedAt=Now});}}
+   else if(intent.Attempts>=12){intent.State=CheckoutState.ManualReview;intent.NextAttemptAt=DateTimeOffset.MaxValue;if(await repository.Order(id,token) is {} order&&order.Status is not(OrderStatus.Cancelled or OrderStatus.Failed or OrderStatus.Completed)){var previous=order.Status;order.Status=OrderStatus.ManualReview;order.Revision++;order.UpdatedAt=Now;repository.Add(new OrderStatusHistory{TenantId=order.TenantId,OrderId=id,Previous=previous,Current=order.Status,Reason="Checkout recovery needs store review",CreatedAt=Now});}}
    await repository.Commit("order.checkout.recovery",id,null,token);return true;
   },ct);
  }

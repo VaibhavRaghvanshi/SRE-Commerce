@@ -29,7 +29,7 @@ export class CommerceCheckoutComponent {
     addressLine1: ['', [Validators.required, Validators.maxLength(200), Validators.pattern(/^[^<>\x00-\x1f]+$/)]], addressLine2: ['', [Validators.maxLength(200), Validators.pattern(/^[^<>\x00-\x1f]*$/)]],
     city: ['', [Validators.required, Validators.maxLength(100), Validators.pattern(/^[^<>\x00-\x1f]+$/)]], countryCode: ['', Validators.required],
     postalCode: ['', [Validators.required, Validators.minLength(2), Validators.maxLength(16), Validators.pattern(/^[A-Za-z0-9 -]+$/)]], paymentMethod: ['', Validators.required] });
-  private timer: ReturnType<typeof setTimeout> | null = null; private destroyed = false; private polls = 0;
+  private timer: ReturnType<typeof setTimeout> | null = null; private destroyed = false; private polls = 0; private statusRead = 0;
   constructor() {
     this.destroy.onDestroy(() => { this.destroyed = true; if (this.timer) clearTimeout(this.timer); });
     for (const control of [this.form.controls.countryCode, this.form.controls.postalCode]) control.valueChanges.pipe(takeUntilDestroyed(this.destroy)).subscribe(() => { this.options.set([]); this.selected.set(''); });
@@ -85,9 +85,18 @@ export class CommerceCheckoutComponent {
   }
   async check(id?: string) {
     const tenant = this.tenant(); const reference = id || this.status()?.id || this.reference() || (tenant ? this.api.active(tenant.tenantId)?.id : null); if (!tenant || !reference) return;
-    this.reference.set(reference);
-    try { const result = await this.api.status(tenant.tenantId, reference); if (this.destroyed) return; this.status.set(result); this.needsSignIn.set(false); this.error.set(''); this.schedule(result); }
-    catch { this.waiting.set(false); const guest = this.api.references(tenant.tenantId).some(r => r.id === reference && r.guest); this.needsSignIn.set(!guest && !this.session.token); this.error.set(guest ? 'The latest checkout status could not be loaded. Check this reference again before placing another order.' : 'The latest checkout status could not be loaded. Sign in if this is an account order, then check again.'); }
+    this.reference.set(reference); const sequence = ++this.statusRead;
+    try { const result = await this.api.status(tenant.tenantId, reference); if (this.destroyed || sequence !== this.statusRead) return; this.status.set(result); this.needsSignIn.set(false); this.error.set(''); this.schedule(result); }
+    catch { if (this.destroyed || sequence !== this.statusRead) return; this.waiting.set(false); const guest = this.api.references(tenant.tenantId).some(r => r.id === reference && r.guest); this.needsSignIn.set(!guest && !this.session.token); this.error.set(guest ? 'The latest checkout status could not be loaded. Check this reference again before placing another order.' : 'The latest checkout status could not be loaded. Sign in if this is an account order, then check again.'); }
   }
   async signIn() { const tenant = this.tenant(); if (tenant) try { await this.session.signInStore(tenant.tenantId, tenant.slug, 'orders'); } catch { this.error.set('Sign-in could not be started.'); } }
+  async cancelPending(id: string) {
+    const tenant = this.tenant(), current = this.status();
+    if (!tenant || !current || current.id !== id || ![0,1].includes(current.state) || this.busy()) return;
+    if (this.timer) clearTimeout(this.timer);
+    this.statusRead++; this.busy.set(true); this.error.set('');
+    try { const updated = await this.api.cancelPending(tenant.tenantId, id, 'Customer requested checkout cancellation'); this.status.set(updated); this.polls = 0; this.schedule(updated); }
+    catch { this.error.set('Cancellation could not be confirmed. Check the current status and retry if checkout is still pending.'); }
+    finally { this.busy.set(false); }
+  }
 }

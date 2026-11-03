@@ -24,7 +24,7 @@ public sealed class DiscoverySources(RemoteAccess remote, ServiceHttp machine) :
     }
     public async Task<IndexProduct[]> PublicProducts(Guid tenant, Guid[] ids, CancellationToken ct)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Get, $"api/v1/public/tenants/{tenant}/catalog/shopping-products?" + string.Join('&', ids.Select(id => "ids=" + id)));
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"api/v1/public/tenants/{tenant}/catalog/published-products?" + string.Join('&', ids.Select(id => "ids=" + id)));
         using var response = await remote.Send("catalog", request, ct);
         if (!response.IsSuccessStatusCode) throw new DependencyFault("Catalog");
         return await response.Content.ReadFromJsonAsync<IndexProduct[]>(ct) ?? throw new DependencyFault("Catalog");

@@ -4,10 +4,11 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { forkJoin, Observable } from 'rxjs';
+import { forkJoin, Observable, switchMap } from 'rxjs';
 import { CommerceSessionService } from '../../../core/services/commerce-session.service';
 import { MerchantOrderService } from '../../../core/services/merchant-order.service';
 import { CommerceOrder, CommerceOrderHistory, CommerceOrderPage, CommerceOrderPolicy, ORDER_STATUSES, PAYMENT_STATES } from '../../../core/models/commerce-order.models';
+import { CheckoutReview } from '../../../core/models/commerce-checkout.models';
 
 @Component({ selector: 'app-orders-workspace', standalone: true, imports: [CommonModule, FormsModule, RouterLink],
   templateUrl: './orders-workspace.component.html', styleUrl: './orders-workspace.component.scss' })
@@ -20,6 +21,9 @@ export class OrdersWorkspaceComponent {
   readonly result = signal<CommerceOrderPage>({ items: [], total: 0, page: 1, pageSize: 50 });
   readonly selected = signal<CommerceOrder | null>(null); readonly history = signal<CommerceOrderHistory[]>([]);
   readonly statuses = ORDER_STATUSES; readonly payments = PAYMENT_STATES;
+  readonly reviews = signal<CheckoutReview[] | null>(null);
+  readonly phases = ['Cart claim', 'Verify quote', 'Claim price', 'Plan stock', 'Reserve stock', 'Start payment', 'Wait for payment', 'Capture payment', 'Commit stock', 'Redeem price', 'Complete cart', 'Confirm order', 'Reverse payment', 'Restore stock', 'Release price', 'Release cart', 'Done'];
+  reviewPage = 1; reviewNote = '';
   policy: CommerceOrderPolicy | null = null;
   supportReason = ''; status: number | null = null; page = 1; note = ''; invoiceReference = '';
   private pending: { signature: string; operationId: string } | null = null;
@@ -32,7 +36,7 @@ export class OrdersWorkspaceComponent {
     return !!a && (a.isPlatformAdmin || a.selectedTenantId === this.tenant && ['Owner', 'Manager'].includes(a.tenantRole || ''));
   }
   get canConfigure() { return this.session.access()?.isPlatformAdmin || this.session.access()?.tenantRole === 'Owner' && this.canManage; }
-  get canCancel() { const o = this.selected(); return !!o && !o.historical && [0, 1, 2, 9].includes(o.status) && o.items.every(i => i.shipmentRequested === 0); }
+  get canCancel() { const o = this.selected(); return !!o && !o.historical && [1, 2].includes(o.status) && o.items.every(i => i.shipmentRequested === 0); }
   constructor() { if (this.session.token && this.canRead && !this.session.access()?.isPlatformAdmin) this.reload(); }
   async signIn() { try { await this.session.signIn(this.tenant, 'orders'); } catch { this.error.set('Sign-in could not be started. Please retry.'); } }
   private allowed() {
@@ -57,6 +61,20 @@ export class OrdersWorkspaceComponent {
       .pipe(takeUntilDestroyed(this.destroy)).subscribe({ next: r => { this.selected.set(r.order); this.history.set(r.history); this.invoiceReference = r.order.invoiceReference || ''; this.busy.set(false); }, error: e => this.failure(e) });
   }
   changePage(delta: number) { this.page += delta; this.reload(); }
+  loadReviews(page = 1) {
+    if (!this.canManage || page < 1 || !this.allowed()) return;
+    this.api.reviews(this.tenant, page, this.supportReason).pipe(takeUntilDestroyed(this.destroy)).subscribe({
+      next: rows => { this.reviews.set(rows); this.reviewPage = page; this.busy.set(false); }, error: e => this.failure(e)
+    });
+  }
+  recover(review: CheckoutReview, cancel: boolean) {
+    if (!this.canManage || !this.reviewNote.trim() || !this.allowed()) return;
+    this.api.recover(this.tenant, review, cancel, this.reviewNote, this.supportReason).pipe(
+      switchMap(() => this.api.reviews(this.tenant, this.reviewPage, this.supportReason)), takeUntilDestroyed(this.destroy)
+    ).subscribe({ next: rows => {
+      this.reviewNote = ''; this.reviews.set(rows); this.message.set(cancel ? 'Checkout cancellation queued.' : 'Checkout recovery queued. The original quote deadline still applies.'); this.busy.set(false);
+    }, error: e => this.failure(e) });
+  }
   filter() { this.page = 1; this.selected.set(null); this.reload(); }
   loadPolicy() {
     if (!this.canConfigure || !this.allowed()) return;

@@ -39,9 +39,15 @@ public sealed class CatalogApiTests(CatalogFixture fixture):IClassFixture<Catalo
         Assert.Equal(0,(await anonymous.GetFromJsonAsync<CatalogPage<ProductView>>(Public(b.Id)+"/products"))!.Total);
         product=await Publish(b,product);var draft=await Read<ProductView>(await client.PutAsJsonAsync(Path(b.Id)+$"/products/{product.Id}",Edit(product) with{Name="Unpublished change"}));
         var published=(await anonymous.GetFromJsonAsync<ProductView>(Public(b.Id)+"/products/whole-spices"))!;Assert.Equal("Whole spices",published.Name);Assert.Null(published.Version);
+        var byProduct=Assert.Single((await anonymous.GetFromJsonAsync<ProductView[]>(Public(b.Id)+"/published-products?ids="+product.Id))!);
+        Assert.Equal(published.PublishedRevision,byProduct.PublishedRevision);
+        Assert.Empty((await anonymous.GetFromJsonAsync<ProductView[]>(Public(b.Id)+"/published-products?ids="+product.Variants[0].Id))!);
+        var skuResult=Assert.Single((await anonymous.GetFromJsonAsync<ProductView[]>(Public(b.Id)+"/shopping-products?ids="+product.Variants[0].Id))!);
+        Assert.Equal(product.Id,skuResult.Id);
         Assert.Equal(0,(await anonymous.GetFromJsonAsync<CatalogPage<ProductView>>(Public(b.Id)+"/products?search=Unpublished"))!.Total);
         Assert.Equal(HttpStatusCode.NoContent,(await client.PostAsJsonAsync(Path(b.Id)+$"/products/{product.Id}/archive",new VersionRequest(draft.Version!))).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound,(await anonymous.GetAsync(Public(b.Id)+"/products/whole-spices")).StatusCode);
+        Assert.Empty((await anonymous.GetFromJsonAsync<ProductView[]>(Public(b.Id)+"/published-products?ids="+product.Id))!);
         using var scope=fixture.Factory.Services.CreateScope();var db=scope.ServiceProvider.GetRequiredService<CatalogDbContext>();Assert.Equal(2,await db.Outbox.IgnoreQueryFilters().CountAsync(x=>x.TenantId==b.Id));Assert.Equal(1,await db.Publications.IgnoreQueryFilters().CountAsync(x=>x.TenantId==b.Id));
     }
     [Fact]
