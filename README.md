@@ -22,6 +22,7 @@ D:\Projects\SRECommerce\
   SRECommerce.Cart.API\                   same five-project pattern + own .sln
   SRECommerce.Order.API\                  five projects + own .sln; implementation in progress
   SRECommerce.Payment.API\                five projects + own .sln; local sandbox provider
+  SRECommerce.Shipping.API\               five projects + own .sln; delivery and parcel workflows
   SRECommerce.ApiGateway\                 YARP API + tests + own .sln
   SRECommerce.BuildingBlocks\             shared contracts/transport helpers
   SRECommerce.Legacy.API\                 preserved original .NET 8 application/data

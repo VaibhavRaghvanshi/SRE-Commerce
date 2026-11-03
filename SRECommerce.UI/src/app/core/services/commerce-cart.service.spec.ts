@@ -5,6 +5,11 @@ describe('CommerceCartService',()=>{
  const cart=(id:string,guest=true,quantity=0):CommerceCart=>({id,tenantId:tenant,guest,status:0,revision:quantity?1:0,expiresAt:new Date(Date.now()+86400000).toISOString(),version:quantity?'v2':'v1',items:quantity?[{productId:'p',variantId:variant,sku:'SKU',name:'Product',slug:'product',quantity}]:[]});
  beforeEach(()=>{localStorage.removeItem('srecommerce.cart.v1.'+tenant);session={token:null,access:()=>null};TestBed.configureTestingModule({providers:[provideZonelessChangeDetection(),provideHttpClient(),provideHttpClientTesting(),{provide:CommerceSessionService,useValue:session}]});http=TestBed.inject(HttpTestingController);service=TestBed.inject(CommerceCartService);});
  afterEach(()=>{http.verify();localStorage.removeItem('srecommerce.cart.v1.'+tenant);});
+ it('releases guest proof only for the current tenant cart preparation',async()=>{
+  void service.load(tenant);await settle();const create=http.expectOne('/commerce/cart/public/tenants/'+tenant+'/cart/carts');const id=create.request.body.id,key=create.request.headers.get('X-Cart-Key');create.flush(cart(id,true,1));await settle();
+  const preparation={id:crypto.randomUUID(),cartId:id,tenantId:tenant,userId:null,cartRevision:1,expiresAt:new Date(Date.now()+60000).toISOString(),items:[],quote:{} as any};
+  expect(service.checkoutContext(tenant,preparation)).toEqual({guest:true,cartKey:key});expect(()=>service.checkoutContext(tenant,{...preparation,tenantId:variant})).toThrow();expect(()=>service.checkoutContext(tenant,{...preparation,cartRevision:0})).toThrow();
+ });
  it('persists only a tenant-scoped guest capability and retries the same cart identity',async()=>{
   void service.load(tenant);await settle();const create=http.expectOne('/commerce/cart/public/tenants/'+tenant+'/cart/carts');const id=create.request.body.id;const key=create.request.headers.get('X-Cart-Key')!;expect(key).toMatch(/^[A-Za-z0-9_-]{43}$/);expect(Object.keys(create.request.body)).toEqual(['id']);create.flush(cart(id));await settle();
   const stored=JSON.parse(localStorage.getItem('srecommerce.cart.v1.'+tenant)!);expect(Object.keys(stored).sort()).toEqual(['expiresAt','id','key']);expect(stored.key).toBe(key);

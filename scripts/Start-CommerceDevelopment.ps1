@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([switch]$Build,[switch]$InitializeIdentity,[switch]$StartUi,[ValidateSet('Identity','Tenant','Theme','Storefront','Catalog','Inventory','Pricing','Cart','Order','Payment','ApiGateway')][string[]]$Services=@('Identity','Tenant','Catalog','Inventory','Pricing','Cart','ApiGateway'))
+param([switch]$Build,[switch]$InitializeIdentity,[switch]$StartUi,[ValidateSet('Identity','Tenant','Theme','Storefront','Catalog','Inventory','Pricing','Cart','Order','Payment','Shipping','ApiGateway')][string[]]$Services=@('Identity','Tenant','Catalog','Inventory','Pricing','Cart','ApiGateway'))
 $ErrorActionPreference='Stop'
 $repository=Split-Path $PSScriptRoot -Parent
 $runtime=Join-Path $repository 'artifacts\dotnet10\dotnet.exe'
@@ -18,7 +18,8 @@ $specs=@(
     @{Name='Cart';Port=5188;Extra=@{'Identity__BaseUrl'='http://localhost:5181/';'Tenant__BaseUrl'='http://localhost:5182/';'Catalog__BaseUrl'='http://localhost:5185/';'Inventory__BaseUrl'='http://localhost:5186/';'Pricing__BaseUrl'='http://localhost:5187/'}},
     @{Name='Order';Port=5189;Extra=@{'Identity__BaseUrl'='http://localhost:5181/';'Tenant__BaseUrl'='http://localhost:5182/';'Catalog__BaseUrl'='http://localhost:5185/';'Inventory__BaseUrl'='http://localhost:5186/';'Pricing__BaseUrl'='http://localhost:5187/';'Cart__BaseUrl'='http://localhost:5188/';'Payment__BaseUrl'='http://localhost:5190/';'Shipping__BaseUrl'='http://localhost:5191/';'Notification__BaseUrl'='http://localhost:5192/'}},
     @{Name='Payment';Port=5190;Extra=@{'Identity__BaseUrl'='http://localhost:5181/';'Tenant__BaseUrl'='http://localhost:5182/';'Order__BaseUrl'='http://localhost:5189/'}},
-    @{Name='ApiGateway';Port=5180;Extra=@{'Services__Identity'='http://localhost:5181/';'Services__Tenant'='http://localhost:5182/';'Services__Theme'='http://localhost:5183/';'Services__Storefront'='http://localhost:5184/';'Services__Catalog'='http://localhost:5185/';'Services__Inventory'='http://localhost:5186/';'Services__Pricing'='http://localhost:5187/';'Services__Cart'='http://localhost:5188/';'Services__Order'='http://localhost:5189/';'Services__Payment'='http://localhost:5190/'}}
+    @{Name='Shipping';Port=5191;Extra=@{'Identity__BaseUrl'='http://localhost:5181/';'Tenant__BaseUrl'='http://localhost:5182/';'Order__BaseUrl'='http://localhost:5189/';'Cart__BaseUrl'='http://localhost:5188/';'Inventory__BaseUrl'='http://localhost:5186/'}},
+    @{Name='ApiGateway';Port=5180;Extra=@{'Services__Identity'='http://localhost:5181/';'Services__Tenant'='http://localhost:5182/';'Services__Theme'='http://localhost:5183/';'Services__Storefront'='http://localhost:5184/';'Services__Catalog'='http://localhost:5185/';'Services__Inventory'='http://localhost:5186/';'Services__Pricing'='http://localhost:5187/';'Services__Cart'='http://localhost:5188/';'Services__Order'='http://localhost:5189/';'Services__Payment'='http://localhost:5190/';'Services__Shipping'='http://localhost:5191/'}}
 )
 $processes=@{}
 $processManifest=Join-Path $runDirectory 'processes.json'

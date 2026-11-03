@@ -3,6 +3,18 @@ using SRECommerce.Inventory.Domain;
 namespace SRECommerce.Inventory.Application;
 public sealed partial class InventoryService
 {
+    public async Task<object> WarehouseForService(Guid tenant,Guid id,CancellationToken ct)
+    {
+        await access.Machine(tenant,["Shipping","Order","Manufacturing"],ct);Id(id);var warehouse=await WarehouseAvailable(id,ct);
+        return new{warehouse.Id,warehouse.BranchId,warehouse.Code,warehouse.Name};
+    }
+    public async Task<object[]> WarehousesForService(Guid tenant,Guid[] ids,CancellationToken ct)
+    {
+        await access.Machine(tenant,["Shipping","Order","Manufacturing"],ct);
+        if(ids.Length is <1 or >100||ids.Any(id=>id==Guid.Empty)||ids.Distinct().Count()!=ids.Length)throw new BusinessFault("InvalidWarehouseQuery",400);
+        var branches=(await repository.Branches(ct)).Where(b=>b.Active).Select(b=>b.Id).ToHashSet();
+        return (await repository.Warehouses(ct)).Where(w=>w.Active&&branches.Contains(w.BranchId)&&ids.Contains(w.Id)).Select(w=>(object)new{w.Id,w.BranchId,w.Code,w.Name}).ToArray();
+    }
     public async Task<WarehouseAvailability[]> AllocationOptions(Guid tenant,Guid[] variants,DateTimeOffset expiresAt,CancellationToken ct)
     {
         await access.Machine(tenant,["Cart","Order","Manufacturing"],ct);InventoryRules.Reservation(Now,expiresAt);

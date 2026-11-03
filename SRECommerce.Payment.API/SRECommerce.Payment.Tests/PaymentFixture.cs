@@ -66,9 +66,15 @@ public sealed class PaymentFixture : IDisposable
         Assert.True(response.StatusCode == status, $"Expected {(int)status}, got {(int)response.StatusCode}: {await response.Content.ReadAsStringAsync()}");
         return (await response.Content.ReadFromJsonAsync<T>())!;
     }
-    public async Task<OrderBusiness> Business(SandboxOutcome outcome = SandboxOutcome.Authorized, string method = "Card", bool guest = false)
+    public async Task<OrderBusiness> Business(SandboxOutcome outcome = SandboxOutcome.Authorized, string method = "Card", bool guest = false, bool free = false)
     {
-        var business = await Order.Business(guest: guest, method: method);
+        var business = await Order.Business(guest: guest, method: method, beforePreparation: free ? async pricing =>
+        {
+            var now = Order.Cart.Pricing.Factory.Clock.GetUtcNow();
+            await Read<System.Text.Json.JsonElement>(await pricing.Client.PostAsJsonAsync($"/api/v1/tenants/{pricing.Catalog.Id}/pricing/promotions",
+                new SRECommerce.Pricing.Application.PromotionRequest("FREE_TEST", "Explicit development free promotion", SRECommerce.Pricing.Domain.PromotionKind.Percentage, 100, 0, 0, 0, null, [pricing.Variant], null, false, true, 1, now.AddMinutes(-1), now.AddDays(1))), HttpStatusCode.Created);
+        } : null);
+        if (free) Order.ZeroShippingQuote(business.Request.ShippingQuoteId);
         using var owner = Factory.Client(business.Pricing.Catalog.Token);
         await Read<PaymentConfigView>(await owner.PutAsJsonAsync(Path(business.Tenant) + "/configuration", new PaymentConfigRequest(true, true, true, true, true, outcome)));
         return business;

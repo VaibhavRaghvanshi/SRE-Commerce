@@ -1,0 +1,18 @@
+using Microsoft.AspNetCore.Http;using Microsoft.EntityFrameworkCore;using SRECommerce.BuildingBlocks.Contracts;using SRECommerce.BuildingBlocks.Infrastructure;using SRECommerce.Shipping.Application;using SRECommerce.Shipping.Domain;
+namespace SRECommerce.Shipping.Infrastructure;
+public sealed class ShippingRepository(ShippingDbContext db,ModuleScope scope,IHttpContextAccessor contexts,ServiceSpec service):IShippingRepository
+{
+ public async Task<T> Transaction<T>(Func<CancellationToken,Task<T>> action,CancellationToken ct){await using var tx=await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable,ct);var result=await action(ct);await tx.CommitAsync(ct);return result;}
+ public Task<ShippingZone[]> Zones(CancellationToken ct)=>db.Zones.OrderBy(z=>z.Code).ToArrayAsync(ct);public Task<ShippingMethod[]> Methods(CancellationToken ct)=>db.Methods.OrderBy(m=>m.Code).ToArrayAsync(ct);
+ public Task<ShippingQuote?> Quote(Guid id,CancellationToken ct)=>db.Quotes.SingleOrDefaultAsync(q=>q.Id==id,ct);public Task<Shipment?> Shipment(Guid id,CancellationToken ct)=>db.Shipments.Include(s=>s.Items).SingleOrDefaultAsync(s=>s.Id==id,ct);
+ public async Task<(Shipment[] Items,int Total)> Shipments(int page,ShipmentStatus? status,CancellationToken ct){var query=db.Shipments.Include(s=>s.Items).AsQueryable();if(status is {} filter)query=query.Where(s=>s.Status==filter);var count=await query.CountAsync(ct);return(await query.OrderByDescending(s=>s.CreatedAt).ThenBy(s=>s.Id).Skip((page-1)*50).Take(50).ToArrayAsync(ct),count);}
+ public Task<Shipment[]> OrderShipments(Guid order,CancellationToken ct)=>db.Shipments.Include(s=>s.Items).Where(s=>s.OrderId==order).OrderBy(s=>s.CreatedAt).ThenBy(s=>s.Id).ToArrayAsync(ct);
+ public Task<TrackingEvent[]> Tracking(Guid shipment,CancellationToken ct)=>db.Tracking.AsNoTracking().Where(t=>t.ShipmentId==shipment).OrderBy(t=>t.Sequence).ToArrayAsync(ct);
+ public Task<ShippingOperation?> Operation(Guid id,CancellationToken ct)=>db.Operations.SingleOrDefaultAsync(o=>o.Id==id,ct);public Task<ReturnPickup?> Pickup(Guid id,CancellationToken ct)=>db.Pickups.SingleOrDefaultAsync(p=>p.Id==id,ct);
+ public Task<ReturnPickup?> ActivePickup(Guid returnId,CancellationToken ct)=>db.Pickups.SingleOrDefaultAsync(p=>p.ReturnId==returnId&&p.Status!=PickupStatus.Cancelled,ct);public Task<ReturnPickup[]> Pickups(CancellationToken ct)=>db.Pickups.OrderByDescending(p=>p.CreatedAt).ThenBy(p=>p.Id).Take(50).ToArrayAsync(ct);
+ public Task<ShipmentCallback[]> Due(DateTimeOffset now,CancellationToken ct)=>db.Callbacks.Where(c=>!c.Sent&&!c.ManualReview&&c.NextAttemptAt<=now&&(c.LeaseUntil==null||c.LeaseUntil<=now)&&!db.Callbacks.Any(earlier=>earlier.ShipmentId==c.ShipmentId&&!earlier.Sent&&earlier.Sequence<c.Sequence)).OrderBy(c=>c.NextAttemptAt).ThenBy(c=>c.Id).Take(3).ToArrayAsync(ct);
+ public async Task<ShipmentCallback?> FreshCallback(Guid id,CancellationToken ct){var row=await db.Callbacks.SingleOrDefaultAsync(c=>c.Id==id,ct);if(row is not null)await db.Entry(row).ReloadAsync(ct);return row;}
+ public Task<ShipmentCallback[]> Callbacks(Guid shipment,CancellationToken ct)=>db.Callbacks.AsNoTracking().Where(c=>c.ShipmentId==shipment).OrderBy(c=>c.Sequence).ToArrayAsync(ct);
+ public void Add<T>(T value)where T:class=>db.Add(value);public void Version(SRECommerce.BuildingBlocks.Kernel.IVersionedRecord value,string version)=>db.ExpectedVersion(value,version);
+ public async Task Save(string action,Guid resource,object? integrationEvent,CancellationToken ct){db.Record(scope,contexts,action,resource.ToString());if(integrationEvent is not null)db.Emit(scope,service,contexts,action+".v1",integrationEvent);await db.SaveChangesAsync(ct);}
+}

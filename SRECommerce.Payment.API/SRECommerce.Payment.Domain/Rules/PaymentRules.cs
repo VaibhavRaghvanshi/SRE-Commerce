@@ -4,6 +4,7 @@ public static class PaymentRules
 {
     public static void Id(Guid value) { if (value == Guid.Empty) throw new DomainFault("InvalidPaymentId"); }
     public static void Amount(decimal value) { if (value <= 0 || value > 1000000000000m || decimal.Round(value, 4) != value) throw new DomainFault("InvalidPaymentAmount"); }
+    public static void OrderAmount(decimal value) { if (value < 0 || value > 1000000000000m || decimal.Round(value, 4) != value) throw new DomainFault("InvalidOrderPaymentAmount"); }
     public static void Currency(string value) { if (value.Length != 3 || value.Any(c => c is < 'A' or > 'Z')) throw new DomainFault("InvalidPaymentCurrency"); }
     public static string Reason(string value) { if (string.IsNullOrWhiteSpace(value) || value.Length > 300 || value.Any(char.IsControl)) throw new DomainFault("InvalidPaymentReason"); return value.Trim(); }
     public static void Enabled(PaymentProviderConfiguration config, string method)

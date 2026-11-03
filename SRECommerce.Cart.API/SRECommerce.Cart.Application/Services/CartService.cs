@@ -122,7 +122,15 @@ public sealed partial class CartService(ICartRepository repository,ICartAccess a
  }
  public async Task<PreparedCartView> ForOrder(Guid tenant,Guid id,PreparationProof proof,string? capability,CancellationToken ct)
  {
-  await access.Machine(tenant,ct);var preparation=await repository.Preparation(id,ct)??throw new BusinessFault("PreparationNotFound",404);var cart=await repository.Cart(preparation.CartId,ct)??throw new BusinessFault("CartNotFound",404);Active(cart);
+  await access.Machine(tenant,ct);return await VerifiedPreparation(tenant,id,proof,capability,ct);
+ }
+ public async Task<PreparedCartView> ForShipping(Guid tenant,Guid id,PreparationProof proof,string? capability,CancellationToken ct)
+ {
+  await access.ShippingRead(tenant,ct);return await VerifiedPreparation(tenant,id,proof,capability,ct);
+ }
+ private async Task<PreparedCartView> VerifiedPreparation(Guid tenant,Guid id,PreparationProof proof,string? capability,CancellationToken ct)
+ {
+  var preparation=await repository.Preparation(id,ct)??throw new BusinessFault("PreparationNotFound",404);var cart=await repository.Cart(preparation.CartId,ct)??throw new BusinessFault("CartNotFound",404);Active(cart);
   if(preparation.UserId!=proof.UserId||cart.UserId!=proof.UserId)throw new BusinessFault("PreparationNotFound",404);
   if(preparation.CustomerRole!=proof.TenantRole)throw new BusinessFault("CheckoutRoleChanged");
   if(proof.UserId is null){var session=await repository.Session(cart.Id,ct)??throw new BusinessFault("PreparationNotFound",404);CartRules.Match(session.CapabilityHash,capability);if(session.RevokedAt is not null||session.ExpiresAt<=Now)throw new BusinessFault("CartClosed");}

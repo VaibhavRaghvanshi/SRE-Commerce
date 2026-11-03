@@ -29,15 +29,15 @@ export class CommerceSessionService {
     }
     return this.manager;
   }
-  async signIn(tenant: string, area:'catalog'|'inventory'|'pricing'|'orders'|'payments'='catalog') {
+  async signIn(tenant: string, area:'catalog'|'inventory'|'pricing'|'orders'|'payments'|'shipping'='catalog') {
     if (!/^[a-f0-9-]{36}$/i.test(tenant)) throw new Error('Choose a valid business.');
     this.error.set('');
     await this.client().signinRedirect({ extraQueryParams: { tenant_id: tenant }, state: { returnTo: `/workspace/${tenant}/${area}` } });
   }
-  async signInStore(tenant: string, slug: string) {
+  async signInStore(tenant: string, slug: string, area:'cart'|'orders'='cart') {
     if (!/^[a-f0-9-]{36}$/i.test(tenant) || !/^[a-z0-9-]{1,80}$/.test(slug)) throw new Error('Choose a valid store.');
     this.error.set('');
-    await this.client().signinRedirect({ extraQueryParams: { tenant_id: tenant }, state: { returnTo: '/stores/' + slug + '/cart' } });
+    await this.client().signinRedirect({ extraQueryParams: { tenant_id: tenant }, state: { returnTo: '/stores/' + slug + '/' + area } });
   }
   async callback() {
     const user = await this.client().signinRedirectCallback(); this.user.set(user);
@@ -46,7 +46,7 @@ export class CommerceSessionService {
     this.access.set(access);
     const state = user.state as { returnTo?: string } | undefined;
     const path = state?.returnTo || '';
-    return /^\/workspace\/[a-f0-9-]{36}\/(catalog|inventory|pricing|orders|payments)$/i.test(path) || /^\/stores\/[a-z0-9-]{1,80}\/cart$/.test(path) ? path : '/';
+    return /^\/workspace\/[a-f0-9-]{36}\/(catalog|inventory|pricing|orders|payments|shipping)$/i.test(path) || /^\/stores\/[a-z0-9-]{1,80}\/(cart|orders)$/.test(path) ? path : '/';
   }
   async signOut() {
     const token = this.token;

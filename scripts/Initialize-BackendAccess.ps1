@@ -14,7 +14,7 @@ if(Test-Path -LiteralPath $secretFile){$existing=Get-Content -LiteralPath $secre
 function NewPrivateValue {return [Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))}
 if(!$values['ServiceAuth:ClientId']){$values['ServiceAuth:ClientId']='srecommerce-service-'+$Service.ToLowerInvariant()}
 if(!$values['ServiceAuth:ClientSecret']){$values['ServiceAuth:ClientSecret']=NewPrivateValue}
-if($Service -in 'Payment','Shipping' -and !$values['Webhooks:Secret']){$values['Webhooks:Secret']=NewPrivateValue}
+if($Service -eq 'Payment' -and !$values['Sandbox:WebhookSigningKey']){$values['Sandbox:WebhookSigningKey']=NewPrivateValue}
 $environmentFile=Join-Path $repository '.env'
 $environmentText=if(Test-Path -LiteralPath $environmentFile){[IO.File]::ReadAllText($environmentFile)}else{''}
 $environmentKey=$Service.ToUpperInvariant()+'_SQL_CONNECTION'

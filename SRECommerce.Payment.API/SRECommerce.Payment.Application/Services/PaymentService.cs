@@ -30,7 +30,7 @@ public sealed class PaymentService(IPaymentRepository repository, IPaymentAccess
     private static void Proof(Guid tenant, Guid order, OrderPaymentProof proof)
     {
         if (proof.TenantId != tenant || proof.Id != order || proof.Historical) throw new BusinessFault("OrderPaymentProofRejected");
-        PaymentRules.Amount(proof.Total); PaymentRules.Currency(proof.Currency);
+        PaymentRules.OrderAmount(proof.Total); PaymentRules.Currency(proof.Currency);
         if (proof.DecimalPlaces is < 0 or > 3 || decimal.Round(proof.Total, proof.DecimalPlaces) != proof.Total) throw new BusinessFault("OrderPaymentPrecisionRejected");
         if (proof.PaymentMethod is not ("Card" or "UPI" or "NetBanking" or "COD")) throw new BusinessFault("UnsupportedPaymentMethod", 400);
     }
@@ -51,8 +51,8 @@ public sealed class PaymentService(IPaymentRepository repository, IPaymentAccess
             var config = await repository.Configuration(token) ?? throw new BusinessFault("PaymentsNotConfigured");
             PaymentRules.Enabled(config, proof.PaymentMethod);
             var payment = New(proof); var receipt = provider.Begin(payment.Id, payment.Method, config.Outcome);
-            payment.Status = receipt.Status; payment.ProviderReference = receipt.Reference; repository.Add(payment);
-            Attempt(payment, "initiated", null); await repository.Save("payment.initiated", payment.Id, payment, token);
+            payment.Status = payment.Amount == 0 ? PaymentStatus.Captured : receipt.Status; payment.ProviderReference = receipt.Reference; repository.Add(payment);
+            Attempt(payment, payment.Amount == 0 ? "zero-amount.completed" : "initiated", null); await repository.Save("payment.initiated", payment.Id, payment, token);
             return View(payment);
         }, ct);
     }

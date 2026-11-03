@@ -59,6 +59,13 @@
     <Project Path="SRECommerce.Pricing.API/SRECommerce.Pricing.Infrastructure/SRECommerce.Pricing.Infrastructure.csproj" />
     <Project Path="SRECommerce.Pricing.API/SRECommerce.Pricing.Tests/SRECommerce.Pricing.Tests.csproj" />
   </Folder>
+  <Folder Name="/SRECommerce.Shipping.API/">
+    <Project Path="SRECommerce.Shipping.API/SRECommerce.Shipping.API/SRECommerce.Shipping.API.csproj" />
+    <Project Path="SRECommerce.Shipping.API/SRECommerce.Shipping.Application/SRECommerce.Shipping.Application.csproj" />
+    <Project Path="SRECommerce.Shipping.API/SRECommerce.Shipping.Domain/SRECommerce.Shipping.Domain.csproj" />
+    <Project Path="SRECommerce.Shipping.API/SRECommerce.Shipping.Infrastructure/SRECommerce.Shipping.Infrastructure.csproj" />
+    <Project Path="SRECommerce.Shipping.API/SRECommerce.Shipping.Tests/SRECommerce.Shipping.Tests.csproj" />
+  </Folder>
   <Folder Name="/SRECommerce.Storefront.API/">
     <Project Path="SRECommerce.Storefront.API/SRECommerce.Storefront.API/SRECommerce.Storefront.API.csproj" />
     <Project Path="SRECommerce.Storefront.API/SRECommerce.Storefront.Application/SRECommerce.Storefront.Application.csproj" />

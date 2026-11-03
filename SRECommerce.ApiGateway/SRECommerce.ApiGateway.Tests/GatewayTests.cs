@@ -26,10 +26,18 @@ public sealed class GatewayFixture:IAsyncLifetime
 public sealed class GatewayFactory(string address):WebApplicationFactory<GatewayProgram>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
-    {builder.UseEnvironment("Development");foreach(var name in new[]{"Identity","Tenant","Theme","Storefront","Catalog","Inventory","Pricing","Cart","Order","Payment"})builder.UseSetting("Services:"+name,address);builder.ConfigureLogging(o=>o.SetMinimumLevel(LogLevel.Error));}
+    {builder.UseEnvironment("Development");foreach(var name in new[]{"Identity","Tenant","Theme","Storefront","Catalog","Inventory","Pricing","Cart","Order","Payment","Shipping"})builder.UseSetting("Services:"+name,address);builder.ConfigureLogging(o=>o.SetMinimumLevel(LogLevel.Error));}
 }
 public sealed class GatewayTests(GatewayFixture fixture):IClassFixture<GatewayFixture>
 {
+    [Fact]
+    public async Task Shipping_customer_routes_are_rewritten_and_machine_quotes_are_private()
+    {
+        using var client=fixture.Factory.CreateClient();
+        var result=await client.PostAsJsonAsync("/commerce/shipping/public/tenants/test/shipping/quotes/options",new{id="test"});
+        Assert.Equal("/api/v1/public/tenants/test/shipping/quotes/options",(await result.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("path").GetString());
+        Assert.Equal(HttpStatusCode.NotFound,(await client.GetAsync("/commerce/shipping/internal/v1/tenants/test/shipping/quotes/test")).StatusCode);
+    }
     [Fact]
     public async Task Payment_webhook_path_is_forwarded_but_internal_capture_stays_private()
     {

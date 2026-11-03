@@ -48,6 +48,11 @@ export class CommerceCartService {
   catch(error){if(error instanceof HttpErrorResponse&&[404,409,410].includes(error.status)){this.persist(tenant,null);const fresh=this.guest(tenant)!;return this.remember(tenant,await this.request<CommerceCart>(this.base(tenant,true),'POST',{id:fresh.id},{'X-Cart-Key':fresh.key}));}throw error;}
  }
  load(tenant:string){return this.serial(()=>this.ensure(tenant));}
+ checkoutContext(tenant:string,preparation:CommercePreparation):{guest:boolean;cartKey:string|null}{
+  const cart=this.view(tenant);if(!cart||preparation.tenantId!==tenant||cart.id!==preparation.cartId||cart.revision!==preparation.cartRevision||Date.parse(preparation.expiresAt)<=Date.now())throw new Error('CartPreparationChanged');
+  if(cart.guest){const guest=this.guest(tenant,false);if(!guest||guest.id!==cart.id||preparation.userId!==null)throw new Error('CartProofUnavailable');return{guest:true,cartKey:guest.key};}
+  if(!this.customer(tenant)||preparation.userId!==this.session.access()?.userId)throw new Error('CartCustomerChanged');return{guest:false,cartKey:null};
+ }
  private mutate(tenant:string,label:string,make:(cart:CommerceCart,guest:boolean)=>PendingWrite){return this.serial(async()=>{
   const key=this.stateKey(tenant)+':'+label;let pending=this.writes.get(key);
   if(!pending){const cart=await this.ensure(tenant);pending=make(cart,cart.guest);this.writes.set(key,pending);}

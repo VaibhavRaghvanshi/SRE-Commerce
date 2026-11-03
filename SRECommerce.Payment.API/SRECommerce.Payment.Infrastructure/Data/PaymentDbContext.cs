@@ -41,7 +41,7 @@ public sealed class PaymentDbContext(DbContextOptions<PaymentDbContext> options,
             e.HasIndex(x => new { x.TenantId, x.UserId, x.CreatedAt });
             e.ToTable(t =>
             {
-                t.HasCheckConstraint("CK_Payments_Amounts", "[Amount]>0 AND [Refunded]>=0 AND [Refunded]<=[Amount]");
+                t.HasCheckConstraint("CK_Payments_Amounts", "[Amount]>=0 AND [Refunded]>=0 AND [Refunded]<=[Amount]");
                 t.HasCheckConstraint("CK_Payments_Status", "[Status] BETWEEN 0 AND 7 AND ([Status] IN (5,6) OR [Refunded]=0) AND ([Status]<>6 OR [Refunded]=[Amount]) AND ([Status]<>5 OR ([Refunded]>0 AND [Refunded]<[Amount]))");
                 t.HasCheckConstraint("CK_Payments_Proof", "ISJSON([OrderProof])=1");
                 t.HasCheckConstraint("CK_Payments_Sandbox", "[Provider]=N'Sandbox'");

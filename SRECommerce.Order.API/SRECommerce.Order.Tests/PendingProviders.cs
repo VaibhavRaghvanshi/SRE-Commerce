@@ -5,7 +5,7 @@ public sealed class PendingProviders
 {
  internal readonly object Gate=new();internal readonly Dictionary<Guid,ShippingQuoteSnapshot> Quotes=[];internal readonly Dictionary<Guid,RemotePayment> Payments=[];internal readonly HashSet<Guid> Aborted=[];internal readonly Dictionary<Guid,(Guid Order,decimal Amount)> Refunds=[];internal readonly HashSet<Guid> Shipments=[];
  public bool DeclinePayment {get;set;}public bool PaymentOffline {get;set;}public bool ShippingOffline {get;set;}public int Captures {get;internal set;}
- public ShippingQuoteSnapshot Quote(Guid tenant,OrderQuantity[] items,DateTimeOffset now){var value=new ShippingQuoteSnapshot(Guid.NewGuid(),tenant,Guid.NewGuid(),"Isolated test delivery","INR","IN","110001",items,10,0,10,now.AddMinutes(5),null);lock(Gate)Quotes[value.Id]=value;return value;}
+ public ShippingQuoteSnapshot Quote(Guid tenant,OrderQuantity[] items,DateTimeOffset now,Guid preparation,Guid? user){var value=new ShippingQuoteSnapshot(Guid.NewGuid(),tenant,Guid.NewGuid(),"Isolated test delivery","INR","IN","110001",items,10,0,10,now.AddMinutes(5),null,preparation,user);lock(Gate)Quotes[value.Id]=value;return value;}
  internal static string Version(int value)=>Convert.ToBase64String(BitConverter.GetBytes((long)value));
 }
 public sealed class PendingProviderHandler(OrderFixture fixture,string service):HttpMessageHandler

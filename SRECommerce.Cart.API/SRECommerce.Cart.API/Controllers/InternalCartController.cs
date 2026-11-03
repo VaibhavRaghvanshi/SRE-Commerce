@@ -9,4 +9,5 @@ public sealed class InternalCartController(ICartService service):ControllerBase
  [HttpPost("claims/{order:guid}/complete")]public async Task<IActionResult> Complete(Guid tenant,Guid order,CartClaimVersion request,CancellationToken ct)=>Ok(await service.CloseClaim(tenant,order,true,request.Version,ct));
  [HttpPost("claims/{order:guid}/release")]public async Task<IActionResult> Release(Guid tenant,Guid order,CartClaimVersion request,CancellationToken ct)=>Ok(await service.CloseClaim(tenant,order,false,request.Version,ct));
  [HttpPost("preparations/{id:guid}/verify")]public async Task<IActionResult> Verify(Guid tenant,Guid id,PreparationProof proof,CancellationToken ct)=>Ok(await service.ForOrder(tenant,id,proof,Request.Headers["X-Cart-Key"].ToString(),ct));
+ [HttpPost("preparations/{id:guid}/shipping-verify")]public async Task<IActionResult> Shipping(Guid tenant,Guid id,PreparationProof proof,CancellationToken ct)=>Ok(await service.ForShipping(tenant,id,proof,Request.Headers["X-Cart-Key"].ToString(),ct));
 }

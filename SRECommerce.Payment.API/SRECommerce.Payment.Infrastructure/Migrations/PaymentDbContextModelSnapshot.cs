@@ -328,7 +328,7 @@ namespace SRECommerce.Payment.Infrastructure.Migrations
 
                     b.ToTable("PaymentTransactions", null, t =>
                         {
-                            t.HasCheckConstraint("CK_Payments_Amounts", "[Amount]>0 AND [Refunded]>=0 AND [Refunded]<=[Amount]");
+                            t.HasCheckConstraint("CK_Payments_Amounts", "[Amount]>=0 AND [Refunded]>=0 AND [Refunded]<=[Amount]");
 
                             t.HasCheckConstraint("CK_Payments_Precision", "[DecimalPlaces] BETWEEN 0 AND 3");
 

@@ -22,7 +22,7 @@ if (apiProxyTarget || commerceProxyTarget) {
   app.use(['/api', '/uploads', '/commerce'], (req, res, next) => {
     const commerce = req.originalUrl === '/commerce' || req.originalUrl.startsWith('/commerce/');
     // Browser callback routes belong to Angular, not the resource gateway.
-    if (commerce && !/^\/commerce\/(identity|tenant|theme|storefront|catalog|inventory|pricing|cart|order|payment)(\/|\?|$)/.test(req.originalUrl)) { next(); return; }
+    if (commerce && !/^\/commerce\/(identity|tenant|theme|storefront|catalog|inventory|pricing|cart|order|payment|shipping)(\/|\?|$)/.test(req.originalUrl)) { next(); return; }
     const proxyTarget = commerce ? commerceProxyTarget : apiProxyTarget;
     if (!proxyTarget) { next(); return; }
     const targetUrl = new URL(req.originalUrl, proxyTarget);

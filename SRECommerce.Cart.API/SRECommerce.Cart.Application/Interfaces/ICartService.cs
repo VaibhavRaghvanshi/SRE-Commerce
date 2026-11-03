@@ -1,6 +1,7 @@
 namespace SRECommerce.Cart.Application;
 public interface ICartService
 {
+ Task<PreparedCartView> ForShipping(Guid tenant,Guid id,PreparationProof proof,string? capability,CancellationToken ct);
  Task<CartView> Create(Guid tenant,CreateCartRequest request,bool guest,string? capability,CancellationToken ct);
  Task<CartView> Get(Guid tenant,Guid id,bool guest,string? capability,CancellationToken ct);
  Task<CartView> Item(Guid tenant,Guid id,CartItemRequest request,bool guest,string? capability,CancellationToken ct);
