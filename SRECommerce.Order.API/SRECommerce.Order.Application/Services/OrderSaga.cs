@@ -8,7 +8,14 @@ public sealed class OrderSaga(IOrderRepository repository,IOrderAccess access,IO
   await repository.Transaction(async token=>
   {
    var intent=await repository.FreshIntent(id,token)??throw new BusinessFault("CheckoutNotFound",404);if(intent.LeaseId!=lease||intent.Phase!=expected)throw new BusinessFault("CheckoutLeaseLost");
-   change?.Invoke(intent);intent.Phase=next;intent.LeaseId=null;intent.LeaseUntil=null;intent.NextAttemptAt=Now+(delay??TimeSpan.Zero);intent.Attempts=0;if(expected<SagaPhase.CompensatePayment)intent.LastFault=null;var action=next==SagaPhase.Done?(intent.State==CheckoutState.Accepted?"order.confirmed":intent.State==CheckoutState.Cancelled?"order.cancelled":"order.checkout.failed"):"order.checkout.progressed";await repository.Commit(action,id,next==SagaPhase.Done?new{OrderId=id}:null,token);return true;
+   change?.Invoke(intent);intent.Phase=next;intent.LeaseId=null;intent.LeaseUntil=null;intent.NextAttemptAt=Now+(delay??TimeSpan.Zero);intent.Attempts=0;if(expected<SagaPhase.CompensatePayment)intent.LastFault=null;
+   var action=next==SagaPhase.Done?(intent.State==CheckoutState.Accepted?"order.confirmed":intent.State==CheckoutState.Cancelled?"order.cancelled":"order.checkout.failed"):"order.checkout.progressed";
+   if(next==SagaPhase.Done&&await repository.Order(id,token) is {Historical:false} order)
+   {
+    if(intent.State==CheckoutState.Accepted){repository.EmitNotice(0,id);if(order.PaymentState==PaymentState.Captured&&order.Total>0)repository.EmitNotice(1,id);}
+    if(intent.State==CheckoutState.Cancelled)repository.EmitNotice(4,id);
+   }
+   await repository.Commit(action,id,next==SagaPhase.Done?new{OrderId=id}:null,token);return true;
   },ct);
  }
  private async Task Fail(Guid id,Guid lease,SagaPhase expected,Exception error,CancellationToken ct)

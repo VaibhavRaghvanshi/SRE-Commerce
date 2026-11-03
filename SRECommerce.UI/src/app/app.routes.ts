@@ -1,10 +1,22 @@
-﻿// src/app/app.routes.ts
+// src/app/app.routes.ts
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
 import { adminGuard } from './core/guards/admin.guard';
 import { userManagementGuard } from './core/guards/user-management.guard';
 
 export const routes: Routes = [
+  { path: 'commerce/account', loadComponent: () => import('./features/commerce/account/commerce-account.component').then(m => m.CommerceAccountComponent) },
+  { path: 'businesses', loadComponent: () => import('./features/commerce/tenant/business-workspace.component').then(m => m.BusinessWorkspaceComponent) },
+  { path: 'platform/workspace', data: { platform: true }, loadComponent: () => import('./features/commerce/tenant/business-workspace.component').then(m => m.BusinessWorkspaceComponent) },
+  { path: 'workspace/:tenant/settings', loadComponent: () => import('./features/commerce/tenant/business-workspace.component').then(m => m.BusinessWorkspaceComponent) },
+  { path: 'workspace/:tenant/theme', data: { presentation: 'theme' }, loadComponent: () => import('./features/commerce/presentation/presentation-editor.component').then(m => m.PresentationEditorComponent) },
+  { path: 'workspace/:tenant/storefront', data: { presentation: 'layout' }, loadComponent: () => import('./features/commerce/presentation/presentation-editor.component').then(m => m.PresentationEditorComponent) },
+  { path: 'workspace/:tenant/manufacturing', loadComponent: () => import('./features/commerce/manufacturing/manufacturing.component').then(m => m.ManufacturingComponent) },
+  { path: 'stores/:slug/search', loadComponent: () => import('./features/commerce/discovery/discovery.component').then(m => m.DiscoveryComponent) },
+  { path: 'stores/:slug/pages/:page', loadComponent: () => import('./features/commerce/presentation/storefront-page.component').then(m => m.StorefrontPageComponent) },
+  { path: 'workspace/:tenant/discovery', loadComponent: () => import('./features/commerce/discovery/discovery.component').then(m => m.DiscoveryComponent) },
+  { path: 'stores/:slug/notifications', loadComponent: () => import('./features/commerce/notifications/notifications.component').then(m => m.NotificationsComponent) },
+  { path: 'workspace/:tenant/notifications', loadComponent: () => import('./features/commerce/notifications/notifications.component').then(m => m.NotificationsComponent) },
   { path: 'stores/:slug/checkout', loadComponent: () => import('./features/commerce/checkout/checkout.component').then(m => m.CommerceCheckoutComponent) },
   { path: 'stores/:slug/orders/:order', loadComponent: () => import('./features/commerce/customer-orders/customer-orders.component').then(m => m.CommerceCustomerOrdersComponent) },
   { path: 'stores/:slug/orders', loadComponent: () => import('./features/commerce/customer-orders/customer-orders.component').then(m => m.CommerceCustomerOrdersComponent) },

@@ -64,6 +64,27 @@
     "secure": true,
     "changeOrigin": true
   },
+  "/commerce/manufacturing/**": {
+    "target": "http://localhost:5180",
+    "proxyTimeout": 15000,
+    "timeout": 15000,
+    "secure": true,
+    "changeOrigin": true
+  },
+  "/commerce/discovery/**": {
+    "target": "http://localhost:5180",
+    "proxyTimeout": 15000,
+    "timeout": 15000,
+    "secure": true,
+    "changeOrigin": true
+  },
+  "/commerce/notification/**": {
+    "target": "http://localhost:5180",
+    "proxyTimeout": 15000,
+    "timeout": 15000,
+    "secure": true,
+    "changeOrigin": true
+  },
   "/commerce/shipping/**": {
     "target": "http://localhost:5180",
     "proxyTimeout": 15000,

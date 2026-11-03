@@ -1,7 +1,6 @@
 import { Component } from '@angular/core';
-import { Router, NavigationEnd, RouterOutlet } from '@angular/router';
+import { Router, RouterOutlet } from '@angular/router';
 import { CommonModule } from '@angular/common';
-import { filter } from 'rxjs/operators';
 import { HeaderComponent } from './shared/header/header.component';
 import { ShopChatComponent } from './shared/shop-chat/shop-chat.component';
 
@@ -12,16 +11,7 @@ import { ShopChatComponent } from './shared/shop-chat/shop-chat.component';
   templateUrl: './app.component.html'
 })
 export class AppComponent {
-  isAdminRoute = false;
-  get isCommerceRoute(){return /^\/(stores|workspace|commerce)(\/|$)/.test(this.router.url);}
-
-  constructor(private router: Router) {
-    this.router.events
-      .pipe(filter(e => e instanceof NavigationEnd))
-      .subscribe(() => {
-        this.isAdminRoute = /^\/(admin|stores|workspace|commerce)(\/|$)/.test(this.router.url);
-      });
-
-    this.isAdminRoute = /^\/(admin|stores|workspace|commerce)(\/|$)/.test(this.router.url);
-  }
+  get isCommerceRoute() { return /^\/(stores|workspace|commerce|businesses|platform)(\/|\?|$)/.test(this.router.url); }
+  get isAdminRoute() { return this.isCommerceRoute || /^\/admin(\/|\?|$)/.test(this.router.url); }
+  constructor(private router: Router) {}
 }

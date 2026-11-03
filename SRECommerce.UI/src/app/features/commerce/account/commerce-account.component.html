@@ -1,0 +1,45 @@
+<main>
+  <nav><a routerLink="/">SRECommerce</a> · <a routerLink="/businesses">Your businesses</a></nav>
+  <h1>Commerce account</h1>
+  <p role="alert" *ngIf="error()">{{error()}}</p><p role="status" *ngIf="busy() || message()">{{busy() ? 'Working…' : message()}}</p>
+  <button type="button" *ngIf="!session.token || signInAgain()" (click)="signIn()" [disabled]="busy()">Sign in with SRECommerce Identity</button>
+  <button type="button" *ngIf="session.token" (click)="signOut()" [disabled]="busy()">Sign out</button>
+  <article *ngIf="!session.token">
+    <h2>Register or recover access</h2>
+    <label>Action <select [(ngModel)]="action"><option value="register">Register</option><option value="confirmation">Resend confirmation</option><option value="confirm-email">Confirm email</option>
+      <option value="forgot-password">Request password reset</option><option value="reset-password">Reset with code</option></select></label>
+    <form #form="ngForm" (ngSubmit)="submitPublic()">
+      <label>Email <input name="email" type="email" email [(ngModel)]="email" maxlength="254" autocomplete="email" required /></label>
+      <ng-container *ngIf="action === 'register'"><label>Full name <input name="name" [(ngModel)]="fullName" maxlength="160" autocomplete="name" required /></label>
+        <label>Account type <select name="kind" [(ngModel)]="kind"><option [ngValue]="0">Customer</option><option [ngValue]="1">Business owner</option></select></label></ng-container>
+      <label *ngIf="action === 'confirm-email' || action === 'reset-password'">Code from email <input name="code" [(ngModel)]="code" autocomplete="one-time-code" required /></label>
+      <label *ngIf="action === 'register' || action === 'reset-password'">New password <input name="password" type="password" [(ngModel)]="password" minlength="12" maxlength="72" autocomplete="new-password" required /></label>
+      <button [disabled]="busy() || form.invalid">Continue</button>
+    </form>
+  </article>
+  <article *ngIf="recoveryCodes().length"><h2>Save these recovery codes</h2><ul><li *ngFor="let code of recoveryCodes()"><code>{{code}}</code></li></ul>
+    <button type="button" (click)="recoveryCodes.set([])">Hide recovery codes</button></article>
+  <ng-container *ngIf="session.token && !signInAgain()">
+    <button type="button" (click)="reload()" [disabled]="busy()">Refresh account</button>
+    <ng-container *ngIf="profile() as p">
+      <article><h2>Profile</h2><p>{{p.email}} · {{p.emailConfirmed ? 'Confirmed' : 'Unconfirmed'}}</p><p>Account ID: <code>{{p.id}}</code></p>
+        <form #editor="ngForm" (ngSubmit)="saveProfile()"><label>Name <input name="fullName" [(ngModel)]="fullName" maxlength="160" autocomplete="name" required /></label><button [disabled]="busy() || editor.invalid">Save profile</button></form>
+      </article>
+      <article><h2>Change password</h2><form #passwordForm="ngForm" (ngSubmit)="changePassword()">
+        <label>Current password <input name="current" type="password" [(ngModel)]="password" autocomplete="current-password" required /></label>
+        <label>New password <input name="new" type="password" [(ngModel)]="newPassword" minlength="12" maxlength="72" autocomplete="new-password" required /></label>
+        <button [disabled]="busy() || passwordForm.invalid">Change password</button>
+      </form></article>
+      <article><h2>Authenticator app</h2><p>{{p.mfaEnabled ? 'Enabled' : 'Disabled'}}</p>
+        <form *ngIf="!p.mfaEnabled && !sharedKey()" #mfa="ngForm" (ngSubmit)="setupMfa()"><label>Current password <input name="mfa-password" type="password" [(ngModel)]="mfaPassword" autocomplete="current-password" required /></label><button [disabled]="busy() || mfa.invalid">Start setup</button></form>
+        <p *ngIf="sharedKey()">Setup key: <code>{{sharedKey()}}</code></p>
+        <form *ngIf="p.mfaEnabled || sharedKey()" #confirm="ngForm" (ngSubmit)="p.mfaEnabled ? disableMfa() : enableMfa()">
+          <label>Current authenticator code <input name="mfa-code" [(ngModel)]="mfaCode" inputmode="numeric" pattern="[0-9]{6}" autocomplete="one-time-code" required /></label>
+          <button [disabled]="busy() || confirm.invalid">{{p.mfaEnabled ? 'Disable MFA' : 'Enable MFA'}}</button>
+        </form>
+      </article>
+      <article><h2>Sessions</h2><ul><li *ngFor="let s of sessions()">{{s.createdAt | date:'short'}} · {{s.revokedAt ? 'Revoked' : 'Expires ' + (s.expiresAt | date:'short')}}
+        <button *ngIf="!s.revokedAt" type="button" (click)="revoke(s.id)" [disabled]="busy()">Revoke session</button></li></ul></article>
+    </ng-container>
+  </ng-container>
+</main>

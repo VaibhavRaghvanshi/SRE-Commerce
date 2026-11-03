@@ -75,6 +75,13 @@ public sealed class StorefrontOperations(StorefrontDbContext db,ModuleAccess acc
     {await access.AuthorizeAsync(tenant,ActorPermission.Staff,ct);return Document((await db.Versions.AsNoTracking().SingleOrDefaultAsync(v=>v.Id==version&&v.PageId==id,ct)??throw new BusinessFault("LayoutVersionNotFound",404)).Document);}
     public async Task<object> History(Guid tenant,Guid id,int page,CancellationToken ct)
     {Page(page);await access.AuthorizeAsync(tenant,ActorPermission.Staff,ct);return await db.Publications.AsNoTracking().Where(p=>p.PageId==id).OrderByDescending(p=>p.Sequence).Skip((page-1)*50).Take(50).Select(p=>new{p.LayoutVersionId,p.Sequence,p.Rollback,p.PublishedAt}).ToListAsync(ct);}
+    public async Task<object?> CurrentPublication(Guid tenant,Guid id,CancellationToken ct)
+    {
+        await access.AuthorizeAsync(tenant,ActorPermission.Staff,ct);
+        await Find(id,ct);
+        var row=await db.Published.AsNoTracking().SingleOrDefaultAsync(x=>x.PageId==id,ct);
+        return row is null?null:new{VersionId=row.LayoutVersionId,row.Sequence,PublicationVersion=Convert.ToBase64String(row.Version)};
+    }
     public async Task<object> Templates(CancellationToken ct)=>await db.Templates.AsNoTracking().OrderBy(t=>t.BusinessType).Select(t=>new{t.BusinessType,t.Document,Version=Convert.ToBase64String(t.Version)}).ToListAsync(ct);
     public async Task SaveTemplate(string businessType,SaveTemplate request,CancellationToken ct)
     {

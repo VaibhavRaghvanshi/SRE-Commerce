@@ -1,0 +1,60 @@
+<main>
+  <a [routerLink]="['/workspace', tenant, 'inventory']">← Inventory</a>
+  <h1>Manufacturing</h1><p>Plan material use, track production stages and receive finished batches.</p>
+  <p role="alert" *ngIf="error()">{{error()}}</p><p role="status" *ngIf="busy() || message()">{{busy() ? 'Working…' : message()}}</p>
+  <button *ngIf="!read" type="button" (click)="signIn()">Sign in to the workspace</button>
+  <ng-container *ngIf="read">
+    <label *ngIf="support">Support reason <input [(ngModel)]="reason" maxlength="300" /></label>
+    <button type="button" [disabled]="busy() || support && !reason.trim()" (click)="reload()">Refresh data</button>
+    <article *ngIf="manage && lookups() as stock">
+      <h2>Bill of materials</h2><p>Saving an existing code creates a revision. Existing production orders keep their original recipe.</p>
+      <form #bomForm="ngForm" (ngSubmit)="saveBom()">
+        <div class="fields"><label>Code <input name="code" [(ngModel)]="code" maxlength="48" required /></label><label>Name <input name="name" [(ngModel)]="name" maxlength="160" required /></label>
+        <label>Finished SKU <select name="output" [(ngModel)]="output" required><option value="">Choose SKU</option><option *ngFor="let item of stock.items" [value]="item.id">{{item.sku}}</option></select></label></div>
+        <fieldset *ngFor="let material of materials; index as i"><legend>Raw material {{i + 1}}</legend><div class="fields">
+          <label>SKU <select [name]="'variant' + i" [(ngModel)]="material.variantId" required><option value="">Choose SKU</option><option *ngFor="let item of stock.items" [value]="item.id">{{item.sku}}</option></select></label>
+          <label>Quantity per finished unit <input type="number" [name]="'quantity' + i" [(ngModel)]="material.perUnit" min="0.001" step="0.001" required /></label>
+          <label>Standard unit cost <input type="number" [name]="'cost' + i" [(ngModel)]="material.standardUnitCost" min="0" step="0.0001" required /></label>
+          <button type="button" (click)="materials.splice(i, 1)" [disabled]="materials.length <= 1">Remove</button>
+        </div></fieldset>
+        <button type="button" (click)="addMaterial()" [disabled]="materials.length >= 40">Add raw material</button>
+        <label>Stages, one per line <textarea name="stages" [(ngModel)]="stageText" placeholder="Processing&#10;Packaging" rows="4" required></textarea></label>
+        <button [disabled]="busy() || bomForm.invalid">Save BOM revision</button>
+      </form>
+      <h2>Plan a production order</h2>
+      <form #planForm="ngForm" class="fields" (ngSubmit)="plan()">
+        <label>Recipe <select name="bom" [(ngModel)]="bomId" required><option value="">Choose recipe</option><option *ngFor="let bom of boms()" [value]="bom.id">{{bom.code}} · {{bom.name}} · v{{bom.revision}}</option></select></label>
+        <label>Warehouse <select name="warehouse" [(ngModel)]="warehouse" required><option value="">Choose warehouse</option><option *ngFor="let w of stock.warehouses" [value]="w.id" [disabled]="!w.active">{{w.name}}</option></select></label>
+        <label>Planned units <input name="planned" type="number" [(ngModel)]="planned" min="0.001" step="0.001" required /></label><button [disabled]="busy() || planForm.invalid">Plan production</button>
+      </form>
+    </article>
+    <article><h2>Production orders</h2><p *ngIf="!orders().length">No production orders on this page.</p>
+      <div class="table" *ngIf="orders().length"><table><thead><tr><th>SKU</th><th>Planned</th><th>Status</th><th>Created</th></tr></thead>
+      <tbody><tr *ngFor="let o of orders()"><td><button type="button" (click)="select(o.id)" [disabled]="busy()">{{variant(o.outputVariantId)}}</button></td><td>{{o.plannedQuantity}}</td><td>{{states[o.state]}}</td><td>{{o.createdAt | date:'short'}}</td></tr></tbody></table></div>
+    </article>
+    <article *ngIf="active() as o">
+      <h2>{{variant(o.outputVariantId)}} · {{states[o.state]}}</h2><p>{{o.id}}</p>
+      <p *ngIf="o.lastFault" role="alert">Current issue: {{o.lastFault}}</p>
+      <p>Standard material estimate: {{o.standardMaterialCost | currency:o.currency}} · Overhead: {{o.overheadCost | currency:o.currency}}</p>
+      <ul><li *ngFor="let m of o.materials">{{variant(m.variantId)}} × {{m.quantity}} {{o.inputsConsumed ? 'consumed' : 'planned'}}</li></ul>
+      <ol><li *ngFor="let stage of o.stages; index as i">{{stage}} · {{i < o.stagesCompleted ? 'Done' : 'Pending'}}</li></ol>
+      <p *ngIf="o.qualityChecked">Quality: {{o.qualityPassed ? 'Passed' : 'Failed'}}</p>
+      <p *ngIf="o.state === 4 || o.state === 5">Good: {{o.goodQuantity}} · Waste: {{o.wasteQuantity}}<span *ngIf="o.outputLot"> · Lot: {{o.outputLot}}</span></p>
+      <label *ngIf="o.state !== 5 && o.state !== 7">Action note <input [(ngModel)]="note" maxlength="300" /></label>
+      <button type="button" *ngIf="manage && o.state === 0" [disabled]="busy() || !note.trim()" (click)="action('start')">Start and consume raw material</button>
+      <button type="button" *ngIf="manage && (o.state === 0 || o.state === 1)" [disabled]="busy() || !note.trim()" (click)="action('cancel')">Cancel before consumption</button>
+      <button type="button" *ngIf="manage && o.state === 8" [disabled]="busy() || !note.trim()" (click)="action('retry')">Retry pending inventory operation</button>
+      <button type="button" *ngIf="o.state === 2 && o.stagesCompleted < o.stages.length" [disabled]="busy() || !note.trim()" (click)="action('stage')">Complete next stage</button>
+      <div *ngIf="o.state === 2 && o.stagesCompleted === o.stages.length">
+        <button type="button" [disabled]="busy() || !note.trim()" (click)="action('quality', true)">Pass quality check</button>
+        <button type="button" [disabled]="busy() || !note.trim()" (click)="action('quality', false)">Record quality failure</button>
+        <div *ngIf="manage && o.qualityChecked">
+          <div class="fields"><label>Good units <input type="number" min="0" step="0.001" [(ngModel)]="good" /></label><label>Waste units <input type="number" min="0" step="0.001" [(ngModel)]="waste" /></label>
+          <label>Overhead cost <input type="number" min="0" step="0.0001" [(ngModel)]="overhead" /></label><label>Lot expiry (optional) <input type="datetime-local" [(ngModel)]="expiry" /></label></div>
+          <button type="button" [disabled]="busy() || !note.trim() || good > 0 && !o.qualityPassed" (click)="action('finish')">Record finished batch</button>
+        </div>
+      </div>
+      <h3>Production history</h3><ul><li *ngFor="let h of history()">{{h.createdAt | date:'short'}} · {{h.action}} <span *ngIf="h.note">· {{h.note}}</span></li></ul>
+    </article>
+  </ng-container>
+</main>

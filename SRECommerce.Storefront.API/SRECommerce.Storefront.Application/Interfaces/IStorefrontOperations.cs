@@ -12,6 +12,7 @@ public interface IStorefrontOperations
     Task<IReadOnlyCollection<VersionView>> Versions(Guid tenant,Guid id,CancellationToken ct);
     Task<LayoutDocument> Version(Guid tenant,Guid id,Guid version,CancellationToken ct);
     Task<object> History(Guid tenant,Guid id,int page,CancellationToken ct);
+    Task<object?> CurrentPublication(Guid tenant,Guid id,CancellationToken ct);
     Task<object> Templates(CancellationToken ct);
     Task SaveTemplate(string businessType,SaveTemplate request,CancellationToken ct);
     Task<PublicLayout> Public(Guid tenant,string slug,string? businessType,CancellationToken ct);

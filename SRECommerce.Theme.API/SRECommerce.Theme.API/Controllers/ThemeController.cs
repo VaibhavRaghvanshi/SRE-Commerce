@@ -18,6 +18,8 @@ public sealed class ThemeController(IThemeOperations themes,ModuleAccess access)
     [HttpGet("{id:guid}/versions")]public async Task<IActionResult> Versions(Guid tenant,Guid id,CancellationToken ct)=>Ok(await themes.Versions(tenant,id,ct));
     [HttpGet("versions/{id:guid}")]public async Task<IActionResult> Version(Guid tenant,Guid id,CancellationToken ct)=>Ok(await themes.Version(tenant,id,ct));
     [HttpGet("publications")]public async Task<IActionResult> Publications(Guid tenant,[FromQuery]int page=1,CancellationToken ct=default)=>Ok(await themes.PublicationHistory(tenant,page,ct));
+    [HttpGet("publication")]public async Task<IActionResult> Publication(Guid tenant,CancellationToken ct)
+    {var current=await themes.CurrentPublication(tenant,ct);return current is null?NoContent():Ok(current);}
     [HttpPost("preview")]public async Task<IActionResult> Preview(Guid tenant,[FromBody]ThemeDocument document,[FromQuery]string mode="light",[FromQuery]bool mobile=false,CancellationToken ct=default)
     {await access.AuthorizeAsync(tenant,ActorPermission.Manager,ct);if(mode is not("light"or"dark"))return BadRequest();return Ok(new{document,variables=ThemeRules.Variables(document,mode,mobile)});}
 }

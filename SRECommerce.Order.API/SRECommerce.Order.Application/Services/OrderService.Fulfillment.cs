@@ -37,8 +37,8 @@ public sealed partial class OrderService
    foreach(var item in ContractJson.Read<OrderQuantity[]>(fulfillment.Items))
    {var line=order.Items.Single(i=>i.VariantId==item.VariantId);if(request.Status is FulfillmentStatus.Cancelled or FulfillmentStatus.Failed)line.ShipmentRequested-=item.Quantity;if(request.Status==FulfillmentStatus.Shipped)line.Fulfilled+=item.Quantity;if(request.Status==FulfillmentStatus.Delivered)line.Delivered+=item.Quantity;}
    fulfillment.Status=request.Status;fulfillment.CourierReference=request.CourierReference is null?fulfillment.CourierReference:OrderRules.Text(request.CourierReference,160);
-   if(request.Status==FulfillmentStatus.Shipped){var target=order.Items.All(i=>i.Fulfilled==i.Quantity)?OrderStatus.Fulfilled:OrderStatus.PartiallyFulfilled;if(order.Status!=target)Transition(order,target,"Shipping dispatch confirmed");}
-   if(request.Status==FulfillmentStatus.Delivered){order.DeliveredAt??=Now;if(order.Items.All(i=>i.Delivered==i.Quantity)){Transition(order,OrderStatus.Delivered,"Delivery confirmed");order.DeliveredAt=Now;}}
+   if(request.Status==FulfillmentStatus.Shipped){var target=order.Items.All(i=>i.Fulfilled==i.Quantity)?OrderStatus.Fulfilled:OrderStatus.PartiallyFulfilled;if(order.Status!=target){Transition(order,target,"Shipping dispatch confirmed");if(target==OrderStatus.Fulfilled)repository.EmitNotice(2,order.Id);}}
+   if(request.Status==FulfillmentStatus.Delivered){order.DeliveredAt??=Now;if(order.Items.All(i=>i.Delivered==i.Quantity)){Transition(order,OrderStatus.Delivered,"Delivery confirmed");order.DeliveredAt=Now;repository.EmitNotice(3,order.Id);}}
    return await RecordResource(order,request.OperationId,"order.fulfillment.status",hash,()=>View(fulfillment),token);
   },ct);
  }

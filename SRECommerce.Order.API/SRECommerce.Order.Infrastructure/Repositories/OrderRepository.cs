@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Http;using Microsoft.EntityFrameworkCore;using SRECommerce.BuildingBlocks.Contracts;using SRECommerce.BuildingBlocks.Infrastructure;using SRECommerce.Order.Application;using SRECommerce.Order.Domain;
+using System.Text.Json;using Microsoft.AspNetCore.Http;using Microsoft.EntityFrameworkCore;using SRECommerce.BuildingBlocks.Contracts;using SRECommerce.BuildingBlocks.Infrastructure;using SRECommerce.Order.Application;using SRECommerce.Order.Domain;
 namespace SRECommerce.Order.Infrastructure;
 public sealed class OrderRepository(OrderDbContext db,ModuleScope scope,IHttpContextAccessor contexts,ServiceSpec service):IOrderRepository
 {
@@ -14,5 +14,13 @@ public sealed class OrderRepository(OrderDbContext db,ModuleScope scope,IHttpCon
  public Task<OrderFulfillment?> Fulfillment(Guid id,CancellationToken ct)=>db.Fulfillments.SingleOrDefaultAsync(f=>f.Id==id,ct);public Task<OrderFulfillment[]> Fulfillments(Guid order,CancellationToken ct)=>db.Fulfillments.Where(f=>f.OrderId==order).OrderBy(f=>f.CreatedAt).ToArrayAsync(ct);
  public Task<OrderReturn?> Return(Guid id,CancellationToken ct)=>db.Returns.SingleOrDefaultAsync(r=>r.Id==id,ct);public Task<OrderReturn[]> Returns(Guid order,CancellationToken ct)=>db.Returns.Where(r=>r.OrderId==order).OrderBy(r=>r.CreatedAt).ToArrayAsync(ct);public Task<OrderExchange?> Exchange(Guid id,CancellationToken ct)=>db.Exchanges.SingleOrDefaultAsync(e=>e.Id==id,ct);public Task<OrderExchange[]> Exchanges(Guid order,CancellationToken ct)=>db.Exchanges.Where(e=>e.OrderId==order).OrderBy(e=>e.CreatedAt).ToArrayAsync(ct);
  public Task<OrderImport?> Import(Guid id,CancellationToken ct)=>db.Imports.SingleOrDefaultAsync(i=>i.Id==id,ct);public void Add<T>(T value)where T:class=>db.Add(value);public void Version(SRECommerce.BuildingBlocks.Kernel.IVersionedRecord value,string expected)=>db.ExpectedVersion(value,expected);
+ public async Task<Guid?> NotificationOrder(Guid eventId,string type,CancellationToken ct)
+ {
+  var json=await db.Outbox.AsNoTracking().Where(x=>x.Id==eventId&&x.Type==type).Select(x=>x.Envelope).SingleOrDefaultAsync(ct);
+  return json is null?null:ContractJson.Read<EventEnvelope>(json).Data.Deserialize<OrderNoticeResource>(ContractJson.Strict)?.OrderId;
+ }
+ public void EmitNotice(int kind,Guid order)=>db.Emit(scope,service,contexts,OrderNoticesContract.Types[kind],new OrderNoticeResource(order));
+ public Task<bool> VerifiedPurchase(Guid user,Guid product,CancellationToken ct)=>db.Orders.AsNoTracking()
+  .AnyAsync(o=>o.UserId==user&&!o.Historical&&o.Status!=OrderStatus.Cancelled&&o.Status!=OrderStatus.Failed&&o.Items.Any(i=>i.ProductId==product&&i.Delivered>i.Returned),ct);
  public async Task Commit(string action,Guid resource,object? integrationEvent,CancellationToken ct){db.Record(scope,contexts,action,resource.ToString());if(integrationEvent is not null)db.Emit(scope,service,contexts,action+".v1",integrationEvent);await db.SaveChangesAsync(ct);}
 }

@@ -6,9 +6,11 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Subject, catchError, forkJoin, map, merge, of, switchMap, takeUntil, tap } from 'rxjs';
 import { CommerceCatalogService } from '../../../core/services/commerce-catalog.service';
 import { CommerceLookups, CommercePage, CommerceProduct, CommerceTenant } from '../../../core/models/commerce.models';
+import { StoreAppearanceDirective } from '../presentation/store-appearance.directive';
+import { StorefrontBlocksComponent } from '../presentation/storefront-blocks.component';
 
 @Component({
-  selector: 'app-commerce-catalog', standalone: true, imports: [CommonModule, FormsModule, RouterLink],
+  selector: 'app-commerce-catalog', standalone: true, imports: [CommonModule, FormsModule, RouterLink, StoreAppearanceDirective, StorefrontBlocksComponent],
   templateUrl: './catalog.component.html', styleUrl: './catalog.component.scss'
 })
 export class CommerceCatalogComponent {
@@ -33,6 +35,11 @@ export class CommerceCatalogComponent {
         .pipe(takeUntil(this.routeChanged), catchError(() => { this.error.set('Products are temporarily unavailable. Please retry.'); return of(null); }))),
       takeUntilDestroyed(this.destroy)
     ).subscribe(result => { if (result) this.result.set(result); this.loading.set(false); });
+    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroy)).subscribe(params => {
+      const id = params.get('category') || '';
+      const selected = /^[0-9a-f-]{36}$/i.test(id) ? id : '';
+      if (selected !== this.category) { this.category = selected; if (this.tenant()) this.reload(1); }
+    });
     merge(this.route.paramMap.pipe(map(params => params.get('slug') || '')), this.restart).pipe(
       tap(() => { this.routeChanged.next(); this.loading.set(true); this.tenant.set(null); this.error.set(''); this.result.set({ items: [], total: 0, page: 1, pageSize: 24 }); }),
       switchMap(slug => this.api.tenant(slug).pipe(

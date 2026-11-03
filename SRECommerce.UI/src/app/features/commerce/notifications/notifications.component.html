@@ -1,0 +1,48 @@
+<main>
+  <header>
+    <a *ngIf="merchant; else storeLink" [routerLink]="['/workspace', tenant(), 'orders']">← Orders workspace</a>
+    <ng-template #storeLink><a [routerLink]="['/stores', slug, 'orders']">← Your orders</a></ng-template>
+    <p class="eyebrow">{{merchant ? 'Business workspace' : 'Your store account'}}</p>
+    <h1>{{merchant ? 'Notifications' : 'Notification preferences'}}</h1>
+    <p>Email is delivered to the local development inbox. SMS and WhatsApp are simulated.</p>
+  </header>
+  <p role="alert" *ngIf="error()">{{error()}}</p><p role="status" *ngIf="message() || busy()">{{busy() ? 'Working…' : message()}}</p>
+  <button *ngIf="tenant() && !allowed()" type="button" (click)="signIn()">Sign in to this store</button>
+  <ng-container *ngIf="allowed()">
+    <label *ngIf="support()">Reason for support access <input [(ngModel)]="reason" maxlength="300" /></label>
+    <button type="button" (click)="reload()" [disabled]="busy() || support() && !reason.trim()">Refresh</button>
+    <article *ngIf="preference() as p">
+      <h2>Choose your channels</h2>
+      <form #prefs="ngForm" (ngSubmit)="savePreference(p)">
+        <label><input type="checkbox" name="email" [(ngModel)]="p.email" /> Email</label>
+        <label><input type="checkbox" name="sms" [(ngModel)]="p.sms" /> SMS</label>
+        <label><input type="checkbox" name="whatsapp" [(ngModel)]="p.whatsApp" /> WhatsApp</label>
+        <button [disabled]="busy()">Save preferences</button>
+      </form>
+    </article>
+    <ng-container *ngIf="merchant">
+      <article>
+        <h2>Message templates</h2><p>Enable a template to queue that event on the selected channel. You can insert <code>{{tokenExample}}</code> once in each field.</p>
+        <form #editor="ngForm" (ngSubmit)="saveTemplate()">
+          <label>Event <select name="kind" [(ngModel)]="draft.kind" (ngModelChange)="selectTemplate()"><option *ngFor="let label of kinds; index as i" [ngValue]="i">{{label}}</option></select></label>
+          <label>Channel <select name="channel" [(ngModel)]="draft.channel" (ngModelChange)="selectTemplate()"><option *ngFor="let label of channels; index as i" [ngValue]="i">{{label}}</option></select></label>
+          <label>Subject <input name="subject" [(ngModel)]="draft.subject" maxlength="160" required /></label>
+          <label>Message <textarea name="body" [(ngModel)]="draft.body" rows="5" maxlength="2000" required></textarea></label>
+          <label><input name="enabled" type="checkbox" [(ngModel)]="draft.enabled" /> Enable this template</label>
+          <button [disabled]="busy() || editor.invalid || support() && !reason.trim()">Save template</button>
+        </form>
+      </article>
+      <article>
+        <h2>Delivery history</h2>
+        <p *ngIf="!jobs().length">There are no messages on this page.</p>
+        <div class="table-wrap" *ngIf="jobs().length"><table><thead><tr><th>Event</th><th>Channel</th><th>Status</th><th>Queued</th><th>Attempts</th></tr></thead>
+        <tbody><tr *ngFor="let job of jobs()"><td>{{kinds[job.kind]}}</td><td>{{channels[job.channel]}}</td><td>{{states[job.state]}}</td><td>{{job.createdAt | date:'short'}}</td><td><button type="button" (click)="history(job)" [disabled]="busy()">{{job.attempts}} · View</button></td></tr></tbody></table></div>
+        <button type="button" (click)="page = page - 1; reload()" [disabled]="busy() || page === 1">Previous</button>
+        <button type="button" (click)="page = page + 1; reload()" [disabled]="busy() || jobs().length < 50">Next</button>
+        <div *ngIf="attempts() as list"><h3>Delivery attempts</h3><p *ngIf="!list.length">No delivery attempt has been made.</p>
+          <ul><li *ngFor="let a of list">{{a.recordedAt | date:'short'}} · {{states[a.state]}} · {{a.code}}</li></ul>
+        </div>
+      </article>
+    </ng-container>
+  </ng-container>
+</main>

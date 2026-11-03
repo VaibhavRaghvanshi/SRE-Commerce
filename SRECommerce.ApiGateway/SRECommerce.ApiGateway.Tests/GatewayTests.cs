@@ -26,10 +26,21 @@ public sealed class GatewayFixture:IAsyncLifetime
 public sealed class GatewayFactory(string address):WebApplicationFactory<GatewayProgram>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
-    {builder.UseEnvironment("Development");foreach(var name in new[]{"Identity","Tenant","Theme","Storefront","Catalog","Inventory","Pricing","Cart","Order","Payment","Shipping"})builder.UseSetting("Services:"+name,address);builder.ConfigureLogging(o=>o.SetMinimumLevel(LogLevel.Error));}
+    {builder.UseEnvironment("Development");foreach(var name in new[]{"Identity","Tenant","Theme","Storefront","Catalog","Inventory","Pricing","Cart","Order","Payment","Shipping","Notification","Manufacturing","Discovery"})builder.UseSetting("Services:"+name,address);builder.ConfigureLogging(o=>o.SetMinimumLevel(LogLevel.Error));}
 }
 public sealed class GatewayTests(GatewayFixture fixture):IClassFixture<GatewayFixture>
 {
+    [Theory]
+    [InlineData("discovery", "public/tenants/test/discovery/search")]
+    [InlineData("notification", "tenants/test/notifications/preferences")]
+    [InlineData("manufacturing", "tenants/test/manufacturing/production")]
+    public async Task New_workspaces_forward_api_routes_and_keep_machine_routes_private(string service,string path)
+    {
+        using var client=fixture.Factory.CreateClient();
+        var response=await client.GetAsync($"/commerce/{service}/{path}");
+        Assert.Equal("/api/v1/"+path,(await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("path").GetString());
+        Assert.Equal(HttpStatusCode.NotFound,(await client.GetAsync($"/commerce/{service}/internal/v1/tenants/test")).StatusCode);
+    }
     [Fact]
     public async Task Shipping_customer_routes_are_rewritten_and_machine_quotes_are_private()
     {

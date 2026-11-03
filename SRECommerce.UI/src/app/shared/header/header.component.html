@@ -23,6 +23,7 @@
     </form>
 
     <nav class="hdr-links">
+      <a routerLink="/businesses">Business workspace</a>
       <ng-container *ngIf="auth.isLoggedIn(); else guest">
         <span class="text-muted">Hi, {{ auth.userName || 'User' }}</span>
         <a *ngIf="auth.isStaff()" routerLink="/admin">Dashboard</a>

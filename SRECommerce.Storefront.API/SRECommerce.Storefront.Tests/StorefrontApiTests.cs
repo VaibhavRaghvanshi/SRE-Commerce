@@ -17,12 +17,15 @@ public sealed class StorefrontApiTests(StorefrontFixture fixture):IClassFixture<
     public async Task Draft_publish_device_visibility_version_and_rollback_work_with_atomic_outbox()
     {
         var business=await fixture.Business();using var client=business.Client;var page=await Create(business);
+        Assert.Equal(HttpStatusCode.NoContent,(await client.GetAsync(Path(business.Id)+$"/{page.Id}/publication")).StatusCode);
         using var publicClient=fixture.Factory.Client();var fallback=(await publicClient.GetFromJsonAsync<PublicLayout>($"/api/v1/public/tenants/{business.Id}/pages/home"))!;Assert.Equal(0,fallback.Sequence);
         var first=await Read<PublicationView>(await client.PostAsJsonAsync(Path(business.Id)+$"/{page.Id}/publish",new PublishPage(page.Version,null)));
         var sections=page.Document.Sections.ToArray();sections[0]=sections[0] with{Mobile=new(false,4,1)};var edited=page.Document with{Sections=sections,Product=page.Document.Product with{Reviews=false}};
         page=await Read<PageView>(await client.PutAsJsonAsync(Path(business.Id)+$"/{page.Id}/draft",new SavePage(first.PageVersion,"Edited draft",edited)));
         var stillFirst=(await publicClient.GetFromJsonAsync<PublicLayout>($"/api/v1/public/tenants/{business.Id}/pages/home"))!;Assert.True(stillFirst.Document.Product.Reviews); // Drafts are never public.
         var second=await Read<PublicationView>(await client.PostAsJsonAsync(Path(business.Id)+$"/{page.Id}/publish",new PublishPage(page.Version,first.PublicationVersion)));
+        var current=await Read<System.Text.Json.JsonElement>(await client.GetAsync(Path(business.Id)+$"/{page.Id}/publication"));
+        Assert.Equal(second.PublicationVersion,current.GetProperty("publicationVersion").GetString());
         var published=(await publicClient.GetFromJsonAsync<PublicLayout>($"/api/v1/public/tenants/{business.Id}/pages/home"))!;Assert.False(published.Document.Product.Reviews);Assert.False(published.Document.Sections[0].Mobile.Visible);
         var rollback=await Read<PublicationView>(await client.PostAsJsonAsync(Path(business.Id)+$"/{page.Id}/rollback",new RollbackPage(first.VersionId,second.PublicationVersion)));Assert.Equal(3,rollback.Sequence);
         var restored=(await publicClient.GetFromJsonAsync<PublicLayout>($"/api/v1/public/tenants/{business.Id}/pages/home"))!;Assert.True(restored.Document.Product.Reviews);

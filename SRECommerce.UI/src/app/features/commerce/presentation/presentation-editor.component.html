@@ -1,0 +1,73 @@
+<main>
+  <a [routerLink]="['/workspace',tenant,'catalog']">← Catalog workspace</a>
+  <h1>{{theme ? 'Store theme editor' : 'Storefront page editor'}}</h1>
+  <p>Edit a draft, preview it and publish the saved version when it is ready.</p>
+  <p role="alert" *ngIf="error()">{{error()}}</p><p role="status" *ngIf="busy() || message()">{{busy() ? 'Working…' : message()}}</p>
+  <button *ngIf="!canRead" type="button" (click)="signIn()">Sign in to the workspace</button>
+  <ng-container *ngIf="canRead">
+    <label *ngIf="support">Support reason <input [(ngModel)]="reason" maxlength="300" /></label>
+    <button type="button" (click)="reload()" [disabled]="busy() || support && !reason.trim()">Reload drafts</button>
+    <article *ngIf="canEdit"><h2>Create from a preset</h2>
+      <form #newDraft="ngForm" (ngSubmit)="create()" class="fields">
+        <label>{{theme ? 'Theme name' : 'Page title'}} <input name="name" [(ngModel)]="newName" maxlength="160" required /></label>
+        <label *ngIf="!theme">Page slug <input name="slug" [(ngModel)]="slug" maxlength="80" pattern="[a-z0-9]+(-[a-z0-9]+)*" required /></label>
+        <label>Preset <select name="preset" [(ngModel)]="preset"><option *ngFor="let key of presets" [value]="key">{{key}}</option></select></label>
+        <button [disabled]="busy() || newDraft.invalid">Create draft</button>
+      </form>
+    </article>
+    <article *ngIf="drafts().length"><h2>Saved drafts</h2>
+      <label>Choose draft <select [(ngModel)]="selected" (ngModelChange)="select()" [disabled]="busy()"><option *ngFor="let d of drafts()" [value]="d.id">{{d.name || d.title}} {{d.slug ? '· ' + d.slug : ''}}</option></select></label>
+      <ng-container *ngIf="active() as d">
+        <fieldset [disabled]="busy() || !canEdit || !!d.archived">
+          <legend>Draft settings</legend>
+          <div class="fields"><label>Preview device <select [(ngModel)]="device"><option value="desktop">Desktop</option><option value="mobile">Mobile</option></select></label>
+          <label *ngIf="theme">Palette <select [(ngModel)]="colorMode"><option value="light">Light</option><option value="dark">Dark</option></select></label></div>
+          <ng-container *ngIf="themeDocument as doc">
+            <label>Default mode <select [(ngModel)]="doc.defaultMode"><option value="light">Light</option><option value="dark">Dark</option><option value="system">System</option></select></label>
+            <div class="colors"><label *ngFor="let key of colors">{{key}} <input type="color" [(ngModel)]="doc[colorMode].colors[key]" /></label></div>
+            <div class="fields"><label>Font <select [(ngModel)]="doc[device].font"><option *ngFor="let x of ['system','inter','arial','georgia']" [value]="x">{{x}}</option></select></label>
+            <label>Font size <input type="number" min="12" max="24" [(ngModel)]="doc[device].fontSize" /></label><label>Corner radius <input type="number" min="0" max="32" [(ngModel)]="doc[device].radius" /></label>
+            <label>Spacing <select [(ngModel)]="doc[device].spacing"><option *ngFor="let x of ['compact','normal','spacious']" [value]="x">{{x}}</option></select></label>
+            <label>Heading scale <input type="number" min="1.1" max="1.8" step="0.05" [(ngModel)]="doc[device].headingScale" /></label>
+            <label>Line height <input type="number" min="1.2" max="2" step="0.05" [(ngModel)]="doc[device].lineHeight" /></label></div>
+          </ng-container>
+          <ng-container *ngIf="layout as doc">
+            <label>Page title <input [(ngModel)]="title" maxlength="160" /></label>
+            <ng-container *ngIf="!advanced; else advancedEditor">
+              <div class="fields">
+                <label><input type="checkbox" [(ngModel)]="doc.header.showSearch" /> Search</label><label><input type="checkbox" [(ngModel)]="doc.header.showCategories" /> Category menu</label>
+                <label><input type="checkbox" [(ngModel)]="doc.header.showCart" /> Cart link</label><label><input type="checkbox" [(ngModel)]="doc.header.sticky" /> Sticky header</label>
+                <label><input type="checkbox" [(ngModel)]="doc.product.reviews" /> Reviews</label><label><input type="checkbox" [(ngModel)]="doc.product.description" /> Descriptions</label>
+                <label><input type="checkbox" [(ngModel)]="doc.product.specifications" /> Specifications</label></div>
+              <label>Footer text <input [(ngModel)]="doc.footer.copyright" maxlength="200" /></label>
+              <label><input type="checkbox" [(ngModel)]="doc.footer.showContact" /> Show contact</label><label>Contact text <input [(ngModel)]="doc.footer.contactText" maxlength="500" /></label>
+              <fieldset *ngFor="let section of doc.sections; index as i"><legend>Section {{i + 1}}</legend>
+                <div class="fields"><label>Type <select [(ngModel)]="section.kind"><option *ngFor="let k of sectionKinds" [value]="k">{{k}}</option></select></label>
+                <label>Title <input [(ngModel)]="section.title" maxlength="160" /></label>
+                <label>Position ({{device}}) <input type="number" [(ngModel)]="section[device].order" min="1" max="100" /></label>
+                <label>Columns <input type="number" [(ngModel)]="section[device].columns" min="1" max="6" /></label>
+                <label><input type="checkbox" [(ngModel)]="section[device].visible" /> Visible</label></div>
+                <label>Text <textarea [(ngModel)]="section.text" maxlength="2000" rows="2"></textarea></label>
+                <button type="button" (click)="doc.sections.splice(i,1)" [disabled]="doc.sections.length <= 1">Remove section</button>
+              </fieldset>
+              <button type="button" (click)="addSection()" [disabled]="doc.sections.length >= 30">Add section</button>
+              <button type="button" (click)="setAdvanced()">Edit menus, banners and references as JSON</button>
+            </ng-container>
+            <ng-template #advancedEditor><label>Layout configuration <textarea [(ngModel)]="json" rows="16" maxlength="131072"></textarea></label></ng-template>
+          </ng-container>
+        </fieldset>
+        <button type="button" (click)="preview()" [disabled]="busy() || !canEdit">Validate and preview</button>
+        <button type="button" (click)="save()" [disabled]="busy() || !canEdit || !dirty">Save draft</button>
+        <button type="button" (click)="publish()" [disabled]="busy() || !canEdit || dirty">Publish saved draft</button>
+        <p *ngIf="publication() as p">Publication sequence: {{p.sequence}}</p>
+      </ng-container>
+    </article>
+    <article class="preview" *ngIf="previewTheme() as styles" [ngStyle]="styles"><h2>Theme preview</h2><p>Sample product, body text and call to action.</p><button type="button">View product</button></article>
+    <article *ngIf="previewLayout() as doc"><h2>{{device}} layout preview</h2>
+      <ul><ng-container *ngFor="let s of doc.sections"><li *ngIf="s[device].visible">{{s[device].order}} · {{s.title}} · {{s.kind}} · {{s[device].columns}} columns</li></ng-container></ul>
+    </article>
+    <article *ngIf="versions().length"><h2>Published versions</h2><ul><li *ngFor="let v of versions()">v{{v.revision}} · {{v.createdAt | date:'short'}}
+      <button type="button" (click)="rollback(v)" [disabled]="busy() || !canEdit || dirty || !publication() || publication()?.versionId === v.id">Restore this version</button></li></ul>
+    </article>
+  </ng-container>
+</main>

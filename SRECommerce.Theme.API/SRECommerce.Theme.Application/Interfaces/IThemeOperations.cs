@@ -11,6 +11,7 @@ public interface IThemeOperations
     Task<PublicationView> Rollback(Guid tenant,RollbackTheme request,CancellationToken ct);
     Task<IReadOnlyCollection<VersionView>> Versions(Guid tenant,Guid id,CancellationToken ct);
     Task<object> PublicationHistory(Guid tenant,int page,CancellationToken ct);
+    Task<object?> CurrentPublication(Guid tenant,CancellationToken ct);
     Task<ThemeDocument> Version(Guid tenant,Guid id,CancellationToken ct);
     Task<object> Presets(CancellationToken ct);
     Task SavePreset(string businessType,SavePreset request,CancellationToken ct);

@@ -5,6 +5,7 @@ public sealed partial class InventoryService
  public async Task<object> Abort(Guid tenant,Guid reservation,ReservationAbortRequest request,CancellationToken ct)
  {
   access.Recovery(tenant,["Order","Cart","Manufacturing"]);Id(reservation);Id(request.OperationId);var reason=InventoryRules.Text(request.Reason,300);var source=access.MachineSource??throw new BusinessFault("ServiceIdentityRequired",401);var hash=Hash(new{Action="reservation-cancel",ReservationId=reservation,request});
+  if(source=="Manufacturing"&&request.OperationId!=reservation)throw new BusinessFault("ProductionCancellationMustUseProductionId",400);
   return await repository.Transaction(async token=>
   {
    var fence=await repository.Cancellation(reservation,token);if(fence is not null&&fence.SourceService!=source)throw new BusinessFault("ReservationOwnerMismatch",403);if(fence is not null&&fence.OperationId!=request.OperationId)throw new BusinessFault("ReservationCancellationKeyReused");

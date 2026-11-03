@@ -1,6 +1,19 @@
 # SRECommerce migration progress
 
-## Latest checkpoint — Shipping and zero-charge checkout, 2026-11-02
+## Current checkpoint — all fourteen services, 2026-11-03
+
+The root solution has **75 projects**. Each of the fourteen service folders has API, Application, Domain, Infrastructure and Tests projects plus its own solution. New code includes:
+
+- Notification: scoped Order event lookup, replay protection, versioned templates and preferences, delivery attempts, local Mailpit adapter and simulated SMS/WhatsApp.
+- Manufacturing: immutable BOM revisions, production orders and stages, stock reservation/consumption through Inventory, quality, waste, standard cost and replay-safe finished lot receipts.
+- Discovery: SQL Server Full-Text Search with tenant/category/brand/attribute filters, public Catalog revision checks, suggestions, related products and purchase-verified review moderation.
+- Angular: merchant screens for all three services, customer search/reviews/preferences, account and tenant workspaces, Theme/Storefront draft, preview, publication and rollback controls, and public layout/theme rendering.
+
+The full backend build passed. Notification passed its isolated SQL/API workflow with actual Order and an isolated delivery transport. Manufacturing passed its real Inventory/SQL test, including a lost response after receipt commit. Discovery passed its actual SQL Full-Text and moderation test with isolated source fixtures. Gateway passed 15 tests. Angular compiled and passed 45 browser unit tests. The new main SQL databases were migrated and each passed a checksum backup, VERIFYONLY, separate read-only restore and CHECKDB. NotificationDB has 8 tables, ManufacturingDB 7 and DiscoveryDB 7 (including migration history); the Discovery full-text index is installed. All 14 main databases were queried successfully. The original SQLite source hash is unchanged.
+
+The runtime credential hold remains. Local default startup does not enable live Notification dispatch or provision new service clients. RabbitMQ transport, low-stock alerts, automatic Catalog projection refresh, some advanced admin/customer flows, and a full native browser run with all new service dependencies remain open. No app has been published or deployed in this checkpoint.
+
+## Shipping and zero-charge checkout — 2026-11-02
 
 Shipping now has substantive API/Application/Domain/Infrastructure/Tests projects and its own solution; the root modern solution contains **60 projects**. Its **14 real SQL/API integration cases** pass across actual Identity/Tenant/Catalog/Pricing/Inventory/Cart/Order/Payment/Shipping services, including authenticated/guest checkout, scoped read-only preparation/warehouse contracts, server-calculated delivery/tax/free thresholds, preparation/customer-bound quotes, partial delivery, lost callback response, outage recovery, guest tracking, COD and return pickup coordination. A 100% promotion with free shipping now completes with a zero-charge receipt; it cannot refund nonexistent money.
 

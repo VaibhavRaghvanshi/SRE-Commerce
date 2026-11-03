@@ -71,6 +71,12 @@ public sealed class ThemeOperations(ThemeDbContext db,ModuleAccess access,Module
     {await access.AuthorizeAsync(tenant,ActorPermission.Staff,ct);var value=await db.Versions.AsNoTracking().SingleOrDefaultAsync(v=>v.Id==id,ct)??throw new BusinessFault("ThemeVersionNotFound",404);return Document(value.Document);}
     public async Task<object> PublicationHistory(Guid tenant,int page,CancellationToken ct)
     {Page(page);await access.AuthorizeAsync(tenant,ActorPermission.Staff,ct);return await db.Publications.AsNoTracking().OrderByDescending(p=>p.Sequence).Skip((page-1)*50).Take(50).Select(p=>new{p.ThemeVersionId,p.Sequence,p.Rollback,p.PublishedAt}).ToListAsync(ct);}
+    public async Task<object?> CurrentPublication(Guid tenant,CancellationToken ct)
+    {
+        await access.AuthorizeAsync(tenant,ActorPermission.Staff,ct);
+        var row=await db.Published.AsNoTracking().SingleOrDefaultAsync(ct);
+        return row is null?null:new{VersionId=row.ThemeVersionId,row.Sequence,PublicationVersion=Convert.ToBase64String(row.Version)};
+    }
     public async Task<object> Presets(CancellationToken ct)=>await db.Presets.AsNoTracking().OrderBy(p=>p.BusinessType).Select(p=>new{p.BusinessType,p.Document,Version=Convert.ToBase64String(p.Version)}).ToListAsync(ct);
     public async Task SavePreset(string businessType,SavePreset request,CancellationToken ct)
     {

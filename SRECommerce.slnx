@@ -24,6 +24,13 @@
     <Project Path="SRECommerce.Catalog.API/SRECommerce.Catalog.Infrastructure/SRECommerce.Catalog.Infrastructure.csproj" />
     <Project Path="SRECommerce.Catalog.API/SRECommerce.Catalog.Tests/SRECommerce.Catalog.Tests.csproj" />
   </Folder>
+  <Folder Name="/SRECommerce.Discovery.API/">
+    <Project Path="SRECommerce.Discovery.API/SRECommerce.Discovery.API/SRECommerce.Discovery.API.csproj" />
+    <Project Path="SRECommerce.Discovery.API/SRECommerce.Discovery.Application/SRECommerce.Discovery.Application.csproj" />
+    <Project Path="SRECommerce.Discovery.API/SRECommerce.Discovery.Domain/SRECommerce.Discovery.Domain.csproj" />
+    <Project Path="SRECommerce.Discovery.API/SRECommerce.Discovery.Infrastructure/SRECommerce.Discovery.Infrastructure.csproj" />
+    <Project Path="SRECommerce.Discovery.API/SRECommerce.Discovery.Tests/SRECommerce.Discovery.Tests.csproj" />
+  </Folder>
   <Folder Name="/SRECommerce.Identity.API/">
     <Project Path="SRECommerce.Identity.API/SRECommerce.Identity.API/SRECommerce.Identity.API.csproj" />
     <Project Path="SRECommerce.Identity.API/SRECommerce.Identity.Application/SRECommerce.Identity.Application.csproj" />
@@ -37,6 +44,20 @@
     <Project Path="SRECommerce.Inventory.API/SRECommerce.Inventory.Domain/SRECommerce.Inventory.Domain.csproj" />
     <Project Path="SRECommerce.Inventory.API/SRECommerce.Inventory.Infrastructure/SRECommerce.Inventory.Infrastructure.csproj" />
     <Project Path="SRECommerce.Inventory.API/SRECommerce.Inventory.Tests/SRECommerce.Inventory.Tests.csproj" />
+  </Folder>
+  <Folder Name="/SRECommerce.Manufacturing.API/">
+    <Project Path="SRECommerce.Manufacturing.API/SRECommerce.Manufacturing.API/SRECommerce.Manufacturing.API.csproj" />
+    <Project Path="SRECommerce.Manufacturing.API/SRECommerce.Manufacturing.Application/SRECommerce.Manufacturing.Application.csproj" />
+    <Project Path="SRECommerce.Manufacturing.API/SRECommerce.Manufacturing.Domain/SRECommerce.Manufacturing.Domain.csproj" />
+    <Project Path="SRECommerce.Manufacturing.API/SRECommerce.Manufacturing.Infrastructure/SRECommerce.Manufacturing.Infrastructure.csproj" />
+    <Project Path="SRECommerce.Manufacturing.API/SRECommerce.Manufacturing.Tests/SRECommerce.Manufacturing.Tests.csproj" />
+  </Folder>
+  <Folder Name="/SRECommerce.Notification.API/">
+    <Project Path="SRECommerce.Notification.API/SRECommerce.Notification.API/SRECommerce.Notification.API.csproj" />
+    <Project Path="SRECommerce.Notification.API/SRECommerce.Notification.Application/SRECommerce.Notification.Application.csproj" />
+    <Project Path="SRECommerce.Notification.API/SRECommerce.Notification.Domain/SRECommerce.Notification.Domain.csproj" />
+    <Project Path="SRECommerce.Notification.API/SRECommerce.Notification.Infrastructure/SRECommerce.Notification.Infrastructure.csproj" />
+    <Project Path="SRECommerce.Notification.API/SRECommerce.Notification.Tests/SRECommerce.Notification.Tests.csproj" />
   </Folder>
   <Folder Name="/SRECommerce.Order.API/">
     <Project Path="SRECommerce.Order.API/SRECommerce.Order.API/SRECommerce.Order.API.csproj" />

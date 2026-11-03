@@ -101,5 +101,20 @@ public sealed partial class OrderService(IOrderRepository repository,IOrderAcces
   {var order=await Owned(id,false,null,true,token);var prior=await Replay(request.OperationId,id,"order.invoice.referenced",hash,token);if(prior is not null)return prior;repository.Version(order,request.Version);if(order.InvoiceReference is not null&&order.InvoiceReference!=reference)throw new BusinessFault("InvoiceReferenceImmutable");order.InvoiceReference=reference;return await Record(order,request.OperationId,"order.invoice.referenced",hash,token);},ct);
  }
  public async Task<MachineOrderContext> Context(Guid tenant,Guid id,CancellationToken ct)
- {access.Recovery(tenant,["Payment","Shipping","Notification","Discovery"]);var value=await repository.Order(id,ct)??throw new BusinessFault("OrderNotFound",404);return new(value.Id,tenant,value.UserId,value.Currency,value.Total,value.PaymentMethod,value.Status,value.PaymentState,value.Historical,View(value).Items,value.DecimalPlaces);}
+ {access.Recovery(tenant,["Payment","Shipping"]);var value=await repository.Order(id,ct)??throw new BusinessFault("OrderNotFound",404);return new(value.Id,tenant,value.UserId,value.Currency,value.Total,value.PaymentMethod,value.Status,value.PaymentState,value.Historical,View(value).Items,value.DecimalPlaces);}
+ public async Task<object> NotificationContext(Guid tenant,Guid id,Guid eventId,int kind,CancellationToken ct)
+ {
+  access.Recovery(tenant,["Notification"]);
+  if(kind<0||kind>=OrderNoticesContract.Types.Length||await repository.NotificationOrder(eventId,OrderNoticesContract.Types[kind],ct)!=id)
+   throw new BusinessFault("NotifiableOrderNotFound",404);
+  var order=await repository.Order(id,ct);
+  if(order is null||order.Historical)throw new BusinessFault("NotifiableOrderNotFound",404);
+  var contact=ContractJson.Read<OrderContact>(order.ContactDocument);
+  return new{OrderId=order.Id,order.UserId,OrderNumber=order.Number,contact.Email,contact.Phone};
+ }
+ public Task<bool> VerifiedPurchase(Guid tenant,Guid user,Guid product,CancellationToken ct)
+ {
+  access.Recovery(tenant,["Discovery"]);Id(user);Id(product);
+  return repository.VerifiedPurchase(user,product,ct);
+ }
 }

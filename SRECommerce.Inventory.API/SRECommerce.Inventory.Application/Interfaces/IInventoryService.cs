@@ -21,6 +21,7 @@ public interface IInventoryService
     Task<WarehouseAvailability[]> AllocationOptions(Guid tenant,Guid[] variants,DateTimeOffset expiresAt,CancellationToken ct);
     Task<object> Abort(Guid tenant,Guid reservation,ReservationAbortRequest request,CancellationToken ct);
     Task<BalanceView[]> CustomerReturn(Guid tenant,CustomerReturnReceipt request,CancellationToken ct);
+    Task<BalanceView> ReceiveProduction(Guid tenant,ManufacturingReceipt request,CancellationToken ct);
     Task<int> Expire(Guid tenant,CancellationToken ct);
     Task<PurchaseView> Purchase(Guid tenant,PurchaseRequest request,CancellationToken ct);
     Task<PurchaseView[]> Purchases(Guid tenant,int page,CancellationToken ct);

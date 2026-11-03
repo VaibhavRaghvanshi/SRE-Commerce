@@ -1,0 +1,84 @@
+<main>
+  <nav><a routerLink="/">SRECommerce</a><a routerLink="/commerce/account">My account</a><a *ngIf="tenant" routerLink="/businesses">Businesses</a><a *ngIf="tenant" [routerLink]="['/workspace',tenant,'catalog']">Catalog workspace</a><a *ngIf="!platform && session.access()?.isPlatformAdmin" routerLink="/platform/workspace">Platform workspace</a></nav>
+  <h1>{{platform ? 'Platform businesses' : tenant ? 'Business settings' : 'Your businesses'}}</h1>
+  <p role="alert" *ngIf="error()">{{error()}}</p><p role="status" *ngIf="busy() || message()">{{busy() ? 'Working…' : message()}}</p>
+  <button *ngIf="!session.token" type="button" (click)="signIn()">Sign in</button>
+  <ng-container *ngIf="session.token">
+    <button type="button" (click)="reload()" [disabled]="busy()">Refresh businesses</button>
+    <article *ngIf="!tenant">
+      <h2>{{platform ? 'Tenant directory' : 'Business drafts and active memberships'}}</h2>
+      <p *ngIf="!businesses().length && !myMemberships().length">No businesses are available on this page.</p>
+      <ul><li *ngFor="let b of businesses()"><button type="button" (click)="open(b.id)" [disabled]="busy()">{{b.name}} · {{states[b.status]}}</button></li></ul>
+      <ng-container *ngIf="!platform"><ul><li *ngFor="let m of myMemberships()"><button *ngIf="m.isActive && m.tenantId && ['Owner','Manager','Staff'].includes(m.role)" type="button" (click)="switchBusiness(m.tenantId!)">Open business {{m.tenantId}} · {{m.role}}</button></li></ul></ng-container>
+      <div *ngIf="platform"><button type="button" (click)="page = page - 1; reload()" [disabled]="busy() || page <= 1">Previous</button><button type="button" (click)="page = page + 1; reload()" [disabled]="busy() || businesses().length < 50">Next</button></div>
+    </article>
+    <article *ngIf="canRegister && !tenant">
+      <h2>Register a business</h2>
+      <form #reg="ngForm" class="fields" (ngSubmit)="register()">
+        <label>Name <input name="name" [(ngModel)]="registration.name" maxlength="160" required /></label>
+        <label>Store URL slug <input name="slug" [(ngModel)]="registration.slug" maxlength="80" pattern="[a-z0-9]+(-[a-z0-9]+)*" required /></label>
+        <label>Business type <select name="type" [(ngModel)]="registration.businessTypeCode" required><option *ngFor="let t of types()" [value]="t.code">{{t.name}}</option></select></label>
+        <label *ngIf="registration.businessTypeCode === 'custom'">Custom type <input name="custom" [(ngModel)]="registration.customBusinessType" maxlength="100" required /></label>
+        <button [disabled]="busy() || reg.invalid || !types().length">Save business draft</button>
+      </form>
+    </article>
+    <ng-container *ngIf="current() as b">
+      <article>
+        <h2>{{b.name}} · {{states[b.status]}}</h2><p>{{b.id}}</p>
+        <nav *ngIf="b.status === 2"><a [routerLink]="['/stores',b.slug]">Open store</a><a [routerLink]="['/workspace',b.id,'catalog']">Catalog</a>
+          <a [routerLink]="['/workspace',b.id,'theme']">Theme</a><a [routerLink]="['/workspace',b.id,'storefront']">Storefront</a><a [routerLink]="['/workspace',b.id,'orders']">Orders</a></nav>
+        <button *ngIf="canManage && b.status === 0" type="button" (click)="mutate('POST','submit')" [disabled]="busy()">Submit for approval</button>
+        <ng-container *ngIf="platform && session.access()?.isPlatformAdmin">
+          <button *ngIf="b.status === 1 || b.status === 3" type="button" (click)="mutate('POST','activate',{},true)" [disabled]="busy()">Activate</button>
+          <div class="fields" *ngIf="b.status === 2"><label>Suspension reason <input [(ngModel)]="suspendReason" maxlength="300" /></label>
+            <button type="button" (click)="mutate('POST','suspend',{ reason: suspendReason.trim() },true)" [disabled]="busy() || !suspendReason.trim()">Suspend</button></div>
+          <div class="fields"><label>Plan <select [(ngModel)]="planCode"><option *ngFor="let p of plans()" [value]="p.code">{{p.name}}</option></select></label>
+            <label>Development term (days) <input type="number" min="1" max="365" [(ngModel)]="planDays" /></label>
+            <button type="button" (click)="setSubscription()" [disabled]="busy() || !planCode || b.status === 4">Apply subscription</button></div>
+        </ng-container>
+      </article>
+      <article *ngIf="settings() as s"><h2>Store settings</h2><form #store="ngForm" class="fields" (ngSubmit)="mutate('PUT','settings',s)">
+        <fieldset [disabled]="!canManage || busy() || b.status === 4" class="fields">
+          <label>Display name <input name="displayName" [(ngModel)]="s.displayName" maxlength="160" required /></label>
+          <label>Currency <input name="currency" [(ngModel)]="s.currency" pattern="[A-Z]{3}" maxlength="3" required /></label>
+          <label>Culture <input name="culture" [(ngModel)]="s.culture" maxlength="20" required /></label>
+          <label>Time zone <input name="timeZone" [(ngModel)]="s.timeZone" maxlength="100" required /></label>
+          <label>Logo URL <input name="logo" [(ngModel)]="s.logoUrl" maxlength="500" /></label>
+          <button [disabled]="store.invalid">Save settings</button>
+        </fieldset>
+      </form></article>
+      <article *ngIf="entitlements() as e"><h2>Modules</h2><p>{{e.planCode}} · {{e.active ? 'Active' : 'Inactive'}} · Ends {{e.endsAt | date:'mediumDate'}}</p>
+        <p>Plan limits: {{e.maxLocations}} locations · {{e.maxDomains}} domains · {{e.maxUsers}} members</p>
+        <ul><li *ngFor="let f of e.modules">{{f.module}} · {{f.enabled ? 'Enabled' : f.configured ? 'Configured' : 'Disabled'}}
+          <button type="button" *ngIf="canManage && (f.entitled || f.configured)" (click)="mutate('PUT','modules/'+f.module,{enabled: !f.configured})" [disabled]="busy() || b.status === 4">{{f.configured ? 'Disable' : 'Enable'}}</button>
+        </li></ul>
+      </article>
+      <article><h2>Locations</h2><ul><li *ngFor="let l of locations()">{{l.name}} · {{l.address}} · {{l.countryCode}} {{l.isActive ? '' : '· Inactive'}}
+        <button type="button" *ngIf="canManage && l.isActive" (click)="mutate('POST','locations/'+l.id+'/deactivate')" [disabled]="busy()">Deactivate</button></li></ul>
+        <form *ngIf="canManage && b.status !== 4" #place="ngForm" class="fields" (ngSubmit)="mutate('POST','locations',location)">
+          <label>Name <input name="location" [(ngModel)]="location.name" maxlength="160" required /></label><label>Address <input name="address" [(ngModel)]="location.address" maxlength="500" required /></label>
+          <label>Country code <input name="country" [(ngModel)]="location.countryCode" maxlength="2" pattern="[A-Z]{2}" required /></label><button [disabled]="busy() || place.invalid">Add location</button>
+        </form>
+      </article>
+      <article><h2>Domains</h2>
+        <ul><li *ngFor="let d of domains()">{{d.host}} · {{d.isActive ? d.verifiedAt ? 'Verified' : 'Pending DNS verification' : 'Inactive'}} {{d.isPrimary ? '· Primary' : ''}}
+          <button type="button" *ngIf="canManage && d.isActive" (click)="mutate('POST','domains/'+d.id+'/deactivate')" [disabled]="busy()">Deactivate</button></li></ul>
+        <form *ngIf="canManage && b.status !== 4" #domain="ngForm" class="fields" (ngSubmit)="addDomain()"><label>Host <input name="host" [(ngModel)]="host" maxlength="253" placeholder="shop.example.com" required /></label>
+          <button [disabled]="busy() || domain.invalid">Request DNS challenge</button></form>
+        <div *ngIf="challenge() as c"><p>Add this TXT record to your domain. It expires {{c.expiresAt | date:'short'}}.</p>
+          <p><code>{{c.recordName}}</code></p><p><code>srecommerce-verification={{c.token}}</code></p><label><input type="checkbox" [(ngModel)]="makePrimary" /> Make primary</label>
+          <button type="button" (click)="verifyDomain()" [disabled]="busy()">Check DNS record</button>
+        </div>
+      </article>
+      <article *ngIf="canTeam"><h2>Team and buyers</h2><button type="button" (click)="loadTeam()" [disabled]="busy()">Load memberships</button>
+        <ul><li *ngFor="let m of members()">{{m.displayName}} · {{m.role}} {{m.isActive ? '' : '· Inactive'}}
+          <button type="button" *ngIf="m.userId && m.isActive && !['Owner','Manager'].includes(m.role)" (click)="team(m.userId)" [disabled]="busy()">Deactivate</button></li></ul>
+        <form #member="ngForm" class="fields" (ngSubmit)="team()"><label>Existing account ID <input name="user" [(ngModel)]="userId" maxlength="36" pattern="[a-fA-F0-9-]{36}" required /></label>
+          <label>Role <select name="role" [(ngModel)]="memberRole"><option>Staff</option><option>Customer</option><option>B2BBuyer</option></select></label><button [disabled]="busy() || member.invalid">Assign membership</button>
+        </form>
+      </article>
+      <article *ngIf="canManage"><h2>Activity</h2><button type="button" (click)="loadAudit()" [disabled]="busy()">Load audit history</button>
+        <ul><li *ngFor="let a of audit()">{{a.createdAt | date:'short'}} · {{a.action}}</li></ul></article>
+    </ng-container>
+  </ng-container>
+</main>

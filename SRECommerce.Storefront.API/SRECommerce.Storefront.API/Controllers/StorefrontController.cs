@@ -17,6 +17,8 @@ public sealed class StorefrontController(IStorefrontOperations pages,ModuleAcces
     [HttpGet("{id:guid}/versions")]public async Task<IActionResult> Versions(Guid tenant,Guid id,CancellationToken ct)=>Ok(await pages.Versions(tenant,id,ct));
     [HttpGet("{id:guid}/versions/{version:guid}")]public async Task<IActionResult> Version(Guid tenant,Guid id,Guid version,CancellationToken ct)=>Ok(await pages.Version(tenant,id,version,ct));
     [HttpGet("{id:guid}/publications")]public async Task<IActionResult> History(Guid tenant,Guid id,[FromQuery]int page=1,CancellationToken ct=default)=>Ok(await pages.History(tenant,id,page,ct));
+    [HttpGet("{id:guid}/publication")]public async Task<IActionResult> Publication(Guid tenant,Guid id,CancellationToken ct)
+    {var current=await pages.CurrentPublication(tenant,id,ct);return current is null?NoContent():Ok(current);}
     [HttpPost("preview")]public async Task<IActionResult> Preview(Guid tenant,[FromBody]LayoutDocument document,CancellationToken ct)
     {await access.AuthorizeAsync(tenant,ActorPermission.Manager,ct);LayoutRules.Validate(document);return Ok(document);}
 }

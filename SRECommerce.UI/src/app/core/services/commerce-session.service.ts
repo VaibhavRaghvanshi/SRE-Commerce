@@ -3,7 +3,7 @@ import { HttpBackend, HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { InMemoryWebStorage, User, UserManager, WebStorageStateStore } from 'oidc-client-ts';
 
-export interface CommerceAccess { userId: string; isPlatformAdmin: boolean; selectedTenantId: string | null; tenantRole: string | null; }
+export interface CommerceAccess { userId: string; accountKind?: string; isPlatformAdmin: boolean; selectedTenantId: string | null; tenantRole: string | null; }
 @Injectable({ providedIn: 'root' })
 export class CommerceSessionService {
   // This client bypasses interceptors to avoid a session/interceptor injection cycle.
@@ -29,12 +29,12 @@ export class CommerceSessionService {
     }
     return this.manager;
   }
-  async signIn(tenant: string, area:'catalog'|'inventory'|'pricing'|'orders'|'payments'|'shipping'='catalog') {
+  async signIn(tenant: string, area:'catalog'|'inventory'|'pricing'|'orders'|'payments'|'shipping'|'notifications'|'manufacturing'|'discovery'|'theme'|'storefront'|'settings'='catalog') {
     if (!/^[a-f0-9-]{36}$/i.test(tenant)) throw new Error('Choose a valid business.');
     this.error.set('');
     await this.client().signinRedirect({ extraQueryParams: { tenant_id: tenant }, state: { returnTo: `/workspace/${tenant}/${area}` } });
   }
-  async signInStore(tenant: string, slug: string, area:'cart'|'orders'='cart') {
+  async signInStore(tenant: string, slug: string, area:'cart'|'orders'|'notifications'='cart') {
     if (!/^[a-f0-9-]{36}$/i.test(tenant) || !/^[a-z0-9-]{1,80}$/.test(slug)) throw new Error('Choose a valid store.');
     this.error.set('');
     await this.client().signinRedirect({ extraQueryParams: { tenant_id: tenant }, state: { returnTo: '/stores/' + slug + '/' + area } });
@@ -46,7 +46,17 @@ export class CommerceSessionService {
     this.access.set(access);
     const state = user.state as { returnTo?: string } | undefined;
     const path = state?.returnTo || '';
-    return /^\/workspace\/[a-f0-9-]{36}\/(catalog|inventory|pricing|orders|payments|shipping)$/i.test(path) || /^\/stores\/[a-z0-9-]{1,80}\/(cart|orders)$/.test(path) ? path : '/';
+    return ['/commerce/account','/businesses','/platform/workspace'].includes(path) || /^\/workspace\/[a-f0-9-]{36}\/(catalog|inventory|pricing|orders|payments|shipping|notifications|manufacturing|discovery|theme|storefront|settings)$/i.test(path) || /^\/stores\/[a-z0-9-]{1,80}\/(cart|orders|notifications|products\/[a-z0-9-]{1,160})$/.test(path) ? path : '/';
+  }
+  async signInProduct(tenant: string, slug: string, product: string) {
+    if (!/^[a-f0-9-]{36}$/i.test(tenant) || !/^[a-z0-9-]{1,80}$/.test(slug) || !/^[a-z0-9-]{1,160}$/.test(product)) throw new Error('Choose a valid product.');
+    this.error.set('');
+    await this.client().signinRedirect({ extraQueryParams: { tenant_id: tenant }, state: { returnTo: '/stores/' + slug + '/products/' + product } });
+  }
+  async signInPortal(area: 'account' | 'businesses' | 'platform') {
+    const returnTo = area === 'account' ? '/commerce/account' : area === 'businesses' ? '/businesses' : '/platform/workspace';
+    this.error.set('');
+    await this.client().signinRedirect({ state: { returnTo } });
   }
   async signOut() {
     const token = this.token;

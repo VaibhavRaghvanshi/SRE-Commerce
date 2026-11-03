@@ -1,0 +1,42 @@
+<main>
+  <a *ngIf="slug; else workspace" [routerLink]="['/stores', slug]">← Browse {{name() || 'store'}}</a>
+  <ng-template #workspace><a [routerLink]="['/workspace', tenant(), 'catalog']">← Catalog workspace</a></ng-template>
+  <h1>{{merchant ? 'Search and review management' : 'Find products in ' + (name() || 'this store')}}</h1>
+  <p *ngIf="busy() || message()" role="status">{{busy() ? 'Working…' : message()}}</p><p *ngIf="error()" role="alert">{{error()}}</p>
+  <ng-container *ngIf="slug && tenant()">
+    <article><form (ngSubmit)="search(1)">
+      <label>Search <input name="query" [(ngModel)]="q" maxlength="120" /></label>
+      <label>Category <select name="category" [(ngModel)]="category"><option value="">All</option><option *ngFor="let x of lookups()?.categories" [value]="x.id">{{x.name}}</option></select></label>
+      <label>Brand <select name="brand" [(ngModel)]="brand"><option value="">All</option><option *ngFor="let x of lookups()?.brands" [value]="x.id">{{x.name}}</option></select></label>
+      <label>Sort <select name="sort" [(ngModel)]="sort"><option value="relevance">Relevance</option><option value="name">Name</option><option value="recent">Recently indexed</option></select></label>
+      <label *ngIf="results() as result">Attribute <select name="attribute" [(ngModel)]="attribute" (ngModelChange)="value = ''"><option value="">Any</option><option *ngFor="let facet of result.pageAttributes | keyvalue" [value]="facet.key">{{facet.key}}</option></select></label>
+      <label *ngIf="attribute">Value <select name="value" [(ngModel)]="value"><option value="">Any</option><option *ngFor="let v of results()?.pageAttributes?.[attribute]" [value]="v">{{v}}</option></select></label>
+      <button [disabled]="busy()">Search</button><button type="button" [disabled]="busy() || !q.trim()" (click)="suggest()">Show suggestions</button>
+    </form>
+    <ul *ngIf="suggestions().length" aria-label="Search suggestions"><li *ngFor="let hit of suggestions()"><a [routerLink]="['/stores', slug, 'products', hit.slug]">{{hit.name}}</a></li></ul></article>
+    <article *ngIf="results() as r"><h2>Results</h2><p *ngIf="!r.items.length">No matches on this page. Try a different search or browse the catalog.</p>
+      <ul><li *ngFor="let hit of r.items"><a [routerLink]="['/stores', slug, 'products', hit.slug]">{{hit.name}}</a></li></ul>
+      <button type="button" (click)="search(r.page - 1)" [disabled]="busy() || r.page < 2">Previous</button><button type="button" (click)="search(r.page + 1)" [disabled]="busy() || !r.more">Next</button>
+    </article>
+  </ng-container>
+  <button type="button" *ngIf="merchant && !manager" (click)="signIn()">Sign in to the business workspace</button>
+  <ng-container *ngIf="merchant && manager">
+    <label *ngIf="support">Support reason <input [(ngModel)]="supportReason" maxlength="300" /></label>
+    <article><h2>Refresh public product index</h2><p>Refresh each page after publishing products. Search checks the live catalog before showing a result.</p>
+      <label>Catalog page <input type="number" min="1" max="1000" [(ngModel)]="indexPage" /></label>
+      <button type="button" (click)="reindex()" [disabled]="busy() || !indexPage || indexPage < 1 || indexPage > 1000">Index page</button>
+      <span *ngIf="maxIndexPage()">Catalog pages: {{maxIndexPage()}}</span>
+    </article>
+    <article><h2>Review moderation</h2>
+      <label>Status <select [(ngModel)]="reviewState" (ngModelChange)="reviewPage = 1; moderation()"><option [ngValue]="0">Pending</option><option [ngValue]="1">Approved</option><option [ngValue]="2">Rejected</option></select></label>
+      <button type="button" [disabled]="busy()" (click)="moderation()">Refresh reviews</button>
+      <label>Decision reason <input [(ngModel)]="reason" maxlength="300" /></label>
+      <p *ngIf="!reviews().length">No reviews to show.</p>
+      <ul><li *ngFor="let review of reviews()"><p>{{review.rating}} / 5 · {{review.updatedAt | date:'short'}}</p><p>{{review.body}}</p>
+        <button type="button" (click)="decide(review, 1)" [disabled]="busy() || !reason.trim() || review.state === 1">Approve</button>
+        <button type="button" (click)="decide(review, 2)" [disabled]="busy() || !reason.trim() || review.state === 2">Reject</button></li></ul>
+      <button type="button" (click)="reviewPage = reviewPage - 1; moderation()" [disabled]="busy() || reviewPage < 2">Previous</button>
+      <button type="button" (click)="reviewPage = reviewPage + 1; moderation()" [disabled]="busy() || reviews().length < 24">Next</button>
+    </article>
+  </ng-container>
+</main>

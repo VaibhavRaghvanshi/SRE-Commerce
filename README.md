@@ -23,6 +23,9 @@ D:\Projects\SRECommerce\
   SRECommerce.Order.API\                  five projects + own .sln; implementation in progress
   SRECommerce.Payment.API\                five projects + own .sln; local sandbox provider
   SRECommerce.Shipping.API\               five projects + own .sln; delivery and parcel workflows
+  SRECommerce.Notification.API\           five projects + own .sln; templates and delivery
+  SRECommerce.Manufacturing.API\          five projects + own .sln; BOM and production
+  SRECommerce.Discovery.API\              five projects + own .sln; full-text search and reviews
   SRECommerce.ApiGateway\                 YARP API + tests + own .sln
   SRECommerce.BuildingBlocks\             shared contracts/transport helpers
   SRECommerce.Legacy.API\                 preserved original .NET 8 application/data
@@ -34,7 +37,7 @@ D:\Projects\SRECommerce\
 
 Open an individual service `.sln` to work on that API. `Controllers`, `DTOs`, `Interfaces`, `Entities`, `Data`, `Services`, `Initialization`, `Integrations` and applicable `Repositories` contain actual `.cs` source. Types were separated from combined files without changing namespaces or behavior. `bin` and `obj` are generated build outputs.
 
-Remaining services follow this layout as implemented. **They are not complete yet**; see the [delivery matrix](docs/architecture/backend-completion-plan.md). Existing Entity Framework persistence implementations are in Infrastructure; folder organization does not invent unused repository interfaces or claim unfinished features.
+All fourteen service folders have source, an individual solution and their own SQL database. See [migration progress](docs/migration-progress.md) for what was verified and what remains. Entity Framework persistence lives in Infrastructure.
 
 ## Build modern APIs
 
@@ -61,6 +64,8 @@ npm run test:ci
 ```
 
 Angular's workspace/output identifier is `SRECommerce.UI`. `/api` and `/uploads` retain the legacy integration on 5027. New `/commerce/{service}` routes use the gateway on 5180; `/commerce/callback` belongs to the Angular router. The production Node server accepts `API_PROXY_TARGET` and `COMMERCE_PROXY_TARGET`. New commerce authentication uses Identity authorization code + PKCE, with user tokens held in memory.
+
+Start from `/commerce/account` for account access or `/businesses` for tenant onboarding and settings. An authorized platform administrator can open `/platform/workspace`. A business workspace links to its catalog, inventory, pricing, orders, payments, shipping, notifications, manufacturing, search, theme and storefront screens. Optional modules need to be enabled by the tenant's plan and settings. A published shop is available at `/stores/:slug`.
 
 ## Run the integrated Catalog workspace
 

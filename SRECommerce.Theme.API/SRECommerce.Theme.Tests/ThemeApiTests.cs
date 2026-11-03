@@ -20,10 +20,13 @@ public sealed class ThemeApiTests(ThemeFixture fixture):IClassFixture<ThemeFixtu
     public async Task Publish_versions_rollback_and_public_snapshot_are_durable_and_atomic()
     {
         var business=await fixture.Business();using var client=business.Client;var draft=await Create(business);
+        Assert.Equal(HttpStatusCode.NoContent,(await client.GetAsync(Path(business.Id)+"/publication")).StatusCode);
         var first=await Read<PublicationView>(await client.PostAsJsonAsync(Path(business.Id)+$"/{draft.Id}/publish",new PublishTheme(draft.Version,null)));
         var edited=draft.Document with{Desktop=draft.Document.Desktop with{Radius=16}};
         draft=await Read<ThemeView>(await client.PutAsJsonAsync(Path(business.Id)+$"/{draft.Id}/draft",new SaveTheme(first.ThemeVersion,edited)));
         var second=await Read<PublicationView>(await client.PostAsJsonAsync(Path(business.Id)+$"/{draft.Id}/publish",new PublishTheme(draft.Version,first.PublicationVersion)));
+        var current=await Read<System.Text.Json.JsonElement>(await client.GetAsync(Path(business.Id)+"/publication"));
+        Assert.Equal(second.PublicationVersion,current.GetProperty("publicationVersion").GetString());
         Assert.Equal(2,second.Sequence);Assert.Equal(2,(await client.GetFromJsonAsync<VersionView[]>(Path(business.Id)+$"/{draft.Id}/versions"))!.Length);
         using var anonymous=fixture.Factory.Client();var published=await anonymous.GetFromJsonAsync<PublicTheme>($"/api/v1/public/tenants/{business.Id}/theme");Assert.Equal(16,published!.Document.Desktop.Radius);
         var rollback=await Read<PublicationView>(await client.PostAsJsonAsync(Path(business.Id)+"/rollback",new RollbackTheme(first.VersionId,second.PublicationVersion)));Assert.Equal(3,rollback.Sequence);
