@@ -283,6 +283,44 @@ namespace SRECommerce.Inventory.Infrastructure.Migrations
                     b.ToTable("InventoryMovements", (string)null);
                 });
 
+            modelBuilder.Entity("SRECommerce.Inventory.Domain.LowStockState", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("VariantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Available")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<long>("Episode")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("Low")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTimeOffset?>("NotifiedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("ObservedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<byte[]>("Version")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.HasKey("TenantId", "VariantId");
+
+                    b.ToTable("LowStockStates", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_LowStockStates_Values", "[Episode]>=0 AND [Available]>=0");
+                        });
+                });
+
             modelBuilder.Entity("SRECommerce.Inventory.Domain.PurchaseOrder", b =>
                 {
                     b.Property<Guid>("TenantId")
@@ -713,6 +751,15 @@ namespace SRECommerce.Inventory.Infrastructure.Migrations
                     b.HasOne("SRECommerce.Inventory.Domain.StockBalance", null)
                         .WithMany()
                         .HasForeignKey("TenantId", "BalanceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SRECommerce.Inventory.Domain.LowStockState", b =>
+                {
+                    b.HasOne("SRECommerce.Inventory.Domain.StockItem", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "VariantId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

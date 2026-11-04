@@ -363,6 +363,44 @@ namespace SRECommerce.Catalog.Infrastructure.Migrations
                     b.ToTable("CollectionProducts", (string)null);
                 });
 
+            modelBuilder.Entity("SRECommerce.Catalog.Domain.MediaAsset", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Hash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int>("Height")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Length")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Width")
+                        .HasColumnType("int");
+
+                    b.HasKey("TenantId", "Id");
+
+                    b.ToTable("MediaAssets", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_MediaAssets_Size", "[Length] BETWEEN 45 AND 750000 AND [Width] BETWEEN 1 AND 8192 AND [Height] BETWEEN 1 AND 8192");
+                        });
+                });
+
             modelBuilder.Entity("SRECommerce.Catalog.Domain.Product", b =>
                 {
                     b.Property<Guid>("TenantId")

@@ -15,6 +15,37 @@ namespace SRECommerce.Order.Tests;
 public sealed class OrderApiTests(OrderFixture fixture) : IClassFixture<OrderFixture>
 {
     [Fact]
+    public async Task Sales_reports_are_manager_only_currency_scoped_and_exclude_pending_orders()
+    {
+        using var b=await fixture.Business();await fixture.Start(b);var accepted=await fixture.Drain(b);Assert.NotNull(accepted.Order);
+        var now=DateOnly.FromDateTime(fixture.Cart.Pricing.Factory.Clock.GetUtcNow().UtcDateTime);
+        using(var scope=fixture.Factory.Services.CreateScope())
+        {
+            scope.ServiceProvider.GetRequiredService<ModuleScope>().BindEvent(b.Tenant,"Order");
+            var db=scope.ServiceProvider.GetRequiredService<OrderDbContext>();
+            db.Orders.Add(new SalesOrder{TenantId=b.Tenant,Id=Guid.NewGuid(),Number="PENDING-REPORT-TEST",Status=OrderStatus.AwaitingPayment,
+                PaymentState=PaymentState.Pending,PaymentMethod="Card",Currency="INR",Subtotal=999,Net=999,ItemsTotal=999,Total=999,
+                CreatedAt=fixture.Cart.Pricing.Factory.Clock.GetUtcNow().ToOffset(TimeSpan.FromHours(14)),UpdatedAt=fixture.Cart.Pricing.Factory.Clock.GetUtcNow()});
+            await db.SaveChangesAsync();
+        }
+        var path=Path(b.Tenant)+$"/reports/sales?from={now:yyyy-MM-dd}&through={now:yyyy-MM-dd}&currency=INR";
+        using(var scope=fixture.Factory.Services.CreateScope())
+        {
+            scope.ServiceProvider.GetRequiredService<ModuleScope>().BindEvent(b.Tenant,"Order");
+            var direct=await scope.ServiceProvider.GetRequiredService<ISalesReportRepository>().Read(new(now,now),default);
+            Assert.Equal(2,direct.Totals.PlacedOrders);
+        }
+        var report=await Read<SalesReport>(await b.Owner.GetAsync(path));
+        Assert.Equal(2,report.Totals.PlacedOrders);Assert.Equal(1,report.Totals.AcceptedOrders);Assert.Equal(accepted.Order.Total,report.Totals.AcceptedOrderTotal);
+        Assert.Equal(accepted.Order.Total,report.Totals.CapturedStateBalance);Assert.Single(report.Days);Assert.Single(report.Products);Assert.Equal("UTC",report.TimeZone);
+        Assert.Equal(DateTimeKind.Utc,report.Days[0].Date.Kind);Assert.Equal(now,DateOnly.FromDateTime(report.Days[0].Date));
+        Assert.Equal(0,(await Read<SalesReport>(await b.Owner.GetAsync(path.Replace("currency=INR","currency=USD")))).Totals.PlacedOrders);
+        var ordinary=await fixture.Cart.Pricing.Customer(b.Pricing);using var pricingClient=ordinary.Client;using var customer=fixture.Factory.Client(ordinary.Client.DefaultRequestHeaders.Authorization!.Parameter);
+        Assert.Equal(HttpStatusCode.Forbidden,(await customer.GetAsync(path)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest,(await b.Owner.GetAsync(path.Replace("currency=INR","currency=DROP"))).StatusCode);
+        var other=await fixture.Business();using(other)Assert.Equal(HttpStatusCode.Forbidden,(await other.Owner.GetAsync(path)).StatusCode);
+    }
+    [Fact]
     public async Task Guest_can_cancel_a_checkout_before_an_order_exists_with_exact_replay()
     {
         using var business=await fixture.Business(guest:true);

@@ -24,6 +24,30 @@ public sealed class DiscoveryService(IDiscoveryStore store, IDiscoveryAccess acc
         .Where(pair => AttributeKey.IsMatch(pair.Key) && pair.Value.ValueKind is JsonValueKind.String or JsonValueKind.Number or JsonValueKind.True or JsonValueKind.False)
         .Take(30).ToDictionary(pair => pair.Key, pair => Bounded(pair.Value.ToString(), 120), StringComparer.Ordinal);
 
+    public Task ProjectPublication(Guid tenant, IndexProduct product, CancellationToken ct)
+    {
+        if (product.Id == Guid.Empty || product.CategoryId == Guid.Empty || product.PublishedRevision < 1 ||
+            string.IsNullOrWhiteSpace(product.Name) || product.Name.Length > 200 || product.Description is null ||
+            product.Variants is null || product.Attributes is null)
+            throw new BusinessFault("InvalidCatalogProjection", 400);
+        return store.Transaction(async token =>
+        {
+            var row = (await store.Documents([product.Id], token)).SingleOrDefault();
+            if (row is null) { row = new() { TenantId = tenant, ProductId = product.Id }; store.Add(row); }
+            if (row.Revision >= product.PublishedRevision) return true;
+            var attributes = Attributes(product);
+            row.Revision = product.PublishedRevision;
+            row.CategoryId = product.CategoryId; row.BrandId = product.BrandId;
+            row.Name = Public(product) ? product.Name : "";
+            row.SearchText = Public(product) ? Bounded(string.Join(' ', new[] { product.Name, product.Description }
+                .Concat(product.Variants.Where(v => v.Active).Select(v => v.Sku)).Concat(attributes.Values)), 6000) : "";
+            row.Attributes = Public(product) ? ContractJson.Write(attributes) : "{}";
+            row.IndexedAt = clock.GetUtcNow();
+            await store.Save("discovery.index.publication", product.Id.ToString(), token);
+            return true;
+        }, ct);
+    }
+
     public async Task<IndexPage> Reindex(Guid tenant, int page, CancellationToken ct)
     {
         await access.Human(tenant, ActorPermission.Manager, ct); Page(page);

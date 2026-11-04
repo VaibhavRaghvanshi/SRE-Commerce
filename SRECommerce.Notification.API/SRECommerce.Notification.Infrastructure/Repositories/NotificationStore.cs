@@ -17,6 +17,7 @@ public sealed class NotificationStore(NotificationDbContext db, ModuleScope scop
         db.Templates.SingleOrDefaultAsync(x => x.Kind == kind && x.Channel == channel, ct);
     public Task<NotificationTemplate[]> Templates(CancellationToken ct) => db.Templates.AsNoTracking().OrderBy(x => x.Kind).ThenBy(x => x.Channel).ToArrayAsync(ct);
     public Task<NotificationPreference?> Preference(Guid user, CancellationToken ct) => db.Preferences.SingleOrDefaultAsync(x => x.UserId == user, ct);
+    public Task<StockAlertSubscription?> StockSubscription(Guid user, CancellationToken ct) => db.StockSubscriptions.SingleOrDefaultAsync(x => x.UserId == user, ct);
     public Task<NotificationJob[]> Jobs(int page, CancellationToken ct) => db.Jobs.AsNoTracking().OrderByDescending(x => x.CreatedAt).ThenBy(x => x.EventId).ThenBy(x => x.Channel).Skip((page - 1) * 50).Take(50).ToArrayAsync(ct);
     public Task<NotificationJob[]> ForEvent(Guid id, CancellationToken ct) => db.Jobs.AsNoTracking().Where(x => x.EventId == id).OrderBy(x => x.Channel).ToArrayAsync(ct);
     public Task<NotificationJob?> Job(Guid id, NotificationChannel channel, CancellationToken ct) => db.Jobs.SingleOrDefaultAsync(x => x.EventId == id && x.Channel == channel, ct);

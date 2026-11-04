@@ -26,7 +26,7 @@ public static class ServiceManifest
         "Order"=>["Tenant","Catalog","Pricing","Inventory","Cart","Payment","Shipping","Notification"],
         "Payment"=>["Tenant","Order"],
         "Shipping"=>["Tenant","Order","Cart","Inventory"],
-        "Notification"=>["Tenant","Order"],
+        "Notification"=>["Tenant","Order","Identity"],
         "Manufacturing"=>["Tenant","Catalog","Inventory","Pricing"],
         "Discovery"=>["Tenant","Catalog","Order"],
         _=>[]

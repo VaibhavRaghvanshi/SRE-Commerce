@@ -15,7 +15,7 @@ public sealed class OrderNotificationWorker(IServiceScopeFactory scopes, IConfig
 {
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
-        if (!configuration.GetValue<bool>("Notifications:DispatchEnabled")) return;
+        if (!configuration.GetValue<bool>("Notifications:DispatchEnabled") || configuration.GetValue<bool>("Messaging:Enabled")) return;
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(3), clock);
         while (await timer.WaitForNextTickAsync(ct))
         {

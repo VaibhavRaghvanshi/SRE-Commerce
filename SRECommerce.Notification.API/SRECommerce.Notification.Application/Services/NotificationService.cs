@@ -6,23 +6,13 @@ using SRECommerce.Notification.Domain;
 
 namespace SRECommerce.Notification.Application;
 
-public sealed class NotificationService(INotificationStore store, INotificationAccess access, IOrderNotices orders, TimeProvider clock)
+public sealed class NotificationService(INotificationStore store, INotificationAccess access, IOrderNotices orders, TimeProvider clock, IManagerRecipients recipients)
 {
     private static readonly Regex OrderToken = new(@"\{\{\s*orderNumber\s*\}\}", RegexOptions.CultureInvariant | RegexOptions.NonBacktracking);
     private static string Version(byte[] value) => Convert.ToBase64String(value);
     private static TemplateView View(NotificationTemplate row) => new(row.Kind, row.Channel, row.Subject, row.Body, row.Enabled, Version(row.Version));
     private static PreferenceView View(NotificationPreference? row) => row is null ? new(true, false, false, null) : new(row.Email, row.Sms, row.WhatsApp, Version(row.Version));
     private static JobView View(NotificationJob row) => new(row.EventId, row.ResourceId, row.Kind, row.Channel, row.State, row.Attempts, row.CreatedAt);
-    private static string TemplateText(string value, int limit, bool multiline)
-    {
-        if (string.IsNullOrWhiteSpace(value) || value.Length > limit ||
-            value.Any(c => char.IsControl(c) && !(multiline && c is '\r' or '\n' or '\t')))
-            throw new BusinessFault("InvalidNotificationTemplate", 400);
-        var literal = OrderToken.Replace(value, "");
-        if (literal.Contains('{') || literal.Contains('}') || OrderToken.Count(value) > 1) throw new BusinessFault("UnknownNotificationTemplateToken", 400);
-        return value.Trim();
-    }
-
     public async Task<TemplateView[]> Templates(Guid tenant, CancellationToken ct)
     {
         await access.Human(tenant, ActorPermission.Manager, ct);
@@ -32,9 +22,10 @@ public sealed class NotificationService(INotificationStore store, INotificationA
     public async Task<TemplateView> SetTemplate(Guid tenant, NotificationKind kind, NotificationChannel channel, TemplateInput input, CancellationToken ct)
     {
         await access.Human(tenant, ActorPermission.Manager, ct);
-        if (!Enum.IsDefined(kind) || kind == NotificationKind.LowStock || !Enum.IsDefined(channel)) throw new BusinessFault("UnsupportedNotificationTemplate", 400);
-        var subject = TemplateText(input.Subject, 160, false);
-        var body = TemplateText(input.Body, 2000, true);
+        if (!Enum.IsDefined(kind) || !Enum.IsDefined(channel) || kind == NotificationKind.LowStock && channel != NotificationChannel.Email)
+            throw new BusinessFault("UnsupportedNotificationTemplate", 400);
+        var subject = NotificationTemplateRules.Validate(input.Subject, kind, true);
+        var body = NotificationTemplateRules.Validate(input.Body, kind, false);
         return await store.Transaction(async token =>
         {
             var row = await store.Template(kind, channel, token);
@@ -55,6 +46,35 @@ public sealed class NotificationService(INotificationStore store, INotificationA
     {
         var user = await access.Human(tenant, ActorPermission.Customer, ct);
         return View(await store.Preference(user, ct));
+    }
+
+    public async Task<StockSubscriptionView> StockSubscription(Guid tenant, CancellationToken ct)
+    {
+        var user = await access.Human(tenant, ActorPermission.Manager, ct);
+        var row = await store.StockSubscription(user, ct);
+        return row is null ? new(false, 1440, null) : new(row.Enabled, row.CooldownMinutes, Version(row.Version));
+    }
+
+    public async Task<StockSubscriptionView> SetStockSubscription(Guid tenant, StockSubscriptionInput input, CancellationToken ct)
+    {
+        var user = await access.Human(tenant, ActorPermission.Manager, ct);
+        if (input.CooldownMinutes is < 60 or > 10080) throw new BusinessFault("InvalidStockAlertCooldown", 400);
+        if (input.Enabled && await recipients.Find(tenant, user, ct) is null)
+            throw new BusinessFault("ActiveManagerEmailRequired", 403);
+        return await store.Transaction(async token =>
+        {
+            var row = await store.StockSubscription(user, token);
+            if (row is null)
+            {
+                if (input.Version is not null) throw new BusinessFault("VersionConflict");
+                row = new StockAlertSubscription { TenantId = tenant, UserId = user };
+                store.Add(row);
+            }
+            else store.Version(row, input.Version ?? throw new BusinessFault("VersionRequired", 400));
+            row.Enabled = input.Enabled; row.CooldownMinutes = input.CooldownMinutes;
+            await store.Save("notification.stock.subscription.saved", user.ToString(), token);
+            return new StockSubscriptionView(row.Enabled, row.CooldownMinutes, Version(row.Version));
+        }, ct);
     }
 
     public async Task<PreferenceView> SetPreferences(Guid tenant, PreferenceInput input, CancellationToken ct)
@@ -92,6 +112,21 @@ public sealed class NotificationService(INotificationStore store, INotificationA
     public async Task<JobView[]> QueueOrder(Guid tenant, OrderNoticeRequest input, CancellationToken ct)
     {
         await access.Order(tenant, ct);
+        return await QueueOrderCore(tenant, input, ct);
+    }
+
+    public async Task QueueEvent(EventEnvelope message, CancellationToken ct)
+    {
+        var kind = Array.IndexOf(OrderNoticesContract.Types, message.Type);
+        if (message.Producer != "Order" || kind < 0 || message.SchemaVersion != 1 ||
+            !message.Data.TryGetProperty("orderId", out var resource) || !resource.TryGetGuid(out var order))
+            throw new BusinessFault("InvalidOrderNoticeEvent", 400);
+        await access.Event(message.TenantId, "Order", ct);
+        await QueueOrderCore(message.TenantId, new(message.Id, order, (NotificationKind)kind), ct);
+    }
+
+    private async Task<JobView[]> QueueOrderCore(Guid tenant, OrderNoticeRequest input, CancellationToken ct)
+    {
         if (input.EventId == Guid.Empty || input.OrderId == Guid.Empty || !Enum.IsDefined(input.Kind) || input.Kind == NotificationKind.LowStock)
             throw new BusinessFault("InvalidOrderNotice", 400);
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(ContractJson.Write(input))));

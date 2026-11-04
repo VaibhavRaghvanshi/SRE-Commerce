@@ -22,7 +22,7 @@
   <button type="button" *ngIf="merchant && !manager" (click)="signIn()">Sign in to the business workspace</button>
   <ng-container *ngIf="merchant && manager">
     <label *ngIf="support">Support reason <input [(ngModel)]="supportReason" maxlength="300" /></label>
-    <article><h2>Refresh public product index</h2><p>Refresh each page after publishing products. Search checks the live catalog before showing a result.</p>
+    <article><h2>Refresh public product index</h2><p>Search checks the current catalog before showing a result. Refresh a page here when its search entries need rebuilding.</p>
       <label>Catalog page <input type="number" min="1" max="1000" [(ngModel)]="indexPage" /></label>
       <button type="button" (click)="reindex()" [disabled]="busy() || !indexPage || indexPage < 1 || indexPage > 1000">Index page</button>
       <span *ngIf="maxIndexPage()">Catalog pages: {{maxIndexPage()}}</span>

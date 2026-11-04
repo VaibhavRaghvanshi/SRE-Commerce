@@ -25,9 +25,15 @@ public static partial class CatalogRules
         if(string.IsNullOrWhiteSpace(value)||value.Length>maximum||value.Any(c=>char.IsControl(c)&&c is not ('\r' or '\n' or '\t'))||value.Contains('<')||value.Contains('>'))throw new DomainFault("InvalidCatalogText");
         return value.Trim();
     }
-    public static string MediaUrl(string url)
+    public static string MediaUrl(string url,Guid? tenant=null)
     {
         if(string.IsNullOrWhiteSpace(url)||url.Length>1024||url.Any(char.IsControl)||url.Contains('\\')||url.Contains('"')||url.Contains('\''))throw new DomainFault("InvalidMediaUrl");
+        if(url.StartsWith("/commerce/catalog/",StringComparison.Ordinal))
+        {
+            var match=System.Text.RegularExpressions.Regex.Match(url,@"\A/commerce/catalog/public/tenants/([a-f0-9-]{36})/catalog/media/([a-f0-9-]{36})\z",System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+            if(!match.Success||!Guid.TryParseExact(match.Groups[1].Value,"D",out var owner)||owner==Guid.Empty||tenant!=owner||!Guid.TryParseExact(match.Groups[2].Value,"D",out var asset)||asset==Guid.Empty)throw new DomainFault("InvalidMediaTenant");
+            return url;
+        }
         if((url.StartsWith("/uploads/",StringComparison.Ordinal)||url.StartsWith("/assets/Images/",StringComparison.Ordinal))&&!url.Contains("..")&&!url.Contains('%'))return url;
         if(!Uri.TryCreate(url,UriKind.Absolute,out var value)||value.Scheme!="https"||!string.IsNullOrEmpty(value.UserInfo))throw new DomainFault("InvalidMediaUrl");
         return url;

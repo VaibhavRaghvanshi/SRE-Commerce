@@ -21,11 +21,20 @@
       </form>
     </article>
     <ng-container *ngIf="merchant">
+      <article *ngIf="stockSubscription() as subscription">
+        <h2>Your low-stock alerts</h2>
+        <p>Receive email when a SKU reaches its reorder level. Alerts require an enabled low-stock email template and an active manager account.</p>
+        <form #stockForm="ngForm" (ngSubmit)="saveStockSubscription(subscription)">
+          <label><input name="stockEnabled" type="checkbox" [(ngModel)]="subscription.enabled" /> Email me about low stock</label>
+          <label>Minimum minutes between alerts for the same SKU <input name="cooldown" type="number" [(ngModel)]="subscription.cooldownMinutes" min="60" max="10080" step="1" required /></label>
+          <button [disabled]="busy() || stockForm.invalid">Save stock alerts</button>
+        </form>
+      </article>
       <article>
-        <h2>Message templates</h2><p>Enable a template to queue that event on the selected channel. You can insert <code>{{tokenExample}}</code> once in each field.</p>
+        <h2>Message templates</h2><p>Enable a template to queue that event on the selected channel. Available placeholders: <code>{{tokenExample}}</code>.</p>
         <form #editor="ngForm" (ngSubmit)="saveTemplate()">
           <label>Event <select name="kind" [(ngModel)]="draft.kind" (ngModelChange)="selectTemplate()"><option *ngFor="let label of kinds; index as i" [ngValue]="i">{{label}}</option></select></label>
-          <label>Channel <select name="channel" [(ngModel)]="draft.channel" (ngModelChange)="selectTemplate()"><option *ngFor="let label of channels; index as i" [ngValue]="i">{{label}}</option></select></label>
+          <label>Channel <select name="channel" [(ngModel)]="draft.channel" (ngModelChange)="selectTemplate()"><option *ngFor="let label of channels; index as i" [ngValue]="i" [disabled]="draft.kind === 5 && i !== 0">{{label}}</option></select></label>
           <label>Subject <input name="subject" [(ngModel)]="draft.subject" maxlength="160" required /></label>
           <label>Message <textarea name="body" [(ngModel)]="draft.body" rows="5" maxlength="2000" required></textarea></label>
           <label><input name="enabled" type="checkbox" [(ngModel)]="draft.enabled" /> Enable this template</label>

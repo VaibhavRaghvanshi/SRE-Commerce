@@ -17,6 +17,7 @@ export class MerchantCatalogService {
   private readonly http = inject(HttpClient);
   private options(reason: string) { return { headers: reason.trim() ? new HttpHeaders({ 'X-Support-Reason': reason.trim() }) : new HttpHeaders() }; }
   private base(tenant: string) { return `/commerce/catalog/tenants/${encodeURIComponent(tenant)}/catalog`; }
+  uploadImage(tenant: string, file: File, reason: string) { const body = new FormData(); body.append('file', file); return this.http.post<{ id: string; url: string; width: number; height: number }>(this.base(tenant) + '/media-assets', body, this.options(reason)).pipe(timeout(20000)); }
   lookups(tenant: string, reason: string) { return this.http.get<MerchantLookups>(this.base(tenant) + '/lookups', this.options(reason)).pipe(timeout(15000)); }
   products(tenant: string, page: number, reason: string, search='') { return this.http.get<CommercePage<CommerceProduct>>(this.base(tenant) + '/products', { ...this.options(reason), params: { page, pageSize: 24, search } }).pipe(timeout(15000)); }
   attributes(tenant: string, category: string, reason: string) { return this.http.get<CatalogDefinition[]>(this.base(tenant) + `/categories/${category}/attributes`, this.options(reason)).pipe(timeout(15000)); }

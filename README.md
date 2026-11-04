@@ -67,6 +67,8 @@ Angular's workspace/output identifier is `SRECommerce.UI`. `/api` and `/uploads`
 
 Start from `/commerce/account` for account access or `/businesses` for tenant onboarding and settings. An authorized platform administrator can open `/platform/workspace`. A business workspace links to its catalog, inventory, pricing, orders, payments, shipping, notifications, manufacturing, search, theme and storefront screens. Optional modules need to be enabled by the tenant's plan and settings. A published shop is available at `/stores/:slug`.
 
+The store's `/stores/:slug/account` page includes saved addresses, wishlist and recently viewed products. Checkout can select a saved address. Merchant `/workspace/:tenant/reports` shows currency-scoped sales snapshots. Catalog supports controlled product-image uploads. See the [account/report/media runbook](docs/runbooks/customer-account-reports-and-media.md) and [event delivery/stock-alert runbook](docs/runbooks/commerce-messaging.md) for API and SQL details.
+
 ## Run the integrated Catalog workspace
 
 Apply the reviewed per-service SQL scripts first. The launcher never migrates or recreates databases. Development uses Windows-authenticated SQL Server on the laptop.

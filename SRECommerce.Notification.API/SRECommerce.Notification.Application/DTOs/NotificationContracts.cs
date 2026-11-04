@@ -11,3 +11,5 @@ public sealed record NoticeContext(Guid OrderId, Guid? UserId, string OrderNumbe
 public sealed record JobView(Guid EventId, Guid ResourceId, NotificationKind Kind, NotificationChannel Channel, DeliveryState State, int Attempts, DateTimeOffset CreatedAt);
 public sealed record AttemptView(int Attempt, DeliveryState State, string Code, DateTimeOffset RecordedAt);
 public sealed record DeliveryResult(DeliveryState State, string Code, bool Retry = false);
+public sealed record StockSubscriptionInput(bool Enabled, int CooldownMinutes, string? Version);
+public sealed record StockSubscriptionView(bool Enabled, int CooldownMinutes, string? Version);

@@ -12,6 +12,27 @@ namespace SRECommerce.Discovery.Tests;
 
 public sealed class DiscoverySqlTests
 {
+    [Fact]
+    public async Task Catalog_events_are_atomic_idempotent_revision_ordered_and_archival_cannot_be_resurrected()
+    {
+        var name="SRECommerce_DiscoveryTests_"+Guid.NewGuid().ToString("N");var tenant=Guid.NewGuid();
+        var product=new IndexProduct(Guid.NewGuid(),"Projection product","projection-product",Guid.NewGuid(),null,"Published",true,false,[],[new("PROJECTION-1",true)],2);
+        var scope=new ModuleScope();var access=new Access(scope);var source=new Catalog(tenant,product);
+        await using var db=new DiscoveryDbContext(new DbContextOptionsBuilder<DiscoveryDbContext>().UseSqlServer(ModuleDatabase.Check(ServiceManifest.Get("Discovery"),$"Server=localhost,1433;Database={name};Integrated Security=true;Encrypt=true;TrustServerCertificate=true",true)).Options,scope);
+        await db.Database.MigrateAsync();var service=new DiscoveryService(new DiscoveryStore(db,scope,new HttpContextAccessor()),access,source,TimeProvider.System);
+        var handler=new CatalogProjectionHandler(db,service);
+        var message=new EventEnvelope(Guid.NewGuid(),1,"Catalog","catalog.product.published.v1",tenant,"projection-test",DateTimeOffset.UtcNow,JsonSerializer.SerializeToElement(product,ContractJson.Strict));
+        scope.BindEvent(tenant,"Catalog");await handler.HandleAsync(message,default);await handler.HandleAsync(message,default);
+        Assert.Single(await db.Inbox.ToArrayAsync());Assert.Equal(2,(await db.Documents.SingleAsync()).Revision);
+        await handler.HandleAsync(message with{Id=Guid.NewGuid(),Data=JsonSerializer.SerializeToElement(product with{PublishedRevision=1,Name="Stale draft"},ContractJson.Strict)},default);
+        Assert.Equal(product.Name,(await db.Documents.SingleAsync()).Name);
+        Assert.Equal("IntegrationEventIdentityReused",(await Assert.ThrowsAsync<BusinessFault>(()=>handler.HandleAsync(message with{TenantId=Guid.NewGuid()},default))).Code);
+        var archive=message with{Id=Guid.NewGuid(),Type="catalog.product.archived.v1",Data=JsonSerializer.SerializeToElement(new{productId=product.Id,archived=true})};
+        await handler.HandleAsync(archive,default);
+        await handler.HandleAsync(message with{Id=Guid.NewGuid(),Data=JsonSerializer.SerializeToElement(product with{PublishedRevision=3},ContractJson.Strict)},default);
+        Assert.Equal(int.MaxValue,(await db.Documents.SingleAsync()).Revision);Assert.Equal("",(await db.Documents.SingleAsync()).Name);
+        Assert.Empty((await service.Search(tenant,new SearchQuery(),default)).Items);
+    }
     private sealed class Access(ModuleScope scope) : IDiscoveryAccess
     {
         public Guid User { get; set; } = Guid.NewGuid();

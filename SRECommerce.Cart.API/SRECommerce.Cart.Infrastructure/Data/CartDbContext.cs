@@ -7,9 +7,21 @@ public sealed class CartDbContext(DbContextOptions<CartDbContext> options,Module
  public DbSet<OutboxMessage> Outbox=>Set<OutboxMessage>();public DbSet<InboxMessage> Inbox=>Set<InboxMessage>();public DbSet<AuditEntry> Audit=>Set<AuditEntry>();
  public DbSet<ShoppingCart> Carts=>Set<ShoppingCart>();public DbSet<CartItem> Items=>Set<CartItem>();public DbSet<CartSession> Sessions=>Set<CartSession>();public DbSet<CartOperation> Operations=>Set<CartOperation>();public DbSet<CheckoutPreparation> Preparations=>Set<CheckoutPreparation>();
  public DbSet<CartCheckoutClaim> Claims=>Set<CartCheckoutClaim>();
+ public DbSet<CustomerAddress> Addresses=>Set<CustomerAddress>();
+ public DbSet<SavedProduct> SavedProducts=>Set<SavedProduct>();
  protected override void OnModelCreating(ModelBuilder m)
  {
   m.ConfigureInfrastructure();m.Entity<OutboxMessage>().TenantEntity(x=>x.TenantId==CurrentTenant);m.Entity<InboxMessage>().TenantEntity(x=>x.TenantId==CurrentTenant);m.Entity<AuditEntry>().TenantEntity(x=>x.TenantId==CurrentTenant);
+  m.Entity<CustomerAddress>(e=>{
+   e.ToTable("CustomerAddresses");e.HasKey(x=>new{x.TenantId,x.UserId,x.Id});e.Property(x=>x.Version).IsRowVersion();
+   e.Property(x=>x.Label).HasMaxLength(40);e.Property(x=>x.FullName).HasMaxLength(160);e.Property(x=>x.Email).HasMaxLength(254);e.Property(x=>x.Phone).HasMaxLength(25);
+   e.Property(x=>x.AddressLine1).HasMaxLength(200);e.Property(x=>x.AddressLine2).HasMaxLength(200);e.Property(x=>x.City).HasMaxLength(100);e.Property(x=>x.CountryCode).HasMaxLength(2);e.Property(x=>x.PostalCode).HasMaxLength(16);
+   e.HasIndex(x=>new{x.TenantId,x.UserId,x.Active,x.UpdatedAt});e.TenantEntity(x=>x.TenantId==CurrentTenant);
+  });
+  m.Entity<SavedProduct>(e=>{
+   e.ToTable("SavedProducts",t=>t.HasCheckConstraint("CK_SavedProducts_Kind","[Kind] BETWEEN 0 AND 1"));e.HasKey(x=>new{x.TenantId,x.UserId,x.Kind,x.ProductId});
+   e.Property(x=>x.Version).IsRowVersion();e.HasIndex(x=>new{x.TenantId,x.UserId,x.Kind,x.Active,x.UpdatedAt});e.TenantEntity(x=>x.TenantId==CurrentTenant);
+  });
   m.Entity<CartCheckoutClaim>(e=>{e.ToTable("CartCheckoutClaims",t=>t.HasCheckConstraint("CK_CartCheckoutClaims_Status","[Status] BETWEEN 0 AND 3"));e.HasKey(x=>new{x.TenantId,x.Id});e.Property(x=>x.Version).IsRowVersion();e.HasIndex(x=>new{x.TenantId,x.CartId,x.CartRevision}).IsUnique().HasFilter("[Status]<2");e.HasIndex(x=>new{x.Status,x.ExpiresAt});e.HasOne<ShoppingCart>().WithMany().HasForeignKey(x=>new{x.TenantId,Id=x.CartId}).OnDelete(DeleteBehavior.Restrict);e.HasOne<CheckoutPreparation>().WithMany().HasForeignKey(x=>new{x.TenantId,Id=x.PreparationId}).OnDelete(DeleteBehavior.Restrict);e.TenantEntity(x=>x.TenantId==CurrentTenant);});
   m.Entity<ShoppingCart>(e=>{e.ToTable("Carts",t=>{t.HasCheckConstraint("CK_Carts_Revision","[Revision]>=0");t.HasCheckConstraint("CK_Carts_State","[Status] BETWEEN 0 AND 3");});e.HasKey(x=>new{x.TenantId,x.Id});e.Property(x=>x.Version).IsRowVersion();e.HasIndex(x=>new{x.TenantId,x.UserId}).IsUnique().HasFilter("[UserId] IS NOT NULL AND [Status]=0");e.HasIndex(x=>new{x.TenantId,x.ExpiresAt});e.TenantEntity(x=>x.TenantId==CurrentTenant);});
   m.Entity<CartItem>(e=>{e.ToTable("CartItems",t=>t.HasCheckConstraint("CK_CartItems_Quantity","[Quantity]>0 AND [Quantity]<=1000"));e.HasKey(x=>new{x.TenantId,x.CartId,x.VariantId});e.Property(x=>x.Quantity).HasPrecision(18,3);e.Property(x=>x.Sku).HasMaxLength(64);e.Property(x=>x.Name).HasMaxLength(160);e.Property(x=>x.Slug).HasMaxLength(120);e.HasOne<ShoppingCart>().WithMany(x=>x.Items).HasForeignKey(x=>new{x.TenantId,Id=x.CartId}).OnDelete(DeleteBehavior.Restrict);e.TenantEntity(x=>x.TenantId==CurrentTenant);});

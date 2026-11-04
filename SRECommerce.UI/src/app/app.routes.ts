@@ -5,6 +5,8 @@ import { adminGuard } from './core/guards/admin.guard';
 import { userManagementGuard } from './core/guards/user-management.guard';
 
 export const routes: Routes = [
+  { path: 'workspace/:tenant/reports', loadComponent: () => import('./features/commerce/reports/sales-dashboard.component').then(m => m.SalesDashboardComponent) },
+  { path: 'stores/:slug/account', loadComponent: () => import('./features/commerce/customer-account/customer-account.component').then(m => m.CommerceCustomerAccountComponent) },
   { path: 'commerce/account', loadComponent: () => import('./features/commerce/account/commerce-account.component').then(m => m.CommerceAccountComponent) },
   { path: 'businesses', loadComponent: () => import('./features/commerce/tenant/business-workspace.component').then(m => m.BusinessWorkspaceComponent) },
   { path: 'platform/workspace', data: { platform: true }, loadComponent: () => import('./features/commerce/tenant/business-workspace.component').then(m => m.BusinessWorkspaceComponent) },

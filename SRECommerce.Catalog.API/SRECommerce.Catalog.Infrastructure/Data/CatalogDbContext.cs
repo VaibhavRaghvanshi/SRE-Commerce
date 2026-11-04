@@ -19,9 +19,11 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options,
     public DbSet<ProductPublication> Publications=>Set<ProductPublication>();
     public DbSet<ProductCollection> Collections=>Set<ProductCollection>();
     public DbSet<CatalogImport> Imports=>Set<CatalogImport>();
+    public DbSet<MediaAsset> Assets=>Set<MediaAsset>();
     protected override void OnModelCreating(ModelBuilder model)
     {
         model.ConfigureInfrastructure();model.Entity<OutboxMessage>().TenantEntity(x=>x.TenantId==CurrentTenant);model.Entity<InboxMessage>().TenantEntity(x=>x.TenantId==CurrentTenant);model.Entity<AuditEntry>().TenantEntity(x=>x.TenantId==CurrentTenant);
+        model.Entity<MediaAsset>(e=>{e.ToTable("MediaAssets",t=>t.HasCheckConstraint("CK_MediaAssets_Size","[Length] BETWEEN 45 AND 750000 AND [Width] BETWEEN 1 AND 8192 AND [Height] BETWEEN 1 AND 8192"));e.HasKey(x=>new{x.TenantId,x.Id});e.Property(x=>x.ContentType).HasMaxLength(40);e.Property(x=>x.Hash).HasMaxLength(64);e.TenantEntity(x=>x.TenantId==CurrentTenant);});
         model.Entity<Category>(e=>{e.ToTable("Categories");e.HasKey(x=>new{x.TenantId,x.Id});e.Property(x=>x.Name).HasMaxLength(160);e.Property(x=>x.Slug).HasMaxLength(120);e.Property(x=>x.Version).IsRowVersion();e.HasIndex(x=>new{x.TenantId,x.Slug}).IsUnique();e.HasOne<Category>().WithMany().HasForeignKey(x=>new{x.TenantId,x.ParentId}).OnDelete(DeleteBehavior.Restrict);e.TenantEntity(x=>x.TenantId==CurrentTenant);});
         model.Entity<Brand>(e=>{e.ToTable("Brands");e.HasKey(x=>new{x.TenantId,x.Id});e.Property(x=>x.Name).HasMaxLength(160);e.Property(x=>x.Slug).HasMaxLength(120);e.Property(x=>x.Version).IsRowVersion();e.HasIndex(x=>new{x.TenantId,x.Slug}).IsUnique();e.TenantEntity(x=>x.TenantId==CurrentTenant);});
         model.Entity<AttributeDefinition>(e=>{e.ToTable("AttributeDefinitions",t=>t.HasCheckConstraint("CK_AttributeDefinitions_Options","ISJSON([Options])=1"));e.HasKey(x=>new{x.TenantId,x.Id});e.Property(x=>x.Code).HasMaxLength(120);e.Property(x=>x.Name).HasMaxLength(160);e.Property(x=>x.Unit).HasMaxLength(30);e.Property(x=>x.Options).HasMaxLength(10000);e.Property(x=>x.Version).IsRowVersion();e.HasIndex(x=>new{x.TenantId,x.Code}).IsUnique();e.TenantEntity(x=>x.TenantId==CurrentTenant);});

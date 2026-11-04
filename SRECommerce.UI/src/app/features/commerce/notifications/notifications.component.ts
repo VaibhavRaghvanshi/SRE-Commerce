@@ -8,6 +8,7 @@ import { CommerceCatalogService } from '../../../core/services/commerce-catalog.
 import { CommerceSessionService } from '../../../core/services/commerce-session.service';
 
 interface Preference { email: boolean; sms: boolean; whatsApp: boolean; version: string | null; }
+interface StockSubscription { enabled: boolean; cooldownMinutes: number; version: string | null; }
 interface Template { kind: number; channel: number; subject: string; body: string; enabled: boolean; version: string; }
 interface Job { eventId: string; resourceId: string; kind: number; channel: number; state: number; attempts: number; createdAt: string; }
 interface Attempt { attempt: number; state: number; code: string; recordedAt: string; }
@@ -41,7 +42,8 @@ export class NotificationsComponent {
   readonly jobs = signal<Job[]>([]);
   readonly attempts = signal<Attempt[] | null>(null);
   readonly preference = signal<Preference | null>(null);
-  readonly kinds = ['Order confirmed', 'Payment received', 'Order dispatched', 'Order delivered', 'Order cancelled'];
+  readonly stockSubscription = signal<StockSubscription | null>(null);
+  readonly kinds = ['Order confirmed', 'Payment received', 'Order dispatched', 'Order delivered', 'Order cancelled', 'Low stock'];
   readonly channels = ['Email', 'SMS (mock)', 'WhatsApp (mock)'];
   readonly states = ['Queued', 'Sending', 'Sent', 'Suppressed', 'Failed', 'Needs review'];
   readonly allowed = computed(() => {
@@ -50,7 +52,7 @@ export class NotificationsComponent {
       a.selectedTenantId === this.tenant() && (!this.merchant || ['Owner', 'Manager'].includes(a.tenantRole || '')));
   });
   readonly support = computed(() => this.merchant && !!this.session.access()?.isPlatformAdmin);
-  readonly tokenExample = '{{orderNumber}}';
+  get tokenExample() { return this.draft.kind === 5 ? '{{sku}}, {{available}}, {{reorderLevel}}' : '{{orderNumber}}'; }
   reason = '';
   page = 1;
   draft = { kind: 0, channel: 0, subject: '', body: '', enabled: true, version: null as string | null };
@@ -84,10 +86,12 @@ export class NotificationsComponent {
   }
   reload() { return this.run(async () => {
     if (!this.merchant) { this.preference.set(await this.request<Preference>('GET', 'preferences')); return; }
-    const [templates, jobs] = await Promise.all([this.request<Template[]>('GET', 'templates'), this.request<Job[]>('GET', 'jobs?page=' + this.page)]);
-    this.templates.set(templates); this.jobs.set(jobs); this.attempts.set(null); this.selectTemplate();
+    const [templates, jobs, subscription] = await Promise.all([this.request<Template[]>('GET', 'templates'), this.request<Job[]>('GET', 'jobs?page=' + this.page),
+      this.support() ? Promise.resolve(null) : this.request<StockSubscription>('GET', 'stock-alerts')]);
+    this.templates.set(templates); this.jobs.set(jobs); this.stockSubscription.set(subscription); this.attempts.set(null); this.selectTemplate();
   }); }
   selectTemplate() {
+    if (this.draft.kind === 5) this.draft.channel = 0;
     const { kind, channel } = this.draft;
     const existing = this.templates().find(t => t.kind === kind && t.channel === channel);
     this.draft = existing ? { ...existing } : { kind, channel, subject: '', body: '', enabled: true, version: null };
@@ -100,6 +104,9 @@ export class NotificationsComponent {
   }); }
   savePreference(p: Preference) { return this.run(async () => {
     this.preference.set(await this.request<Preference>('PUT', 'preferences', p)); this.message.set('Preferences saved.');
+  }); }
+  saveStockSubscription(p: StockSubscription) { return this.run(async () => {
+    this.stockSubscription.set(await this.request<StockSubscription>('PUT', 'stock-alerts', p)); this.message.set('Stock alert subscription saved.');
   }); }
   history(j: Job) { return this.run(async () => {
     this.attempts.set(await this.request<Attempt[]>('GET', 'jobs/' + j.eventId + '/' + j.channel + '/attempts'));

@@ -47,8 +47,17 @@ public sealed class NotificationWorker(IServiceScopeFactory scopes, INotificatio
             }
             if (row.State != DeliveryState.Pending || row.NextAttemptAt > clock.GetUtcNow()) continue;
             var preference = row.UserId is {} user ? await db.Preferences.SingleOrDefaultAsync(x => x.UserId == user, ct) : null;
+            var stockPermitted = true;
+            if (row.Kind == NotificationKind.LowStock && row.UserId is {} manager)
+            {
+                var subscription = await db.StockSubscriptions.SingleOrDefaultAsync(x => x.UserId == manager, ct);
+                var contact = subscription?.Enabled == true
+                    ? await services.GetRequiredService<IManagerRecipients>().Find(row.TenantId, manager, ct) : null;
+                stockPermitted = contact is not null;
+                row.Recipient = contact?.Email;
+            }
             row.Attempts++;
-            if (preference is not null && !preference.Permits(row.Channel))
+            if (!stockPermitted || preference is not null && !preference.Permits(row.Channel))
             {
                 await Finish(db, scope, contexts, row, new(DeliveryState.Suppressed, "OptedOut"), ct);
                 continue;

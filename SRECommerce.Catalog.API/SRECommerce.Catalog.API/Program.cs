@@ -6,5 +6,8 @@ namespace SRECommerce.Catalog.API;
 public partial class CatalogProgram
 {
     public static Task Main(string[] args)=>ModuleHost.RunAsync<CatalogDbContext>(args,ServiceManifest.Get("Catalog"),typeof(CatalogProgram).Assembly,services=>
-    {services.AddScoped<ICatalogRepository,CatalogRepository>();services.AddScoped<ICatalogAccess,CatalogAccess>();services.AddScoped<ICatalogService,CatalogService>();});
+    {
+        services.AddScoped<ICatalogRepository,CatalogRepository>();services.AddScoped<ICatalogAccess,CatalogAccess>();services.AddScoped<ICatalogService,CatalogService>();
+        services.AddScoped<IMediaAssetRepository,MediaAssetRepository>();services.AddScoped<IMediaAssetStorage,LocalMediaAssetStorage>();services.AddScoped<MediaAssetService>();
+    });
 }

@@ -11,5 +11,6 @@ public partial class InventoryProgram
         services.AddScoped<InventoryService>();services.AddScoped<IInventoryService>(p=>p.GetRequiredService<InventoryService>());services.AddScoped<IInventoryMaintenance>(p=>p.GetRequiredService<InventoryService>());
         services.AddHttpClient("catalog",(p,c)=>{var config=p.GetRequiredService<IConfiguration>();c.BaseAddress=RemoteAccess.BaseUri(config,"Catalog:BaseUrl","http://localhost:5085/",p.GetRequiredService<IHostEnvironment>().IsDevelopment());c.Timeout=TimeSpan.FromSeconds(6);}).ConfigurePrimaryHttpMessageHandler(()=>new HttpClientHandler{AllowAutoRedirect=false}).WithDependencyResilience();
         services.AddHostedService<ReservationExpiryWorker>();
+        services.AddHostedService<LowStockWorker>();
     });
 }

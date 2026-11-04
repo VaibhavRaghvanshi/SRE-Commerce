@@ -13,6 +13,7 @@ public sealed class InventoryDbContext(DbContextOptions<InventoryDbContext> opti
     public DbSet<Branch> Branches=>Set<Branch>();
     public DbSet<Warehouse> Warehouses=>Set<Warehouse>();
     public DbSet<StockItem> Items=>Set<StockItem>();
+    public DbSet<LowStockState> LowStock=>Set<LowStockState>();
     public DbSet<InventoryBatch> Batches=>Set<InventoryBatch>();
     public DbSet<StockBalance> Balances=>Set<StockBalance>();
     public DbSet<InventoryMovement> Movements=>Set<InventoryMovement>();
@@ -23,6 +24,15 @@ public sealed class InventoryDbContext(DbContextOptions<InventoryDbContext> opti
     public DbSet<ReservationCancellation> Cancellations=>Set<ReservationCancellation>();
     protected override void OnModelCreating(ModelBuilder model)
     {
+        model.Entity<LowStockState>(e =>
+        {
+            e.ToTable("LowStockStates", t => t.HasCheckConstraint("CK_LowStockStates_Values", "[Episode]>=0 AND [Available]>=0"));
+            e.HasKey(x => new { x.TenantId, x.VariantId });
+            e.TenantEntity(x => x.TenantId == CurrentTenant);
+            e.Property(x => x.Available).HasPrecision(18, 3);
+            e.Property(x => x.Version).IsRowVersion();
+            e.HasOne<StockItem>().WithMany().HasForeignKey(x => new { x.TenantId, Id = x.VariantId }).OnDelete(DeleteBehavior.Restrict);
+        });
         model.Entity<ReservationCancellation>(e=>{e.ToTable("ReservationCancellations");e.HasKey(x=>new{x.TenantId,x.Id});e.Property(x=>x.SourceService).HasMaxLength(40);e.TenantEntity(x=>x.TenantId==CurrentTenant);});
         model.ConfigureInfrastructure();model.Entity<OutboxMessage>().TenantEntity(x=>x.TenantId==CurrentTenant);model.Entity<InboxMessage>().TenantEntity(x=>x.TenantId==CurrentTenant);model.Entity<AuditEntry>().TenantEntity(x=>x.TenantId==CurrentTenant);
         model.Entity<Branch>(e=>{e.ToTable("Branches");e.HasKey(x=>new{x.TenantId,x.Id});e.Property(x=>x.Code).HasMaxLength(64);e.Property(x=>x.Name).HasMaxLength(160);e.Property(x=>x.Version).IsRowVersion();e.HasIndex(x=>new{x.TenantId,x.Code}).IsUnique();e.TenantEntity(x=>x.TenantId==CurrentTenant);});

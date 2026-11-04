@@ -1,6 +1,26 @@
 # SRECommerce migration progress
 
-## Current checkpoint — all fourteen services, 2026-11-03
+## Current checkpoint — accounts, reporting, media and messaging, 2026-11-04
+
+The existing **75-project / fourteen-service** structure is unchanged. This batch adds substantive backend, Angular and SQL code for:
+
+- Cart customer accounts: ten versioned addresses, a 100-product wishlist, 25 recent products, customer/tenant isolation and live public Catalog reconciliation. Checkout can select a saved address.
+- Order sales reports: manager-only, one-currency UTC date cohorts, accepted/pending separation, refund/capture snapshot labels, daily values, statuses and top products. SQL handles non-UTC stored timestamps correctly; responses identify UTC dates explicitly.
+- Catalog uploads: bounded PNG/JPEG signatures/dimensions, managed per-tenant metadata/quota, a private Development file adapter and public reads only through current eligible publications. Archived products/categories/brands and cross-tenant references cannot expose an asset.
+- Actual RabbitMQ outbox publication and inbox consumption with confirms, scoped topology, durable quorum retry/DLQ and bounded workers. Catalog publish/archive events update Discovery automatically when transport is enabled.
+- Inventory low-stock episodes and Notification email subscriptions/templates/cooldowns. Identity resolves a live confirmed manager recipient; delivery rechecks current membership/opt-in.
+
+Five additive migrations were reviewed and applied to **Catalog, Inventory, Cart, Order and Notification** main databases: six new tables and one covering index. Pre-migration checksum backups and post-migration separate read-only restore/CHECKDB passed for all five. After native browser writes, Catalog/Cart backups were refreshed, and both registered managed image files were copied and reconciled against SQL size/SHA256 metadata. Original SQLite SHA256 remains `FC6D183D231508E14F9505523DE86B94B6891AF18E55692D144F27932AAEFE01`.
+
+Verification passed: aggregate build **zero warnings/errors**; **124 backend tests** across Identity 26, Catalog 22, Inventory 20, Cart 24, Order 13, Notification 1, Discovery 3 and Gateway 15. An additional focused UTC serialization case passed after the final date-label adjustment. Discovery's three cases include an actual isolated RabbitMQ broker exercising SQL outbox, delayed retry, duplicate inbox and poison DLQ; it was not skipped. Angular optimized build (**489.23 kB initial**) and **51 tests** passed. Real Chrome passed **seven native browser checks** across normal PKCE sign-in, address editing, mobile layout, image upload/publication, wishlist/recent products, main Order SQL reports and browser-storage privacy. Only its uniquely labelled address/product/wishlist entry were removed from active use; source/other customer records remain preserved.
+
+Initial failures are retained in ignored artifacts: cold native Identity dependency timeout, browser verifier locator/response-check errors, stale Manufacturing cancellation test input, and EF record-projection ordering/date translation. Fixes preserved ownership checks and production timeouts. Final native APIs/UI and the isolated test broker were stopped through their own manifests; existing Docker Identity/Tenant/Mailpit were preserved. Repository secret scan passed.
+
+Runtime SQL/OAuth/broker/cache account provisioning is still held, so the normal runtime's broker dispatch/low-stock delivery and the full machine-dependent native checkout profile remain unactivated. Production providers, object storage, deployment telemetry, advanced platform analytics and some admin controls remain open; this checkpoint does **not** complete the entire master prompt. Source pushes are approved; app publishing/deployment remains deferred.
+
+See the [account/report/media runbook](runbooks/customer-account-reports-and-media.md) and [messaging/low-stock runbook](runbooks/commerce-messaging.md). Native browser verification is repeatable with `node scripts/verify-customer-account-browser.mjs --apply` after the documented local APIs/UI are started.
+
+## Previous checkpoint — all fourteen services, 2026-11-03
 
 The root solution has **75 projects**. Each of the fourteen service folders has API, Application, Domain, Infrastructure and Tests projects plus its own solution. New code includes:
 

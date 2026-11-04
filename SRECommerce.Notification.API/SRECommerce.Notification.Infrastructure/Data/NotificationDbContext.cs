@@ -17,10 +17,23 @@ public sealed class NotificationDbContext(DbContextOptions<NotificationDbContext
     public DbSet<NotificationPreference> Preferences => Set<NotificationPreference>();
     public DbSet<NotificationJob> Jobs => Set<NotificationJob>();
     public DbSet<NotificationDelivery> Deliveries => Set<NotificationDelivery>();
+    public DbSet<StockAlertSubscription> StockSubscriptions => Set<StockAlertSubscription>();
+    public DbSet<StockAlertReceipt> StockReceipts => Set<StockAlertReceipt>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
         model.ConfigureInfrastructure();
+        model.Entity<StockAlertSubscription>(e =>
+        {
+            e.ToTable("StockAlertSubscriptions", t => t.HasCheckConstraint("CK_StockAlertSubscriptions_Cooldown", "[CooldownMinutes] BETWEEN 60 AND 10080"));
+            e.HasKey(x => new { x.TenantId, x.UserId }); e.TenantEntity(x => x.TenantId == Tenant);
+            e.Property(x => x.Version).IsRowVersion();
+        });
+        model.Entity<StockAlertReceipt>(e =>
+        {
+            e.ToTable("StockAlertReceipts"); e.HasKey(x => new { x.TenantId, x.UserId, x.VariantId });
+            e.TenantEntity(x => x.TenantId == Tenant);
+        });
         model.Entity<AuditEntry>().TenantEntity(x => x.TenantId == Tenant);
         model.Entity<OutboxMessage>().TenantEntity(x => x.TenantId == Tenant);
         model.Entity<InboxMessage>().TenantEntity(x => x.TenantId == Tenant);

@@ -11,6 +11,32 @@ using static SRECommerce.Catalog.Tests.CatalogFixture;
 namespace SRECommerce.Catalog.Tests;
 public sealed class CatalogApiTests(CatalogFixture fixture):IClassFixture<CatalogFixture>
 {
+    [Fact]
+    public async Task Uploaded_images_are_bounded_and_only_current_public_product_references_are_served()
+    {
+        var b=await fixture.Business();using var owner=b.Client;using var anonymous=fixture.Factory.Client();
+        // A real 1x1 PNG, never an external URL or client-controlled file path.
+        var png=Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a0wAAAABJRU5ErkJggg==");
+        using var upload=new MultipartFormDataContent();upload.Add(new ByteArrayContent(png),"file","../../ignored.png");
+        var asset=await Read<MediaAssetView>(await owner.PostAsync(Path(b.Id)+"/media-assets",upload),HttpStatusCode.Created);
+        Assert.Equal(1,asset.Width);Assert.Equal(1,asset.Height);
+        var publicPath=asset.Url.Replace("/commerce/catalog/public/","/api/v1/public/");
+        Assert.Equal(HttpStatusCode.NotFound,(await anonymous.GetAsync(publicPath)).StatusCode);
+        var category=await Category(b);var product=await Create(b,Draft(category.Id) with{Media=[new(null,asset.Url,"Test image",1)]});
+        product=await Publish(b,product);using var image=await anonymous.GetAsync(publicPath);
+        Assert.Equal(HttpStatusCode.OK,image.StatusCode);Assert.Equal("image/png",image.Content.Headers.ContentType!.MediaType);Assert.Equal(png,await image.Content.ReadAsByteArrayAsync());
+        Assert.Equal("nosniff",image.Headers.GetValues("X-Content-Type-Options").Single());
+        category=await Read<CatalogLookup>(await owner.PutAsJsonAsync(Path(b.Id)+"/categories/"+category.Id,new CategoryRequest(category.Name,category.Slug,null,category.Version,true)));
+        Assert.Equal(HttpStatusCode.NotFound,(await anonymous.GetAsync(publicPath)).StatusCode);
+        _=await Read<CatalogLookup>(await owner.PutAsJsonAsync(Path(b.Id)+"/categories/"+category.Id,new CategoryRequest(category.Name,category.Slug,null,category.Version,false)));
+        Assert.Equal(HttpStatusCode.OK,(await anonymous.GetAsync(publicPath)).StatusCode);
+        var other=await fixture.Business();using var otherOwner=other.Client;var otherCategory=await Category(other);
+        Assert.Equal(HttpStatusCode.BadRequest,(await otherOwner.PostAsJsonAsync(Path(other.Id)+"/products",Draft(otherCategory.Id) with{Media=[new(null,asset.Url,"Foreign asset",1)]})).StatusCode);
+        using var invalid=new MultipartFormDataContent();invalid.Add(new ByteArrayContent(System.Text.Encoding.UTF8.GetBytes(new string('x',70))),"file","script.png");
+        Assert.Equal(HttpStatusCode.BadRequest,(await owner.PostAsync(Path(b.Id)+"/media-assets",invalid)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent,(await owner.PostAsJsonAsync(Path(b.Id)+$"/products/{product.Id}/archive",new VersionRequest(product.Version!))).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,(await anonymous.GetAsync(publicPath)).StatusCode);
+    }
     private static string Path(Guid tenant)=>$"/api/v1/tenants/{tenant}/catalog";
     private static string Public(Guid tenant)=>$"/api/v1/public/tenants/{tenant}/catalog";
     private static async Task<CatalogLookup> Category(CatalogBusiness business,string? slug=null)=>await Read<CatalogLookup>(await business.Client.PostAsJsonAsync(Path(business.Id)+"/categories",new CategoryRequest("Spices",slug??"spices",null)),HttpStatusCode.Created);

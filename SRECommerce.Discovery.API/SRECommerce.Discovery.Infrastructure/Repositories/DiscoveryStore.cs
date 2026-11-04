@@ -13,6 +13,7 @@ public sealed class DiscoveryStore(DiscoveryDbContext db, ModuleScope scope, IHt
 {
     public async Task<T> Transaction<T>(Func<CancellationToken, Task<T>> action, CancellationToken ct)
     {
+        if (db.Database.CurrentTransaction is not null) return await action(ct);
         await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
         var result = await action(ct); await transaction.CommitAsync(ct); return result;
     }
@@ -36,7 +37,7 @@ public sealed class DiscoveryStore(DiscoveryDbContext db, ModuleScope scope, IHt
             parameters.Add(new("@condition", SqlDbType.NVarChar, 400) { Value = condition });
         }
         sql += """
-            WHERE d.TenantId=@tenant AND (@category IS NULL OR d.CategoryId=@category)
+            WHERE d.TenantId=@tenant AND d.Name<>N'' AND (@category IS NULL OR d.CategoryId=@category)
             AND (@brand IS NULL OR d.BrandId=@brand)
             AND (@attribute IS NULL OR EXISTS (SELECT 1 FROM OPENJSON(d.Attributes) a WHERE a.[key]=@attribute AND a.[value]=@value))
             ORDER BY

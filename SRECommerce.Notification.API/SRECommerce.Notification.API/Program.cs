@@ -13,7 +13,11 @@ public partial class NotificationProgram
         services.AddScoped<INotificationAccess, NotificationAccess>();
         services.AddScoped<INotificationStore, NotificationStore>();
         services.AddScoped<IOrderNotices, OrderNotices>();
+        services.AddScoped<IManagerRecipients, ManagerRecipients>();
         services.AddScoped<NotificationService>();
+        services.AddScoped<IIntegrationHandler, OrderNotificationHandler>();
+        services.AddScoped<IIntegrationHandler, LowStockNotificationHandler>();
+        services.AddScoped<LowStockNotificationHandler>();
         services.AddSingleton<INotificationTransport, DevelopmentNotificationTransport>();
         services.AddHostedService<NotificationWorker>();
         services.AddHttpClient("order", (p, c) =>

@@ -131,7 +131,7 @@ public sealed class CatalogService(ICatalogRepository repository,ICatalogAccess 
         var mediaIds=new HashSet<Guid>();var orders=new HashSet<int>();foreach(var input in request.Media)
         {
             if(input.Order is <1 or >100||!orders.Add(input.Order))throw new BusinessFault("InvalidMediaOrder");var media=input.Id is null?new ProductMedia{TenantId=tenant,ProductId=product.Id}:product.Media.SingleOrDefault(m=>m.Id==input.Id)??throw new BusinessFault("MediaNotFound",404);
-            if(!mediaIds.Add(media.Id))throw new BusinessFault("DuplicateMedia");if(input.Id is null)product.Media.Add(media);media.Url=CatalogRules.MediaUrl(input.Url);media.Alt=CatalogRules.Text(input.Alt,200);media.Order=input.Order;media.Active=true;
+            if(!mediaIds.Add(media.Id))throw new BusinessFault("DuplicateMedia");if(input.Id is null)product.Media.Add(media);media.Url=CatalogRules.MediaUrl(input.Url,tenant);media.Alt=CatalogRules.Text(input.Alt,200);media.Order=input.Order;media.Active=true;
         }
         foreach(var media in product.Media.Where(m=>!mediaIds.Contains(m.Id)))media.Active=false;
         foreach(var row in product.BundleItems)row.Active=false;var components=new HashSet<Guid>();foreach(var input in request.BundleItems)

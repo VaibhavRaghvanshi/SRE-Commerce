@@ -18,6 +18,7 @@ public interface INotificationStore
     void Add<T>(T row) where T : class;
     void Version(SRECommerce.BuildingBlocks.Kernel.IVersionedRecord row, string version);
     Task Save(string action, string resource, CancellationToken ct);
+    Task<StockAlertSubscription?> StockSubscription(Guid user, CancellationToken ct);
 }
 
 public sealed record InboxReceipt(string Hash);
@@ -26,6 +27,7 @@ public interface INotificationAccess
 {
     Task<Guid> Human(Guid tenant, ActorPermission permission, CancellationToken ct);
     Task Order(Guid tenant, CancellationToken ct);
+    Task Event(Guid tenant, string producer, CancellationToken ct);
 }
 
 public interface IOrderNotices
@@ -37,4 +39,8 @@ public interface INotificationTransport
 {
     bool Available { get; }
     Task<DeliveryResult> Send(NotificationJob job, CancellationToken ct);
+}
+public interface IManagerRecipients
+{
+    Task<ManagerNotificationRecipient?> Find(Guid tenant, Guid user, CancellationToken ct);
 }

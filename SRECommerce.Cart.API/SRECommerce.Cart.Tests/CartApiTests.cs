@@ -4,6 +4,37 @@ using static SRECommerce.Cart.Tests.CartFixture;
 namespace SRECommerce.Cart.Tests;
 public sealed class CartApiTests(CartFixture fixture):IClassFixture<CartFixture>
 {
+ [Fact]public async Task Customer_addresses_wishlist_and_recent_history_are_private_versioned_and_catalog_revalidated()
+ {
+  var b=await fixture.Business();using var pricingOwner=b.Client;using var catalog=b.Catalog.Client;
+  var a=await fixture.Pricing.Customer(b);var other=await fixture.Pricing.Customer(b);using var customerPrice=a.Client;using var otherPrice=other.Client;
+  using var customer=fixture.Factory.Client(a.Client.DefaultRequestHeaders.Authorization!.Parameter);using var stranger=fixture.Factory.Client(other.Client.DefaultRequestHeaders.Authorization!.Parameter);
+  using var anonymous=fixture.Factory.Client();var path=$"/api/v1/tenants/{b.Catalog.Id}/cart/account";var addressId=Guid.NewGuid();
+  var input=new AddressInput("Home","Account customer","customer@example.test",null,"1 Test Street",null,"Delhi","IN","110001",null);
+  var address=await Read<AddressView>(await customer.PutAsJsonAsync(path+"/addresses/"+addressId,input));
+  Assert.Equal(addressId,address.Id);Assert.Empty((await stranger.GetFromJsonAsync<AddressView[]>(path+"/addresses"))!);
+  Assert.Equal(HttpStatusCode.Unauthorized,(await anonymous.GetAsync(path+"/addresses")).StatusCode);
+  Assert.Equal(HttpStatusCode.NotFound,(await stranger.PostAsJsonAsync(path+$"/addresses/{addressId}/archive",new AddressVersion(address.Version))).StatusCode);
+  Assert.Equal(HttpStatusCode.Conflict,(await customer.PutAsJsonAsync(path+"/addresses/"+addressId,input with{Label="Work",Version=Convert.ToBase64String(new byte[8])})).StatusCode);
+  address=await Read<AddressView>(await customer.PutAsJsonAsync(path+"/addresses/"+addressId,input with{Label="Work",Version=address.Version}));
+  Assert.Equal("Work",address.Label);
+  var saved=await Read<SavedProductView>(await customer.PutAsJsonAsync(path+"/products/0/"+b.Product,new SavedProductInput(true,null)));
+  Assert.Equal(b.Product,saved.ProductId);Assert.True(saved.Available);
+  Assert.Single((await customer.GetFromJsonAsync<SavedProductPage>(path+"/products/0"))!.Items);
+  Assert.Empty((await stranger.GetFromJsonAsync<SavedProductPage>(path+"/products/0"))!.Items);
+  Assert.Equal(HttpStatusCode.Conflict,(await customer.PutAsJsonAsync(path+"/products/0/"+b.Product,new SavedProductInput(false,Convert.ToBase64String(new byte[8])))).StatusCode);
+  await Read<SavedProductView>(await customer.PutAsJsonAsync(path+"/products/1/"+b.Product,new SavedProductInput(true,null)));
+  Assert.Single((await customer.GetFromJsonAsync<SavedProductPage>(path+"/products/1"))!.Items);
+  Assert.Equal(HttpStatusCode.NoContent,(await customer.PostAsync(path+"/recently-viewed/clear",null)).StatusCode);
+  Assert.Empty((await customer.GetFromJsonAsync<SavedProductPage>(path+"/products/1"))!.Items);
+  var product=(await catalog.GetFromJsonAsync<SRECommerce.Catalog.Application.ProductView>($"/api/v1/tenants/{b.Catalog.Id}/catalog/products/{b.Product}"))!;
+  Assert.Equal(HttpStatusCode.NoContent,(await catalog.PostAsJsonAsync($"/api/v1/tenants/{b.Catalog.Id}/catalog/products/{b.Product}/archive",new SRECommerce.Catalog.Application.VersionRequest(product.Version!))).StatusCode);
+  var unavailable=Assert.Single((await customer.GetFromJsonAsync<SavedProductPage>(path+"/products/0"))!.Items);Assert.False(unavailable.Available);Assert.Null(unavailable.Slug);
+  await Read<SavedProductView>(await customer.PutAsJsonAsync(path+"/products/0/"+b.Product,new SavedProductInput(false,unavailable.Version)));
+  Assert.Empty((await customer.GetFromJsonAsync<SavedProductPage>(path+"/products/0"))!.Items);
+  Assert.Equal(HttpStatusCode.NoContent,(await customer.PostAsJsonAsync(path+$"/addresses/{addressId}/archive",new AddressVersion(address.Version))).StatusCode);
+  Assert.Empty((await customer.GetFromJsonAsync<AddressView[]>(path+"/addresses"))!);
+ }
  [Fact]public async Task Cancellation_fences_block_delayed_cart_price_and_stock_claims_without_mutating_an_unproved_cart()
  {
   var b=await fixture.Business();using var owner=b.Client;using var catalog=b.Catalog.Client;var key=Key();using var guest=fixture.Factory.Client(capability:key);
@@ -23,7 +54,9 @@ public sealed class CartApiTests(CartFixture fixture):IClassFixture<CartFixture>
   using var stockOrder=fixture.Inventory.Client(await fixture.Machine("Order","internal_inventory"));var reservations=$"/internal/v1/tenants/{b.Catalog.Id}/inventory/reservations";var reservationId=Guid.NewGuid();var cancel=new SRECommerce.Inventory.Application.ReservationAbortRequest(Guid.NewGuid(),"Checkout cancelled before delayed reserve");
   await Read<JsonElement>(await stockOrder.PostAsJsonAsync(reservations+$"/{reservationId}/cancel",cancel));
   Assert.Equal(HttpStatusCode.Conflict,(await stockOrder.PostAsJsonAsync(reservations,new SRECommerce.Inventory.Application.ReserveRequest(reservationId,warehouse,"Delayed order",fixture.Inventory.Clock.GetUtcNow().AddMinutes(5),[new(b.Variant,1)]))).StatusCode);
-  using var other=fixture.Inventory.Client(await fixture.Machine("Manufacturing","internal_inventory"));Assert.Equal(HttpStatusCode.Forbidden,(await other.PostAsJsonAsync(reservations+$"/{reservationId}/cancel",cancel)).StatusCode);
+  using var other=fixture.Inventory.Client(await fixture.Machine("Manufacturing","internal_inventory"));
+  Assert.Equal(HttpStatusCode.BadRequest,(await other.PostAsJsonAsync(reservations+$"/{reservationId}/cancel",cancel)).StatusCode);
+  Assert.Equal(HttpStatusCode.Forbidden,(await other.PostAsJsonAsync(reservations+$"/{reservationId}/cancel",cancel with{OperationId=reservationId})).StatusCode);
   using var publicStock=fixture.Inventory.Client();var available=(await publicStock.GetFromJsonAsync<SRECommerce.Inventory.Application.AvailabilityView[]>($"/api/v1/public/tenants/{b.Catalog.Id}/inventory/availability?variants={b.Variant}"))!;Assert.Equal(10,Assert.Single(available).Available);
  }
  private static async Task<CartView> Create(HttpClient client,Guid tenant,bool guest=false)=>await Read<CartView>(await client.PostAsJsonAsync(Path(tenant,guest),new CreateCartRequest(Guid.NewGuid())));

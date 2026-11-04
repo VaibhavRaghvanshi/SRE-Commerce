@@ -14,6 +14,7 @@ public partial class DiscoveryProgram
         services.AddScoped<IDiscoverySources, DiscoverySources>();
         services.AddScoped<IDiscoveryStore, DiscoveryStore>();
         services.AddScoped<DiscoveryService>();
+        services.AddScoped<IIntegrationHandler, CatalogProjectionHandler>();
         foreach (var name in new[] { "Catalog", "Order" })
             services.AddHttpClient(name.ToLowerInvariant(), (p, c) =>
             {

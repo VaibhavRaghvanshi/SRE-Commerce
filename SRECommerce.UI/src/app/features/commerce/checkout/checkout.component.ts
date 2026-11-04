@@ -1,4 +1,4 @@
-import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -12,6 +12,8 @@ import { CommerceTenant } from '../../../core/models/commerce.models';
 import { CommercePreparation } from '../../../core/models/commerce-cart.models';
 import { CommerceCheckout, CommerceShippingOption } from '../../../core/models/commerce-checkout.models';
 import { OrderContact } from '../../../core/models/commerce-order.models';
+import { CustomerAddress } from '../../../core/models/commerce-customer.models';
+import { CommerceCustomerService } from '../../../core/services/commerce-customer.service';
 
 @Component({ selector: 'app-commerce-checkout', standalone: true, imports: [CommonModule, ReactiveFormsModule, RouterLink],
   templateUrl: './checkout.component.html', styleUrl: './checkout.component.scss' })
@@ -22,6 +24,9 @@ export class CommerceCheckoutComponent {
   readonly countries = signal<string[]>([]); readonly methods = signal<string[]>([]); readonly sandbox = signal(true); readonly selected = signal(''); readonly busy = signal(true);
   readonly error = signal(''); readonly status = signal<CommerceCheckout | null>(null); readonly needsSignIn = signal(false); readonly waiting = signal(false);
   readonly reference = signal<string | null>(null);
+  private readonly customer = inject(CommerceCustomerService);
+  readonly addresses = signal<CustomerAddress[]>([]);
+  readonly addressError = signal('');
   readonly shipping = computed(() => this.options().find(o => o.id === this.selected()) || null);
   readonly total = computed(() => Number(((this.preparation()?.quote.calculation.total || 0) + (this.shipping()?.total || 0)).toFixed(this.preparation()?.quote.decimalPlaces ?? 2)));
   readonly form = this.fb.group({ fullName: ['', [Validators.required, Validators.maxLength(160), Validators.pattern(/^[^<>\x00-\x1f]+$/)]],
@@ -31,6 +36,7 @@ export class CommerceCheckoutComponent {
     postalCode: ['', [Validators.required, Validators.minLength(2), Validators.maxLength(16), Validators.pattern(/^[A-Za-z0-9 -]+$/)]], paymentMethod: ['', Validators.required] });
   private timer: ReturnType<typeof setTimeout> | null = null; private destroyed = false; private polls = 0; private statusRead = 0;
   constructor() {
+    effect(() => { const tenant = this.tenant(); if (!tenant || !this.customer.signedIn(tenant.tenantId)) this.addresses.set([]); });
     this.destroy.onDestroy(() => { this.destroyed = true; if (this.timer) clearTimeout(this.timer); });
     for (const control of [this.form.controls.countryCode, this.form.controls.postalCode]) control.valueChanges.pipe(takeUntilDestroyed(this.destroy)).subscribe(() => { this.options.set([]); this.selected.set(''); });
     if (typeof window !== 'undefined') void this.initialize();
@@ -45,6 +51,11 @@ export class CommerceCheckoutComponent {
       const [regions, methods] = await Promise.all([this.api.regions(tenant.tenantId), this.api.methods(tenant.tenantId)]);
       this.countries.set(regions.countries); this.methods.set(methods.methods); this.sandbox.set(methods.sandbox);
       this.form.patchValue({ countryCode: regions.countries.length === 1 ? regions.countries[0] : '', paymentMethod: methods.methods[0] || '', email: this.session.user()?.profile.email || '' });
+      if (this.customer.signedIn(tenant.tenantId)) {
+        try { const user = this.session.access()?.userId; const addresses = await this.customer.addresses(tenant.tenantId);
+          if (this.customer.signedIn(tenant.tenantId) && this.session.access()?.userId === user) this.addresses.set(addresses); }
+        catch { this.addressError.set('Saved addresses could not be loaded. You can enter the delivery details below.'); }
+      }
       await this.refreshPreparation();
     } catch { this.error.set('Checkout is temporarily unavailable. Your saved cart is safe. Please try again.'); } finally { this.busy.set(false); }
   }
@@ -52,6 +63,13 @@ export class CommerceCheckoutComponent {
     const tenant = this.tenant(); if (!tenant) return;
     const cart = await this.carts.load(tenant.tenantId); if (!cart.items.length) throw new Error('CartEmpty');
     this.preparation.set(await this.carts.prepare(tenant.tenantId, this.route.snapshot.queryParamMap.get('coupon') || '')); this.options.set([]); this.selected.set('');
+  }
+  useAddress(id: string) {
+    const address = this.addresses().find(row => row.id === id); if (!address) return;
+    const { fullName, email, phone, addressLine1, addressLine2, city, countryCode, postalCode } = address;
+    this.form.patchValue({ fullName, email, phone: phone || '', addressLine1, addressLine2: addressLine2 || '', city,
+      countryCode: this.countries().includes(countryCode) ? countryCode : '', postalCode });
+    this.options.set([]); this.selected.set('');
   }
   async delivery() {
     const tenant = this.tenant(); if (!tenant || this.busy() || this.status()) return;

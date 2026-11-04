@@ -14,6 +14,23 @@ using static SRECommerce.Inventory.Tests.InventoryFixture;
 namespace SRECommerce.Inventory.Tests;
 public sealed class InventoryApiTests(InventoryFixture fixture):IClassFixture<InventoryFixture>
 {
+    [Fact]
+    public async Task Low_stock_alerts_follow_available_stock_and_emit_once_per_threshold_episode()
+    {
+        var b=await fixture.Business();using var owner=b.Client;using var catalog=b.Catalog.Client;
+        var worker=Microsoft.Extensions.DependencyInjection.ActivatorUtilities.CreateInstance<LowStockWorker>(fixture.Factory.Services);
+        async Task<StockAlertEvent[]> Alerts()
+        {
+            using var scope=fixture.Factory.Services.CreateScope();scope.ServiceProvider.GetRequiredService<ModuleScope>().BindEvent(b.Catalog.Id,"Inventory");
+            var events=await scope.ServiceProvider.GetRequiredService<InventoryDbContext>().Outbox.Where(row=>row.Type=="inventory.low-stock.v1").Select(row=>row.Envelope).ToArrayAsync();
+            return events.Select(ContractJson.Read<EventEnvelope>).Select(row=>row.Data.Deserialize<StockAlertEvent>(ContractJson.Strict)!).Where(row=>row.VariantId==b.Variant).OrderBy(row=>row.Episode).ToArray();
+        }
+        await worker.Scan(default);var first=Assert.Single(await Alerts());Assert.Equal(0,first.Available);Assert.Equal(1,first.Episode);
+        await worker.Scan(default);Assert.Single(await Alerts());
+        await Receipt(b,5);await worker.Scan(default);Assert.Single(await Alerts());
+        await Read<ReservationView>(await owner.PostAsJsonAsync(Path(b.Catalog.Id)+"/reservations",Hold(b,4)));
+        await worker.Scan(default);var alerts=await Alerts();Assert.Equal(2,alerts.Length);Assert.Equal(2,alerts[1].Episode);Assert.Equal(1,alerts[1].Available);
+    }
     private static async Task<BalanceView> Receipt(InventoryBusiness b,decimal quantity,string lot="UNBATCHED",DateTimeOffset? expires=null)=>await Read<BalanceView>(await b.Client.PostAsJsonAsync(Path(b.Catalog.Id)+"/stock-changes",new StockChangeRequest(Guid.NewGuid(),b.Warehouse,b.Variant,StockAction.Receipt,quantity,"Opening stock",Lot:lot,ExpiresAt:expires)));
     private ReserveRequest Hold(InventoryBusiness b,decimal quantity)=>new(Guid.NewGuid(),b.Warehouse,"order-"+Guid.NewGuid().ToString("N"),fixture.Factory.Clock.GetUtcNow().AddMinutes(5),[new(b.Variant,quantity)]);
     [Fact]

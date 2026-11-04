@@ -44,14 +44,42 @@ for($attempt=0;$attempt -lt 12 -and !$ready;$attempt++){
     try{[void](Invoke-RestMethod "$base/overview" -Headers $headers -TimeoutSec 3);$ready=$true}catch{Start-Sleep -Seconds 2}
 }
 if(!$ready){throw 'RabbitMQ management not ready; no existing credential was reset.'}
+$subscriptions=@{
+    Discovery=@('catalog.product.published.v1','catalog.product.archived.v1')
+    Notification=@('order.notice.confirmed.v1','order.notice.paid.v1','order.notice.dispatched.v1','order.notice.delivered.v1','order.notice.cancelled.v1','inventory.low-stock.v1')
+}
+function SetBrokerResource([string]$path,[hashtable]$body){
+    Invoke-RestMethod "$base/$path" -Headers $headers -Method Put -ContentType 'application/json' -Body ($body|ConvertTo-Json -Depth 8) -TimeoutSec 5|Out-Null
+}
+function SetBrokerBinding([string]$exchange,[string]$queue,[string]$key){
+    $source=[uri]::EscapeDataString($exchange);$destination=[uri]::EscapeDataString($queue)
+    Invoke-RestMethod "$base/bindings/srecommerce/e/$source/q/$destination" -Headers $headers -Method Post -ContentType 'application/json' -Body (@{routing_key=$key;arguments=@{}}|ConvertTo-Json) -TimeoutSec 5|Out-Null
+}
+# Declare every supported subscriber before publishers start. Publisher confirms alone
+# cannot prove that an offline, never-declared subscriber received an event.
+SetBrokerResource 'exchanges/srecommerce/srecommerce.events' @{type='topic';durable=$true;auto_delete=$false;internal=$false;arguments=@{}}
+foreach($subscriber in $subscriptions.Keys){
+    $prefix='srecommerce.'+$subscriber.ToLowerInvariant();$queue=$prefix+'.events'
+    foreach($suffix in @('delivery','retry','dead')){
+        SetBrokerResource ('exchanges/srecommerce/'+$prefix+'.'+$suffix) @{type='direct';durable=$true;auto_delete=$false;internal=$false;arguments=@{}}
+    }
+    SetBrokerResource ('queues/srecommerce/'+$queue) @{durable=$true;auto_delete=$false;arguments=@{'x-queue-type'='quorum'}}
+    SetBrokerResource ('queues/srecommerce/'+$queue+'.retry') @{durable=$true;auto_delete=$false;arguments=@{'x-queue-type'='quorum';'x-dead-letter-strategy'='at-least-once';'x-overflow'='reject-publish';'x-message-ttl'=30000;'x-dead-letter-exchange'=$prefix+'.delivery';'x-dead-letter-routing-key'='events'}}
+    SetBrokerResource ('queues/srecommerce/'+$queue+'.dead') @{durable=$true;auto_delete=$false;arguments=@{'x-queue-type'='quorum'}}
+    SetBrokerBinding ($prefix+'.delivery') $queue 'events'
+    SetBrokerBinding ($prefix+'.retry') ($queue+'.retry') 'retry'
+    SetBrokerBinding ($prefix+'.dead') ($queue+'.dead') 'dead'
+    foreach($topic in $subscriptions[$subscriber]){SetBrokerBinding 'srecommerce.events' $queue $topic}
+}
 foreach($account in $accounts){
     $name=[uri]::EscapeDataString($account.User);$exists=$true
     try{[void](Invoke-RestMethod "$base/users/$name" -Headers $headers -TimeoutSec 5)}catch{if($_.Exception.Response.StatusCode.value__ -eq 404){$exists=$false}else{throw 'Broker account lookup failed; values not printed.'}}
     if(!$exists){Invoke-RestMethod "$base/users/$name" -Headers $headers -Method Put -ContentType 'application/json' -Body (@{password=$account.Password;tags=''}|ConvertTo-Json) -TimeoutSec 5|Out-Null}
     $prefix='srecommerce\.'+$account.Service.ToLowerInvariant()+'\.'
-    $permission=@{configure='^(srecommerce\.events|srecommerce\.dead|'+$prefix+'.*)$';write='^(srecommerce\.events|srecommerce\.dead|'+$prefix+'.*)$';read='^'+$prefix+'.*$'}
+    $permission=@{configure='^(srecommerce\.events|'+$prefix+'.*)$';write='^(srecommerce\.events|'+$prefix+'.*)$';read='^(srecommerce\.events|'+$prefix+'.*)$'}
     Invoke-RestMethod "$base/permissions/srecommerce/$name" -Headers $headers -Method Put -ContentType 'application/json' -Body ($permission|ConvertTo-Json) -TimeoutSec 5|Out-Null
-    $topic=@{exchange='srecommerce.events';write='^'+$account.Service.ToLowerInvariant()+'\..*';read='.*'}
+    $allowedRead=if($subscriptions.ContainsKey($account.Service)){'^('+ (($subscriptions[$account.Service]|ForEach-Object{[regex]::Escape($_)}) -join '|') +')$'}else{'a^'}
+    $topic=@{exchange='srecommerce.events';write='^'+$account.Service.ToLowerInvariant()+'\..*';read=$allowedRead}
     Invoke-RestMethod "$base/topic-permissions/srecommerce/$name" -Headers $headers -Method Put -ContentType 'application/json' -Body ($topic|ConvertTo-Json) -TimeoutSec 5|Out-Null
 }
 Write-Output 'Local broker/cache accounts configured. Existing passwords and named volumes preserved; no credential values printed. Authenticated transport/cache integration probes still required.'

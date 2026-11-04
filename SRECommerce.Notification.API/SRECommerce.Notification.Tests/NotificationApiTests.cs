@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -119,5 +120,25 @@ public sealed class NotificationApiTests
         using var finalScope = factory.Services.CreateScope();
         finalScope.ServiceProvider.GetRequiredService<ModuleScope>().BindEvent(business.Tenant, "Notification");
         Assert.Null(await finalScope.ServiceProvider.GetRequiredService<NotificationDbContext>().Jobs.Select(x => x.Recipient).SingleAsync());
+
+        await OrderFixture.Read<TemplateView>(await owner.PutAsJsonAsync(management+"/templates/5/0",new TemplateInput("Low stock: {{sku}}","{{available}} available; reorder at {{reorderLevel}}.",true,null)));
+        Assert.Equal(HttpStatusCode.BadRequest,(await owner.PutAsJsonAsync(management+"/templates/5/1",new TemplateInput("Low stock","Stock notice",true,null))).StatusCode);
+        var subscription=await OrderFixture.Read<StockSubscriptionView>(await owner.PutAsJsonAsync(management+"/stock-alerts",new StockSubscriptionInput(true,1440,null)));
+        Assert.True(subscription.Enabled);
+        var inventoryEvent=new EventEnvelope(Guid.NewGuid(),1,"Inventory","inventory.low-stock.v1",business.Tenant,"stock-test",DateTimeOffset.UtcNow,
+            JsonSerializer.SerializeToElement(new StockAlertEvent(business.Variant,"LOW-STOCK-TEST",1,2,1,DateTimeOffset.UtcNow),ContractJson.Strict));
+        async Task Receive(EventEnvelope message)
+        {
+            using var delivery=factory.Services.CreateScope();delivery.ServiceProvider.GetRequiredService<ModuleScope>().BindEvent(message.TenantId,"Inventory");
+            await delivery.ServiceProvider.GetRequiredService<LowStockNotificationHandler>().HandleAsync(message,default);
+        }
+        await Receive(inventoryEvent);await Receive(inventoryEvent);await Receive(inventoryEvent with{Id=Guid.NewGuid()});
+        using var stockScope=factory.Services.CreateScope();stockScope.ServiceProvider.GetRequiredService<ModuleScope>().BindEvent(business.Tenant,"Notification");
+        var stockDb=stockScope.ServiceProvider.GetRequiredService<NotificationDbContext>();
+        var stockJob=await stockDb.Jobs.SingleAsync(row=>row.Kind==NotificationKind.LowStock);
+        Assert.Equal(business.Variant,stockJob.ResourceId);Assert.Contains("LOW-STOCK-TEST",stockJob.Subject);Assert.Contains("1 available",stockJob.Body);
+        Assert.Single(await stockDb.StockReceipts.ToArrayAsync());
+        Assert.Equal(HttpStatusCode.Conflict,(await owner.PutAsJsonAsync(management+"/stock-alerts",new StockSubscriptionInput(false,1440,Convert.ToBase64String(new byte[8])))).StatusCode);
+        await OrderFixture.Read<StockSubscriptionView>(await owner.PutAsJsonAsync(management+"/stock-alerts",new StockSubscriptionInput(false,1440,subscription.Version)));
     }
 }

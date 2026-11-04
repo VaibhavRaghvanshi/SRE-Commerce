@@ -13,6 +13,13 @@ public sealed class NotificationAccess(ModuleAccess access, ModuleScope scope) :
     { await access.AuthorizeAsync(tenant, permission, ct); return scope.User!.UserId; }
     public async Task Order(Guid tenant, CancellationToken ct)
     { await access.PublicAsync(tenant, ct); access.MachineAsync(tenant, "Order"); }
+    public async Task Event(Guid tenant, string producer, CancellationToken ct)
+    {
+        if (scope.TenantId != tenant || scope.Machine?.Service != producer || producer is not ("Order" or "Inventory"))
+            throw new BusinessFault("InvalidNotificationProducer", 403);
+        await access.PublicAsync(tenant, ct);
+        scope.BindEvent(tenant, producer);
+    }
 }
 
 public sealed class OrderNotices(ServiceHttp http) : IOrderNotices

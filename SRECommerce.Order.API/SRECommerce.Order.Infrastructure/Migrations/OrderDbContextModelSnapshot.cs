@@ -833,6 +833,10 @@ namespace SRECommerce.Order.Infrastructure.Migrations
 
                     b.HasKey("TenantId", "Id");
 
+                    b.HasIndex("TenantId", "CreatedAt");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("TenantId", "CreatedAt"), new[] { "Currency", "Historical", "Status", "PaymentState", "Total", "Refunded" });
+
                     b.HasIndex("TenantId", "InvoiceReference")
                         .IsUnique()
                         .HasFilter("[InvoiceReference] IS NOT NULL");

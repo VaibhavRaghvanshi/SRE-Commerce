@@ -63,6 +63,7 @@ public static class ModuleHost
             o.GlobalLimiter=PartitionedRateLimiter.Create<HttpContext,string>(context=>RateLimitPartition.GetFixedWindowLimiter(context.Connection.RemoteIpAddress?.ToString()??"local",_=>new FixedWindowRateLimiterOptions{PermitLimit=builder.Configuration.GetValue("RateLimiting:PermitLimit",300),Window=TimeSpan.FromMinutes(1),QueueLimit=0}));
         });
         register(builder.Services);
+        builder.Services.AddHostedService<ModuleMessagingWorker>();
         var app=builder.Build();app.UseExceptionHandler();
         app.Use(async(context,next)=>
         {
