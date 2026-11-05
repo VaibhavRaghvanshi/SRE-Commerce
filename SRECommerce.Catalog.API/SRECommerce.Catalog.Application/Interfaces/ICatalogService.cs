@@ -9,6 +9,7 @@ public interface ICatalogService
     Task<object> AttributesFor(Guid tenant,Guid category,CancellationToken ct);
     Task<CatalogPage<ProductView>> Products(Guid tenant,CatalogQuery query,bool publicRead,CancellationToken ct);
     Task<ProductView> Product(Guid tenant,Guid id,CancellationToken ct);
+    Task<ProductChoice[]> ProductChoices(Guid tenant,Guid[] ids,CancellationToken ct);
     Task<ProductView> Save(Guid tenant,Guid? id,ProductDraft request,CancellationToken ct);
     Task<ProductView> Publish(Guid tenant,Guid id,string version,CancellationToken ct);
     Task<Guid[]> PublishBatch(Guid tenant,PublishBatchRequest request,CancellationToken ct);

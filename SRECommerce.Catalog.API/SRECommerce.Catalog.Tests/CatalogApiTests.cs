@@ -12,6 +12,19 @@ namespace SRECommerce.Catalog.Tests;
 public sealed class CatalogApiTests(CatalogFixture fixture):IClassFixture<CatalogFixture>
 {
     [Fact]
+    public async Task Product_choice_batches_are_scoped_to_staff_and_never_reveal_another_tenants_drafts()
+    {
+        var a=await fixture.Business();var b=await fixture.Business();using var owner=a.Client;using var otherOwner=b.Client;using var anonymous=fixture.Factory.Client();
+        var aCategory=await Category(a);var bCategory=await Category(b);
+        var own=await Create(a,Draft(aCategory.Id));var foreign=await Create(b,Draft(bCategory.Id));var path=Path(a.Id)+"/product-choices";
+        var choice=Assert.Single(await Read<ProductChoice[]>(await owner.PostAsJsonAsync(path,new ProductChoicesRequest([own.Id,foreign.Id]))));
+        Assert.Equal(own.Id,choice.Id);Assert.Equal(ProductStatus.Draft,choice.Status);Assert.Equal(0,choice.PublishedRevision);
+        Assert.Equal(HttpStatusCode.Unauthorized,(await anonymous.PostAsJsonAsync(path,new ProductChoicesRequest([own.Id]))).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden,(await otherOwner.PostAsJsonAsync(path,new ProductChoicesRequest([own.Id]))).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest,(await owner.PostAsJsonAsync(path,new ProductChoicesRequest([own.Id,own.Id]))).StatusCode);
+        Assert.Empty(await Read<ProductChoice[]>(await owner.PostAsJsonAsync(path,new ProductChoicesRequest([]))));
+    }
+    [Fact]
     public async Task Uploaded_images_are_bounded_and_only_current_public_product_references_are_served()
     {
         var b=await fixture.Business();using var owner=b.Client;using var anonymous=fixture.Factory.Client();
@@ -112,10 +125,10 @@ public sealed class CatalogApiTests(CatalogFixture fixture):IClassFixture<Catalo
     [Fact]
     public async Task Collections_filter_published_products_and_bundle_publication_requires_live_components()
     {
-        var b=await fixture.Business();using var client=b.Client;var category=await Category(b);var component=await Publish(b,await Create(b,Draft(category.Id)));
-        var bundleDraft=Draft(category.Id,"spice-bundle","BUNDLE-1") with{Kind=ProductKind.Bundle,BundleItems=[new(component.Variants[0].Id!.Value,2)]};var bundle=await Publish(b,await Create(b,bundleDraft));
-        await Read<JsonElement>(await client.PostAsJsonAsync(Path(b.Id)+"/collections",new CollectionRequest("Bundles","bundles",[bundle.Id])),HttpStatusCode.Created);
-        using var anonymous=fixture.Factory.Client();var page=(await anonymous.GetFromJsonAsync<CatalogPage<ProductView>>(Public(b.Id)+"/products?collection=bundles"))!;Assert.Single(page.Items);Assert.Equal(bundle.Id,page.Items.Single().Id);
+        var b=await fixture.Business();using var client=b.Client;var category=await Category(b);var component=await Publish(b,await Create(b,Draft(category.Id) with{Name="Alpha component"}));
+        var bundleDraft=Draft(category.Id,"spice-bundle","BUNDLE-1") with{Name="Zulu bundle",Kind=ProductKind.Bundle,BundleItems=[new(component.Variants[0].Id!.Value,2)]};var bundle=await Publish(b,await Create(b,bundleDraft));
+        await Read<JsonElement>(await client.PostAsJsonAsync(Path(b.Id)+"/collections",new CollectionRequest("Bundles","bundles",[bundle.Id,component.Id])),HttpStatusCode.Created);
+        using var anonymous=fixture.Factory.Client();var page=(await anonymous.GetFromJsonAsync<CatalogPage<ProductView>>(Public(b.Id)+"/products?collection=bundles"))!;Assert.Equal(new[]{bundle.Id,component.Id},page.Items.Select(p=>p.Id).ToArray());
         Assert.Equal(HttpStatusCode.Conflict,(await client.PostAsJsonAsync(Path(b.Id)+"/products",Draft(category.Id,"nested","BUNDLE-2") with{Kind=ProductKind.Bundle,BundleItems=[new(bundle.Variants[0].Id!.Value,1)]})).StatusCode);
     }
     [Fact]

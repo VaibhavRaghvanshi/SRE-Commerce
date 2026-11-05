@@ -26,6 +26,13 @@ public sealed class CatalogService(ICatalogRepository repository,ICatalogAccess 
         var collections=(await repository.Collections(ct)).Where(c=>!publicRead||!c.Archived).Select(c=>new{c.Id,c.Name,c.Slug,c.Archived,ProductIds=c.Products.Where(p=>p.Active).OrderBy(p=>p.Order).Select(p=>p.ProductId).ToArray(),Version=publicRead?null:Convert.ToBase64String(c.Version)}).ToArray();
         return new{categories,brands,definitions,collections};
     }
+    public async Task<ProductChoice[]> ProductChoices(Guid tenant,Guid[] ids,CancellationToken ct)
+    {
+        await access.Authorize(tenant,ActorPermission.Staff,ct);
+        if(ids is null||ids.Length>200||ids.Any(id=>id==Guid.Empty)||ids.Distinct().Count()!=ids.Length)
+            throw new BusinessFault("InvalidProductChoices",400);
+        return ids.Length==0?[]:await repository.ProductChoices(ids,ct);
+    }
     public async Task<CatalogLookup> Category(Guid tenant,Guid? id,CategoryRequest request,CancellationToken ct)
     {
         await access.Authorize(tenant,ActorPermission.Manager,ct);

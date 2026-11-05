@@ -16,6 +16,8 @@ public sealed class CatalogRepository(CatalogDbContext db,ModuleScope scope,IHtt
     public async Task<IReadOnlyCollection<CategoryAttribute>> Bindings(Guid category,CancellationToken ct)=>await db.Bindings.Where(b=>b.CategoryId==category).ToListAsync(ct);
     private IQueryable<Product> Aggregate()=>db.Products.Include(p=>p.Variants).Include(p=>p.Media).Include(p=>p.BundleItems).Include(p=>p.Relationships).AsSplitQuery();
     public Task<Product?> Product(Guid id,CancellationToken ct)=>Aggregate().SingleOrDefaultAsync(p=>p.Id==id,ct);
+    public Task<ProductChoice[]> ProductChoices(Guid[] ids,CancellationToken ct)=>db.Products.AsNoTracking().Where(p=>ids.Contains(p.Id))
+        .OrderBy(p=>p.Name).ThenBy(p=>p.Id).Select(p=>new ProductChoice(p.Id,p.Name,p.Slug,p.Status,p.PublishedRevision)).ToArrayAsync(ct);
     public Task<ProductVariant?> Variant(Guid id,CancellationToken ct)=>db.Variants.SingleOrDefaultAsync(v=>v.Id==id,ct);
     public async Task<CatalogPage<Product>> Drafts(CatalogQuery query,CancellationToken ct)
     {
@@ -32,7 +34,11 @@ public sealed class CatalogRepository(CatalogDbContext db,ModuleScope scope,IHtt
         var all=Active();if(query.CategoryId is {} category)all=all.Where(p=>p.CategoryId==category);if(query.BrandId is {} brand)all=all.Where(p=>p.BrandId==brand);
         if(!string.IsNullOrWhiteSpace(query.Search))all=all.Where(p=>p.Name.Contains(query.Search)||p.Slug.Contains(query.Search));
         if(!string.IsNullOrWhiteSpace(query.Collection))all=all.Where(p=>db.Collections.Any(c=>c.Slug==query.Collection&&!c.Archived&&c.Products.Any(cp=>cp.ProductId==p.ProductId&&cp.Active)));
-        var total=await all.CountAsync(ct);var rows=await all.OrderBy(p=>p.Name).ThenBy(p=>p.ProductId).Skip((query.Page-1)*query.PageSize).Take(query.PageSize).Select(p=>p.Document).ToListAsync(ct);
+        var ordered=all.OrderBy(p=>p.Name).ThenBy(p=>p.ProductId);
+        if(!string.IsNullOrWhiteSpace(query.Collection))ordered=all.OrderBy(p=>db.Set<CollectionProduct>()
+            .Where(member=>member.ProductId==p.ProductId&&member.Active&&db.Collections.Any(c=>c.Id==member.CollectionId&&c.Slug==query.Collection&&!c.Archived))
+            .Select(member=>member.Order).FirstOrDefault()).ThenBy(p=>p.Name).ThenBy(p=>p.ProductId);
+        var total=await all.CountAsync(ct);var rows=await ordered.Skip((query.Page-1)*query.PageSize).Take(query.PageSize).Select(p=>p.Document).ToListAsync(ct);
         return new(rows.Select(ContractJson.Read<ProductView>).ToArray(),total,query.Page,query.PageSize);
     }
     public async Task<ProductView?> PublishedProduct(string slug,CancellationToken ct)

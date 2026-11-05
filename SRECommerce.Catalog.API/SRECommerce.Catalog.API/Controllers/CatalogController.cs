@@ -16,6 +16,7 @@ public sealed class CatalogController(ICatalogService catalog):ControllerBase
     [HttpPut("attributes/{id:guid}")]public async Task<IActionResult> Attribute(Guid tenant,Guid id,AttributeRequest request,CancellationToken ct)=>Ok(await catalog.Attribute(tenant,id,request,ct));
     [HttpGet("products")]public async Task<IActionResult> Products(Guid tenant,[FromQuery]CatalogQuery query,CancellationToken ct)=>Ok(await catalog.Products(tenant,query,false,ct));
     [HttpGet("products/{id:guid}")]public async Task<IActionResult> Product(Guid tenant,Guid id,CancellationToken ct)=>Ok(await catalog.Product(tenant,id,ct));
+    [HttpPost("product-choices")]public async Task<IActionResult> ProductChoices(Guid tenant,ProductChoicesRequest request,CancellationToken ct)=>Ok(await catalog.ProductChoices(tenant,request.Ids,ct));
     [HttpGet("variants/{id:guid}")]public async Task<IActionResult> Variant(Guid tenant,Guid id,CancellationToken ct)=>Ok(await catalog.PublishedVariantForStaff(tenant,id,ct));
     [HttpGet("shopping-variants")]public async Task<IActionResult> ShoppingVariants(Guid tenant,[FromQuery]Guid[] ids,CancellationToken ct)=>Ok(await catalog.ShoppingVariantIds(tenant,ids,ct));
     [HttpGet("published-skus")]public async Task<IActionResult> PublishedSkus(Guid tenant,[FromQuery]Guid[] ids,CancellationToken ct)=>Ok(await catalog.PublishedSkus(tenant,ids,ct));

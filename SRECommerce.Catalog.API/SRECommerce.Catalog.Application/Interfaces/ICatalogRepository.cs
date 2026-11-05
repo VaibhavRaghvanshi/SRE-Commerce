@@ -9,6 +9,7 @@ public interface ICatalogRepository
     Task<IReadOnlyCollection<AttributeDefinition>> Definitions(CancellationToken ct);
     Task<IReadOnlyCollection<CategoryAttribute>> Bindings(Guid category,CancellationToken ct);
     Task<Product?> Product(Guid id,CancellationToken ct);
+    Task<ProductChoice[]> ProductChoices(Guid[] ids,CancellationToken ct);
     Task<ProductVariant?> Variant(Guid id,CancellationToken ct);
     Task<CatalogPage<Product>> Drafts(CatalogQuery query,CancellationToken ct);
     Task<CatalogPage<ProductView>> Published(CatalogQuery query,CancellationToken ct);

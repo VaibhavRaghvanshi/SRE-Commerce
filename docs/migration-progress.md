@@ -1,5 +1,13 @@
 # SRECommerce migration progress
 
+## Catalog administration checkpoint — 2026-11-05
+
+Category hierarchy/edit/archive/restore, versioned brand editing and ordered collections now have complete merchant controls. The collection picker searches the owning catalog across pages, resolves saved membership labels through a bounded staff-only batch endpoint, and supports add/remove/reorder. Public collection pages now honor the configured order. Gallery images can be removed/reordered in the draft, and the product form enforces its client validation before save.
+
+Catalog passed **23 SQL/API cases** including cross-tenant draft lookup denial and configured collection ordering. Angular optimized build and **51 tests** passed. Real native Chrome passed **six checks** for category hierarchy, brand creation/editing, public collection order, scoped label reload, brand archive/restore visibility and mobile width. Its uniquely labelled products, collection, brand and child/parent categories were archived after verification. No original data or database schema changed in this follow-up. The first post-suspension preflight timed out; the owned UI helper was restarted and the subsequent complete flow passed with production timeouts unchanged.
+
+The earlier account/media/messaging checkpoint was pushed as `a66a385`. Publishing/deployment and deferred runtime credentials remain held. Broader B2B/platform work and full runtime acceptance remain open.
+
 ## Current checkpoint — accounts, reporting, media and messaging, 2026-11-04
 
 The existing **75-project / fourteen-service** structure is unchanged. This batch adds substantive backend, Angular and SQL code for:
