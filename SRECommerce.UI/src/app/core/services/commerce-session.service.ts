@@ -46,12 +46,17 @@ export class CommerceSessionService {
     this.access.set(access);
     const state = user.state as { returnTo?: string } | undefined;
     const path = state?.returnTo || '';
-    return ['/commerce/account','/businesses','/platform/workspace'].includes(path) || /^\/workspace\/[a-f0-9-]{36}\/(catalog|inventory|pricing|orders|payments|shipping|notifications|manufacturing|discovery|theme|storefront|settings|reports)$/i.test(path) || /^\/stores\/[a-z0-9-]{1,80}\/(cart|orders|notifications|account|products\/[a-z0-9-]{1,160})$/.test(path) ? path : '/';
+    return ['/commerce/account','/businesses','/platform/workspace'].includes(path) || /^\/workspace\/[a-f0-9-]{36}\/(catalog|inventory|pricing|orders|payments|shipping|notifications|manufacturing|discovery|theme|storefront|settings|reports)$/i.test(path) || /^\/stores\/[a-z0-9-]{1,80}(?:\/(cart|orders|notifications|account|products\/[a-z0-9-]{1,160}))?$/.test(path) ? path : '/';
   }
   async signInProduct(tenant: string, slug: string, product: string) {
     if (!/^[a-f0-9-]{36}$/i.test(tenant) || !/^[a-z0-9-]{1,80}$/.test(slug) || !/^[a-z0-9-]{1,160}$/.test(product)) throw new Error('Choose a valid product.');
     this.error.set('');
     await this.client().signinRedirect({ extraQueryParams: { tenant_id: tenant }, state: { returnTo: '/stores/' + slug + '/products/' + product } });
+  }
+  async signInShop(tenant: string, slug: string) {
+    if (!/^[a-f0-9-]{36}$/i.test(tenant) || !/^[a-z0-9-]{1,80}$/.test(slug)) throw new Error('Choose a valid store.');
+    this.error.set('');
+    await this.client().signinRedirect({ extraQueryParams: { tenant_id: tenant }, state: { returnTo: '/stores/' + slug } });
   }
   async signInPortal(area: 'account' | 'businesses' | 'platform') {
     const returnTo = area === 'account' ? '/commerce/account' : area === 'businesses' ? '/businesses' : '/platform/workspace';

@@ -15,10 +15,10 @@ public sealed class MediaAssetRepository(CatalogDbContext db, ModuleScope scope,
     }
     public async Task<long> Bytes(CancellationToken ct) => await db.Assets.SumAsync(row => (long?)row.Length, ct) ?? 0;
     public Task<MediaAsset?> Asset(Guid id, CancellationToken ct) => db.Assets.AsNoTracking().SingleOrDefaultAsync(row => row.Id == id, ct);
-    public Task<bool> PublicReference(Guid tenant, string url, CancellationToken ct) => db.Database.SqlQuery<bool>($"""
+    public Task<bool> PublishedReference(Guid tenant, string url, CancellationToken ct, bool includeB2B=false) => db.Database.SqlQuery<bool>($"""
         SELECT CAST(CASE WHEN EXISTS (
           SELECT 1 FROM ProductPublications pp INNER JOIN Products p ON p.TenantId=pp.TenantId AND p.Id=pp.ProductId AND p.PublishedRevision=pp.Revision
-          WHERE pp.TenantId={tenant} AND pp.Visible=1 AND pp.B2BOnly=0 AND p.Status<>2
+          WHERE pp.TenantId={tenant} AND pp.Visible=1 AND ({includeB2B}=1 OR pp.B2BOnly=0) AND p.Status<>2
           AND EXISTS (SELECT 1 FROM Categories category WHERE category.TenantId=pp.TenantId AND category.Id=pp.CategoryId AND category.Archived=0)
           AND (pp.BrandId IS NULL OR EXISTS (SELECT 1 FROM Brands brand WHERE brand.TenantId=pp.TenantId AND brand.Id=pp.BrandId AND brand.Archived=0))
           AND EXISTS (

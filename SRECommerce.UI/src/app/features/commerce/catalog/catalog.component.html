@@ -1,6 +1,8 @@
 <main class="commerce-store" [commerceAppearance]="tenant()" #look="commerceAppearance">
   <header class="store-heading" [class.sticky]="look.layout()?.header?.sticky">
     <a routerLink="/" class="platform">SRECommerce</a>
+    <button *ngIf="tenant() && (!session.token || session.access()?.selectedTenantId !== tenant()!.tenantId)" type="button" (click)="signIn()">Business buyer sign in</button>
+    <span *ngIf="session.token && session.access()?.selectedTenantId === tenant()?.tenantId">{{session.access()?.tenantRole==='B2BBuyer'?'Wholesale buyer catalog':'Member catalog'}} <button type="button" (click)="session.signOut()">Sign out</button></span>
     <div><p class="eyebrow">{{ tenant()?.businessType || 'Independent stores' }}</p><h1>{{ tenant()?.displayName || 'Browse the store' }}</h1></div>
     <a class="workspace-link" [routerLink]="['/workspace', tenant()?.tenantId || '', 'catalog']" *ngIf="tenant()">Manage catalog</a>
     <a class="workspace-link" [routerLink]="['/stores',tenant()!.slug,'account']" *ngIf="tenant()?.modules?.includes('cart')">Your account</a>
@@ -22,7 +24,8 @@
     <div class="results-line"><p>{{ result().total }} products</p><span>Page {{ result().page }} of {{ pages() }}</span></div>
     <div class="state" *ngIf="!result().items.length"><h3>No products found</h3><p>Try another search or check back when this store publishes new products.</p><button type="button" (click)="reset()">Clear filters</button></div>
     <section class="product-grid" aria-label="Products"><article *ngFor="let product of result().items">
-      <a [routerLink]="['/stores', tenant()!.slug, 'products', product.slug]" class="product-image"><img *ngIf="product.media.length; else noImage" [src]="product.media[0].url" [alt]="product.media[0].alt || product.name" loading="lazy" /><ng-template #noImage><span class="image-placeholder">{{ product.name.slice(0, 2).toUpperCase() }}</span></ng-template></a>
+      <a [routerLink]="['/stores', tenant()!.slug, 'products', product.slug]" class="product-image"><img *ngIf="product.media.length; else noImage" [commerceImage]="product.media[0].url" [imageTenant]="tenant()!.tenantId" [alt]="product.media[0].alt || product.name" loading="lazy" /><ng-template #noImage><span class="image-placeholder">{{ product.name.slice(0, 2).toUpperCase() }}</span></ng-template></a>
+      <p class="product-kind" *ngIf="product.b2BOnly">Wholesale · members only</p>
       <p class="product-kind">{{ product.kind === 2 ? 'Bundle' : product.variants.length > 1 ? product.variants.length + ' variants' : 'Selected for you' }}</p>
       <h3><a [routerLink]="['/stores', tenant()!.slug, 'products', product.slug]">{{ product.name }}</a></h3>
       <p class="description">{{ product.description }}</p><a class="details-link" [routerLink]="['/stores', tenant()!.slug, 'products', product.slug]">View details <span aria-hidden="true">↗</span></a>

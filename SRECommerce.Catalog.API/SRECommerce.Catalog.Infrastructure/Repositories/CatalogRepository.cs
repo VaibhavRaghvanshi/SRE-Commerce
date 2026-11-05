@@ -29,9 +29,9 @@ public sealed class CatalogRepository(CatalogDbContext db,ModuleScope scope,IHtt
         join product in db.Products.AsNoTracking() on new{snapshot.TenantId,Id=snapshot.ProductId,Revision=snapshot.Revision} equals new{product.TenantId,product.Id,Revision=product.PublishedRevision}
         where product.Status!=ProductStatus.Archived&&snapshot.Visible&&(b2b||!snapshot.B2BOnly)&&db.Categories.Any(c=>c.Id==snapshot.CategoryId&&!c.Archived)&&(snapshot.BrandId==null||db.Brands.Any(b=>b.Id==snapshot.BrandId&&!b.Archived))
         select snapshot;
-    public async Task<CatalogPage<ProductView>> Published(CatalogQuery query,CancellationToken ct)
+    public async Task<CatalogPage<ProductView>> Published(CatalogQuery query,CancellationToken ct,bool includeB2B=false)
     {
-        var all=Active();if(query.CategoryId is {} category)all=all.Where(p=>p.CategoryId==category);if(query.BrandId is {} brand)all=all.Where(p=>p.BrandId==brand);
+        var all=Active(includeB2B);if(query.CategoryId is {} category)all=all.Where(p=>p.CategoryId==category);if(query.BrandId is {} brand)all=all.Where(p=>p.BrandId==brand);
         if(!string.IsNullOrWhiteSpace(query.Search))all=all.Where(p=>p.Name.Contains(query.Search)||p.Slug.Contains(query.Search));
         if(!string.IsNullOrWhiteSpace(query.Collection))all=all.Where(p=>db.Collections.Any(c=>c.Slug==query.Collection&&!c.Archived&&c.Products.Any(cp=>cp.ProductId==p.ProductId&&cp.Active)));
         var ordered=all.OrderBy(p=>p.Name).ThenBy(p=>p.ProductId);
@@ -41,8 +41,8 @@ public sealed class CatalogRepository(CatalogDbContext db,ModuleScope scope,IHtt
         var total=await all.CountAsync(ct);var rows=await ordered.Skip((query.Page-1)*query.PageSize).Take(query.PageSize).Select(p=>p.Document).ToListAsync(ct);
         return new(rows.Select(ContractJson.Read<ProductView>).ToArray(),total,query.Page,query.PageSize);
     }
-    public async Task<ProductView?> PublishedProduct(string slug,CancellationToken ct)
-    {var json=await Active().Where(p=>p.Slug==slug).Select(p=>p.Document).SingleOrDefaultAsync(ct);return json is null?null:ContractJson.Read<ProductView>(json);}
+    public async Task<ProductView?> PublishedProduct(string slug,CancellationToken ct,bool includeB2B=false)
+    {var json=await Active(includeB2B).Where(p=>p.Slug==slug).Select(p=>p.Document).SingleOrDefaultAsync(ct);return json is null?null:ContractJson.Read<ProductView>(json);}
     public async Task<ProductView?> PublishedVariant(Guid id,CancellationToken ct)
     {
         var json=await(from variant in db.Variants.AsNoTracking() join snapshot in Active(true) on new{variant.TenantId,Id=variant.ProductId} equals new{snapshot.TenantId,Id=snapshot.ProductId} where variant.Id==id select snapshot.Document).SingleOrDefaultAsync(ct);
@@ -63,9 +63,9 @@ public sealed class CatalogRepository(CatalogDbContext db,ModuleScope scope,IHtt
         var documents=await(from variant in db.Variants.AsNoTracking() join snapshot in Active(includeB2B) on new{variant.TenantId,Id=variant.ProductId} equals new{snapshot.TenantId,Id=snapshot.ProductId} where ids.Contains(variant.Id) select snapshot.Document).Distinct().ToListAsync(ct);
         return documents.Select(ContractJson.Read<ProductView>).Where(p=>p.Variants.Any(v=>v.Active&&v.Id is {} id&&ids.Contains(id))).ToArray();
     }
-    public async Task<ProductView[]> PublicProductsById(Guid[] productIds,CancellationToken ct)
+    public async Task<ProductView[]> PublicProductsById(Guid[] productIds,CancellationToken ct,bool includeB2B=false)
     {
-        var rows=await Active().Where(p=>productIds.Contains(p.ProductId)).Select(p=>p.Document).ToArrayAsync(ct);
+        var rows=await Active(includeB2B).Where(p=>productIds.Contains(p.ProductId)).Select(p=>p.Document).ToArrayAsync(ct);
         return rows.Select(ContractJson.Read<ProductView>).ToArray();
     }
     public async Task<IReadOnlyCollection<ProductCollection>> Collections(CancellationToken ct)=>await db.Collections.Include(c=>c.Products).OrderBy(c=>c.Name).ToListAsync(ct);

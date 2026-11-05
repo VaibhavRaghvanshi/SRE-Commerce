@@ -23,4 +23,11 @@ public sealed class MediaAssetsController(MediaAssetService assets) : Controller
         Response.Headers["Content-Security-Policy"] = "default-src 'none'; sandbox";
         return File(asset.Stream, asset.ContentType, enableRangeProcessing: false);
     }
+    [Authorize, HttpGet("api/v1/tenants/{tenant:guid}/catalog/buyer/media/{id:guid}")]
+    public async Task<IActionResult> Buyer(Guid tenant, Guid id, CancellationToken ct)
+    {
+        var asset = await assets.Buyer(tenant, id, ct);
+        Response.Headers["Content-Security-Policy"] = "default-src 'none'; sandbox";
+        return File(asset.Stream, asset.ContentType, enableRangeProcessing: false);
+    }
 }

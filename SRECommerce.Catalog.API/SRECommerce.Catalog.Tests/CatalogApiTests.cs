@@ -25,6 +25,21 @@ public sealed class CatalogApiTests(CatalogFixture fixture):IClassFixture<Catalo
         Assert.Empty(await Read<ProductChoice[]>(await owner.PostAsJsonAsync(path,new ProductChoicesRequest([]))));
     }
     [Fact]
+    public async Task Member_catalog_returns_only_published_audience_eligible_snapshots()
+    {
+        var b=await fixture.Business();using var owner=b.Client;using var anonymous=fixture.Factory.Client();
+        var category=await Category(b);var product=await Publish(b,await Create(b,Draft(category.Id) with{B2BOnly=true}));
+        var buyer=Path(b.Id)+"/buyer";
+        Assert.Empty((await anonymous.GetFromJsonAsync<CatalogPage<ProductView>>(Public(b.Id)+"/products"))!.Items);
+        Assert.Equal(HttpStatusCode.Unauthorized,(await anonymous.GetAsync(buyer+"/products")).StatusCode);
+        var published=Assert.Single((await owner.GetFromJsonAsync<CatalogPage<ProductView>>(buyer+"/products"))!.Items);
+        Assert.Equal(product.Id,published.Id);Assert.Null(published.Version);Assert.True(published.B2BOnly);
+        Assert.Equal(product.Id,(await owner.GetFromJsonAsync<ProductView>(buyer+"/products/"+product.Slug))!.Id);
+        Assert.Single((await owner.GetFromJsonAsync<ProductView[]>(buyer+"/published-products?ids="+product.Id))!);
+        _=await Read<ProductView>(await owner.PutAsJsonAsync(Path(b.Id)+"/products/"+product.Id,Edit(product) with{Name="Unpublished private edit"}));
+        Assert.Equal(product.Name,(await owner.GetFromJsonAsync<ProductView>(buyer+"/products/"+product.Slug))!.Name);
+    }
+    [Fact]
     public async Task Uploaded_images_are_bounded_and_only_current_public_product_references_are_served()
     {
         var b=await fixture.Business();using var owner=b.Client;using var anonymous=fixture.Factory.Client();
@@ -43,6 +58,12 @@ public sealed class CatalogApiTests(CatalogFixture fixture):IClassFixture<Catalo
         Assert.Equal(HttpStatusCode.NotFound,(await anonymous.GetAsync(publicPath)).StatusCode);
         _=await Read<CatalogLookup>(await owner.PutAsJsonAsync(Path(b.Id)+"/categories/"+category.Id,new CategoryRequest(category.Name,category.Slug,null,category.Version,false)));
         Assert.Equal(HttpStatusCode.OK,(await anonymous.GetAsync(publicPath)).StatusCode);
+        product=await Read<ProductView>(await owner.PutAsJsonAsync(Path(b.Id)+"/products/"+product.Id,Edit(product) with{B2BOnly=true}));
+        product=await Publish(b,product);
+        Assert.Equal(HttpStatusCode.NotFound,(await anonymous.GetAsync(publicPath)).StatusCode);
+        var privatePath=Path(b.Id)+"/buyer/media/"+asset.Id;
+        Assert.Equal(HttpStatusCode.Unauthorized,(await anonymous.GetAsync(privatePath)).StatusCode);
+        using var privateImage=await owner.GetAsync(privatePath);Assert.Equal(HttpStatusCode.OK,privateImage.StatusCode);Assert.Equal(png,await privateImage.Content.ReadAsByteArrayAsync());
         var other=await fixture.Business();using var otherOwner=other.Client;var otherCategory=await Category(other);
         Assert.Equal(HttpStatusCode.BadRequest,(await otherOwner.PostAsJsonAsync(Path(other.Id)+"/products",Draft(otherCategory.Id) with{Media=[new(null,asset.Url,"Foreign asset",1)]})).StatusCode);
         using var invalid=new MultipartFormDataContent();invalid.Add(new ByteArrayContent(System.Text.Encoding.UTF8.GetBytes(new string('x',70))),"file","script.png");

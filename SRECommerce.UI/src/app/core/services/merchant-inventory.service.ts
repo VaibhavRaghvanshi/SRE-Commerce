@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { timeout } from 'rxjs';
+import { CommerceSessionService } from './commerce-session.service';
 export interface StockBranch { id:string;code:string;name:string;active:boolean;version:string; }
 export interface StockWarehouse extends StockBranch { branchId:string; }
 export interface StockItem { id:string;productId:string;sku:string;barcode:string|null;reorderLevel:number;version:string; }
@@ -12,6 +13,7 @@ export interface StockPurchase { id:string;supplierId:string;warehouseId:string;
 @Injectable({providedIn:'root'})
 export class MerchantInventoryService {
   private readonly http=inject(HttpClient);
+  private readonly session=inject(CommerceSessionService);
   private base(tenant:string){return '/commerce/inventory/tenants/'+encodeURIComponent(tenant)+'/inventory';}
   private options(reason:string){return{headers:reason.trim()?new HttpHeaders({'X-Support-Reason':reason.trim()}):new HttpHeaders()};}
   lookups(tenant:string,reason:string){return this.http.get<InventoryLookups>(this.base(tenant)+'/lookups',this.options(reason)).pipe(timeout(15000));}
@@ -19,5 +21,5 @@ export class MerchantInventoryService {
   purchases(tenant:string,reason:string){return this.http.get<StockPurchase[]>(this.base(tenant)+'/purchases',this.options(reason)).pipe(timeout(15000));}
   movements(tenant:string,balance:string,reason:string){return this.http.get<{action:number;onHandDelta:number;reservedDelta:number;damagedDelta:number;reason:string;occurredAt:string}[]>(this.base(tenant)+'/movements',{...this.options(reason),params:{balance}}).pipe(timeout(15000));}
   post<T>(tenant:string,path:string,value:unknown,reason:string){return this.http.post<T>(this.base(tenant)+'/'+path,value,this.options(reason));}
-  availability(tenant:string,variant:string){return this.http.get<{variantId:string;available:number;lowStock:boolean;tracked:boolean}[]>('/commerce/inventory/public/tenants/'+encodeURIComponent(tenant)+'/inventory/availability',{params:{variants:variant}}).pipe(timeout(15000));}
+  availability(tenant:string,variant:string){const audience=this.session.token&&this.session.access()?.selectedTenantId===tenant?'':'public/';return this.http.get<{variantId:string;available:number;lowStock:boolean;tracked:boolean}[]>('/commerce/inventory/'+audience+'tenants/'+encodeURIComponent(tenant)+'/inventory/availability',{params:{variants:variant}}).pipe(timeout(15000));}
 }

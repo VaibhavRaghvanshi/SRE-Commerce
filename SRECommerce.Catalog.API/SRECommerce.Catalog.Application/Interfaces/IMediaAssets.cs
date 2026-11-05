@@ -7,7 +7,7 @@ public interface IMediaAssetRepository
     Task<T> Transaction<T>(Func<CancellationToken, Task<T>> action, CancellationToken ct);
     Task<long> Bytes(CancellationToken ct);
     Task<MediaAsset?> Asset(Guid id, CancellationToken ct);
-    Task<bool> PublicReference(Guid tenant, string url, CancellationToken ct);
+    Task<bool> PublishedReference(Guid tenant, string url, CancellationToken ct, bool includeB2B=false);
     Task Save(MediaAsset asset, CancellationToken ct);
 }
 public interface IMediaAssetStorage

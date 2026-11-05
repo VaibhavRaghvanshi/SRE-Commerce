@@ -209,6 +209,16 @@ public sealed class CatalogService(ICatalogRepository repository,ICatalogAccess 
     {await access.Authorize(tenant,ActorPermission.Manager,ct);await repository.Transaction(async token=>{var value=await repository.Product(id,token)??throw new BusinessFault("ProductNotFound",404);repository.Version(value,version);value.Status=ProductStatus.Archived;value.UpdatedAt=DateTimeOffset.UtcNow;await repository.Commit("catalog.product.archived",id,new{productId=id,archived=true},token);return true;},ct);}
     public async Task<ProductView> PublicProduct(Guid tenant,string slug,CancellationToken ct)
     {await access.Public(tenant,ct);return await repository.PublishedProduct(CatalogRules.Slug(slug),ct)??throw new BusinessFault("PublishedProductNotFound",404);}
+    public async Task<CatalogPage<ProductView>> BuyerProducts(Guid tenant,CatalogQuery query,CancellationToken ct)
+    {Query(query);await access.Authorize(tenant,ActorPermission.Customer,ct);return await repository.Published(query,ct,access.CanViewB2B);}
+    public async Task<ProductView> BuyerProduct(Guid tenant,string slug,CancellationToken ct)
+    {await access.Authorize(tenant,ActorPermission.Customer,ct);return await repository.PublishedProduct(CatalogRules.Slug(slug),ct,access.CanViewB2B)??throw new BusinessFault("PublishedProductNotFound",404);}
+    public async Task<ProductView[]> BuyerProductsById(Guid tenant,Guid[] ids,CancellationToken ct)
+    {
+        await access.Authorize(tenant,ActorPermission.Customer,ct);
+        if(ids is null||ids.Length is <1 or >50||ids.Any(id=>id==Guid.Empty)||ids.Distinct().Count()!=ids.Length)throw new BusinessFault("InvalidPublishedProductsQuery",400);
+        return await repository.PublicProductsById(ids,ct,access.CanViewB2B);
+    }
     public async Task<ProductView> SellableVariant(Guid tenant,Guid id,CancellationToken ct)
     {await access.Machine(tenant,["Inventory","Pricing","Cart","Order","Manufacturing","Discovery"],ct);return await repository.PublishedVariant(id,ct)??throw new BusinessFault("VariantNotSellable",404);}
     public async Task<ProductView[]> SellableProducts(Guid tenant,Guid[] ids,CancellationToken ct)

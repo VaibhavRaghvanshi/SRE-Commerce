@@ -126,7 +126,15 @@ public sealed class CartApiTests(CartFixture fixture):IClassFixture<CartFixture>
   p=await Read<SRECommerce.Catalog.Application.ProductView>(await catalog.PutAsJsonAsync(cp+$"/products/{p.Id}",draft));await Read<SRECommerce.Catalog.Application.ProductView>(await catalog.PostAsJsonAsync(cp+$"/products/{p.Id}/publish",new SRECommerce.Catalog.Application.VersionRequest(p.Version!)));
   using var guest=fixture.Factory.Client(capability:Key());var gc=await Create(guest,b.Catalog.Id,true);Assert.Equal(HttpStatusCode.Conflict,(await guest.PutAsJsonAsync(Path(b.Catalog.Id,true)+$"/{gc.Id}/items",new CartItemRequest(Guid.NewGuid(),b.Variant,1,gc.Version))).StatusCode);
   var ordinary=await fixture.Pricing.Customer(b);using var ordinaryPricing=ordinary.Client;using var customer=fixture.Factory.Client(ordinary.Client.DefaultRequestHeaders.Authorization!.Parameter);var cc=await Create(customer,b.Catalog.Id);Assert.Equal(HttpStatusCode.Conflict,(await customer.PutAsJsonAsync(Path(b.Catalog.Id)+$"/{cc.Id}/items",new CartItemRequest(Guid.NewGuid(),b.Variant,1,cc.Version))).StatusCode);
+  using var ordinaryCatalog=fixture.Pricing.Catalog.Factory.Client(ordinary.Client.DefaultRequestHeaders.Authorization!.Parameter);
+  Assert.Empty((await ordinaryCatalog.GetFromJsonAsync<SRECommerce.Catalog.Application.CatalogPage<SRECommerce.Catalog.Application.ProductView>>(cp+"/buyer/products"))!.Items);
+  Assert.Equal(HttpStatusCode.NotFound,(await ordinaryCatalog.GetAsync(cp+"/buyer/products/"+p.Slug)).StatusCode);
   var buyer=await fixture.Pricing.Customer(b,"B2BBuyer");using var buyerPricing=buyer.Client;using var buyerCart=fixture.Factory.Client(buyer.Client.DefaultRequestHeaders.Authorization!.Parameter);var bc=await Set(buyerCart,b.Catalog.Id,await Create(buyerCart,b.Catalog.Id),b.Variant,1);
+  using var buyerCatalog=fixture.Pricing.Catalog.Factory.Client(buyer.Client.DefaultRequestHeaders.Authorization!.Parameter);
+  Assert.Equal(b.Product,Assert.Single((await buyerCatalog.GetFromJsonAsync<SRECommerce.Catalog.Application.CatalogPage<SRECommerce.Catalog.Application.ProductView>>(cp+"/buyer/products"))!.Items).Id);
+  var account=$"/api/v1/tenants/{b.Catalog.Id}/cart/account";
+  Assert.True((await Read<SavedProductView>(await buyerCart.PutAsJsonAsync(account+"/products/0/"+b.Product,new SavedProductInput(true,null)))).Available);
+  Assert.Single((await buyerCart.GetFromJsonAsync<SavedProductPage>(account+"/products/0"))!.Items);
   var preview=await Read<CartPreview>(await buyerCart.PostAsJsonAsync(Path(b.Catalog.Id)+$"/{bc.Id}/preview",new CartPreviewRequest(Guid.NewGuid())));Assert.True(preview.CanPrepare);Assert.Equal(100,preview.Quote.Calculation.Total);
   using var identity=fixture.Pricing.Catalog.Tenant.Identity.Factory.Client();identity.DefaultRequestHeaders.Authorization=new("Bearer",b.Catalog.Token);Assert.Equal(HttpStatusCode.NoContent,(await identity.PutAsJsonAsync($"/api/v1/tenants/{b.Catalog.Id}/memberships/{buyer.Id}",new SRECommerce.Identity.Application.MembershipRequest(buyer.Id,"Customer"))).StatusCode);
   // Identity revokes existing sessions when a membership role changes.

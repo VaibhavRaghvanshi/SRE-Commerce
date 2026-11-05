@@ -1,4 +1,4 @@
-import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -8,12 +8,15 @@ import { CommerceCatalogService } from '../../../core/services/commerce-catalog.
 import { CommerceLookups, CommercePage, CommerceProduct, CommerceTenant } from '../../../core/models/commerce.models';
 import { StoreAppearanceDirective } from '../presentation/store-appearance.directive';
 import { StorefrontBlocksComponent } from '../presentation/storefront-blocks.component';
+import { CommerceSessionService } from '../../../core/services/commerce-session.service';
+import { CommerceImageDirective } from '../../../core/directives/commerce-image.directive';
 
 @Component({
-  selector: 'app-commerce-catalog', standalone: true, imports: [CommonModule, FormsModule, RouterLink, StoreAppearanceDirective, StorefrontBlocksComponent],
+  selector: 'app-commerce-catalog', standalone: true, imports: [CommonModule, FormsModule, RouterLink, StoreAppearanceDirective, StorefrontBlocksComponent, CommerceImageDirective],
   templateUrl: './catalog.component.html', styleUrl: './catalog.component.scss'
 })
 export class CommerceCatalogComponent {
+  readonly session = inject(CommerceSessionService);
   private readonly api = inject(CommerceCatalogService);
   private readonly route = inject(ActivatedRoute);
   private readonly destroy = inject(DestroyRef);
@@ -29,6 +32,13 @@ export class CommerceCatalogComponent {
   search = ''; category = ''; brand = ''; collection = '';
 
   constructor() {
+    let previousAudience: string | undefined;
+    effect(() => {
+      const actor = this.session.access();
+      const audience = this.session.token ? [actor?.userId, actor?.selectedTenantId, actor?.tenantRole].join(':') : 'guest';
+      if (previousAudience !== undefined && previousAudience !== audience) this.restart.next(this.route.snapshot.paramMap.get('slug') || '');
+      previousAudience = audience;
+    });
     this.queries.pipe(
       tap(() => { this.loading.set(true); this.error.set(''); }),
       switchMap(query => this.api.products(this.tenant()!.tenantId, query.page, query.search, query.category, query.brand, query.collection)
@@ -56,4 +66,5 @@ export class CommerceCatalogComponent {
     this.queries.next({ page, search: this.search.trim(), category: this.category, brand: this.brand, collection: this.collection });
   }
   reset() { this.search = ''; this.category = ''; this.brand = ''; this.collection = ''; this.reload(1); }
+  async signIn() { const tenant = this.tenant(); if (tenant) try { await this.session.signInShop(tenant.tenantId, tenant.slug); } catch { this.error.set('Buyer sign-in could not be started.'); } }
 }

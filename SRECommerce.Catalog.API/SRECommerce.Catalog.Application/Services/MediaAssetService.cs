@@ -28,7 +28,15 @@ public sealed class MediaAssetService(IMediaAssetRepository assets, IMediaAssetS
     {
         await access.Public(tenant, ct);
         var asset = await assets.Asset(id, ct);
-        if (asset is null || !await assets.PublicReference(tenant, Url(tenant, id), ct)) throw new BusinessFault("MediaNotFound", 404);
+        if (asset is null || !await assets.PublishedReference(tenant, Url(tenant, id), ct)) throw new BusinessFault("MediaNotFound", 404);
+        var stream = await storage.Read(tenant, id, ct) ?? throw new BusinessFault("MediaNotFound", 404);
+        return new(stream, asset.ContentType);
+    }
+    public async Task<MediaAssetContent> Buyer(Guid tenant, Guid id, CancellationToken ct)
+    {
+        await access.Authorize(tenant, ActorPermission.Customer, ct);
+        var asset = await assets.Asset(id, ct);
+        if (asset is null || !await assets.PublishedReference(tenant, Url(tenant, id), ct, access.CanViewB2B)) throw new BusinessFault("MediaNotFound", 404);
         var stream = await storage.Read(tenant, id, ct) ?? throw new BusinessFault("MediaNotFound", 404);
         return new(stream, asset.ContentType);
     }

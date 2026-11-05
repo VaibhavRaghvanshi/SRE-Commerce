@@ -1,5 +1,17 @@
 # SRECommerce migration progress
 
+## Member and wholesale storefront checkpoint — 2026-11-05
+
+Catalog now exposes authenticated, tenant-scoped buyer publication/list/detail/batch/image routes. Owner/Manager/B2BBuyer membership can see eligible wholesale publications; ordinary customers cannot. Public routes still exclude wholesale products/images and private drafts. Cart wishlist/recent reconciliation delegates the requesting user's bearer to the buyer publication route. Angular adds normal storefront PKCE sign-in, member catalog reload on audience change, protected image blobs with logout revocation, and authenticated price/stock previews for the selected store. No SQL schema change or runtime credential provisioning was needed.
+
+Final verification passed: **75-project backend build with zero warnings/errors**, **Catalog 24 SQL/API cases**, **Cart 24 SQL/API cases**, **Angular optimized build and 56 Chrome tests**. The first Catalog run had one setup 401 during host interruption and a focused attempt lost its SQL transport; both failure logs were retained. The subsequent full Catalog/Cart runs passed. One earlier Angular run lost its browser connection during host suspension; the final full run passed all 56 cases, with a browser process cleanup warning retained in its log. Production authentication/timeouts were not weakened.
+
+The local SQL endpoint was positively identified as **`Vaibhav\MSSQL22`, TCP localhost:1433**, containing all fourteen main databases. The separate default `MSSQLSERVER` service is stopped; checking that service alone is not a valid project connectivity test. No service was reconfigured. Original SQLite SHA256 remains `FC6D183D231508E14F9505523DE86B94B6891AF18E55692D144F27932AAEFE01`.
+
+The new [native buyer browser verifier](../scripts/verify-buyer-catalog-browser.mjs) is prepared and syntax-checked. **It has not been run:** automatic approval review rejected the local API/UI launch with only `blocked by policy` supplied. No main buyer verification records or new image files were created by that rejected launch. See the [buyer catalog runbook](runbooks/buyer-catalog.md). Earlier category/account browser evidence remains valid for those earlier batches, not for this new private buyer flow.
+
+All fourteen service source trees and owned schemas exist, but the complete master prompt is **not finished**. Advanced platform analytics/service health visibility, remaining customer/admin refinements, deferred runtime credentials and full integrated runtime acceptance remain open. No application was published or deployed.
+
 ## Catalog administration checkpoint — 2026-11-05
 
 Category hierarchy/edit/archive/restore, versioned brand editing and ordered collections now have complete merchant controls. The collection picker searches the owning catalog across pages, resolves saved membership labels through a bounded staff-only batch endpoint, and supports add/remove/reorder. Public collection pages now honor the configured order. Gallery images can be removed/reordered in the draft, and the product form enforces its client validation before save.

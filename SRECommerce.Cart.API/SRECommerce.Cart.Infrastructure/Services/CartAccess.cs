@@ -24,7 +24,7 @@ public sealed class CartAccess(ModuleAccess access,ModuleScope scope,RemoteAcces
  }
  public async Task<CartCatalogProduct[]> PublishedProducts(Guid tenant,Guid[] products,CancellationToken ct)
  {
-  using var request=new HttpRequestMessage(HttpMethod.Get,Prefix(tenant,true)+"catalog/published-products?"+string.Join("&",products.Select(id=>"ids="+id)));
+  using var request=new HttpRequestMessage(HttpMethod.Get,Prefix(tenant,false)+"catalog/buyer/published-products?"+string.Join("&",products.Select(id=>"ids="+id)));Delegate(request,false);
   return await Send<CartCatalogProduct[]>("catalog",request,ct);
  }
  public async Task<CartStock[]> Availability(Guid tenant,Guid[] variants,bool guest,CancellationToken ct)
