@@ -36,6 +36,11 @@ export const routes: Routes = [
   // PUBLIC PAGES
   {
     path: '',
+    pathMatch: 'full',
+    loadComponent: () => import('./features/commerce/home/platform-home.component').then(m => m.PlatformHomeComponent)
+  },
+  {
+    path: 'legacy-home',
     loadComponent: () =>
       import('./features/public/home/home.component').then(m => m.HomeComponent)
   },

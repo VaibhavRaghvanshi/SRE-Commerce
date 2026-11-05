@@ -28,6 +28,8 @@ export class CommerceCatalogComponent {
   readonly result = signal<CommercePage<CommerceProduct>>({ items: [], total: 0, page: 1, pageSize: 24 });
   readonly loading = signal(true);
   readonly error = signal('');
+  readonly failedImages = signal<string[]>([]);
+  imageFailed(id: string) { this.failedImages.update(rows => rows.includes(id) ? rows : [...rows, id]); }
   readonly pages = computed(() => Math.max(1, Math.ceil(this.result().total / 24)));
   search = ''; category = ''; brand = ''; collection = '';
 

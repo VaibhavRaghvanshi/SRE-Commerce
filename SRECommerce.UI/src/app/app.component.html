@@ -1,3 +1,9 @@
 <app-header *ngIf="!isAdminRoute"></app-header>
+<a class="commerce-skip" *ngIf="isCommerceRoute" href="#commerce-content" (click)="focusContent($event)">Skip to content</a>
+@defer (when !!workspaceTenant) {
+  <app-workspace-nav *ngIf="workspaceTenant" [tenant]="workspaceTenant" />
+}
+<div id="commerce-content" class="commerce-content" [class.modern-content]="isCommerceRoute" tabindex="-1">
 <router-outlet></router-outlet>
+</div>
 <app-shop-chat *ngIf="!isCommerceRoute"></app-shop-chat>

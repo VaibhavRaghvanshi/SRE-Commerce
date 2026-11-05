@@ -31,7 +31,7 @@ try {
   assert(upload.ok, 'Scoped image upload failed'); const asset = await upload.json();
   const draft = { name, slug, categoryId: category.id, brandId: null, kind: 0, description: 'Synthetic private buyer verification', seoTitle: '', seoDescription: '', visible: true, b2BOnly: true,
     attributes: {}, specifications: {}, variants: [{ id: null, sku: 'BUYER-CHECK-' + stamp, options: {}, barcode: null, active: true }],
-    media: [{ id: null, url: asset.url, alt: name, order: 0 }], bundleItems: [], relationships: [], version: null };
+    media: [{ id: null, url: asset.url, alt: name, order: 1 }], bundleItems: [], relationships: [], version: null };
   product = await (await request(base.catalog, cp + '/products', { token, method: 'POST', body: draft, status: 201 })).json();
   product = await (await request(base.catalog, cp + '/products/' + product.id + '/publish', { token, method: 'POST', body: { version: product.version } })).json();
   step = 'public audience isolation';

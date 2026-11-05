@@ -12,6 +12,22 @@ namespace SRECommerce.Catalog.Tests;
 public sealed class CatalogApiTests(CatalogFixture fixture):IClassFixture<CatalogFixture>
 {
     [Fact]
+    public async Task Bound_fields_cannot_be_archived_and_unbinding_preserves_the_current_publication()
+    {
+        var business=await fixture.Business();using var owner=business.Client;using var anonymous=fixture.Factory.Client();var category=await Category(business);
+        var field=await Read<JsonElement>(await owner.PostAsJsonAsync(Path(business.Id)+"/attributes",new AttributeRequest("origin","Origin",AttributeDataType.Text,[])),HttpStatusCode.Created);
+        var id=field.GetProperty("id").GetGuid();var version=field.GetProperty("version").GetString()!;
+        Assert.Equal(HttpStatusCode.NoContent,(await owner.PutAsJsonAsync(Path(business.Id)+$"/categories/{category.Id}/attributes?version={Uri.EscapeDataString(category.Version)}",new[]{new AttributeBinding(id,false)})).StatusCode);
+        var product=await Publish(business,await Create(business,Draft(category.Id) with{Attributes=new(){["origin"]=JsonSerializer.SerializeToElement("Local")}}));
+        var archive=new AttributeRequest("origin","Origin",AttributeDataType.Text,[],null,version,true);
+        var denied=await owner.PutAsJsonAsync(Path(business.Id)+"/attributes/"+id,archive);Assert.Equal(HttpStatusCode.Conflict,denied.StatusCode);
+        var lookups=await Read<JsonElement>(await owner.GetAsync(Path(business.Id)+"/lookups"));var categoryVersion=lookups.GetProperty("categories").EnumerateArray().Single(row=>row.GetProperty("id").GetGuid()==category.Id).GetProperty("version").GetString()!;
+        Assert.Equal(HttpStatusCode.NoContent,(await owner.PutAsJsonAsync(Path(business.Id)+$"/categories/{category.Id}/attributes?version={Uri.EscapeDataString(categoryVersion)}",Array.Empty<AttributeBinding>())).StatusCode);
+        Assert.Equal(HttpStatusCode.OK,(await owner.PutAsJsonAsync(Path(business.Id)+"/attributes/"+id,archive)).StatusCode);
+        var published=(await anonymous.GetFromJsonAsync<ProductView>(Public(business.Id)+"/products/"+product.Slug))!;Assert.Equal("Local",published.Attributes["origin"].GetString());
+        Assert.Equal(HttpStatusCode.OK,(await owner.PutAsJsonAsync(Path(business.Id)+"/products/"+product.Id,Edit(product) with{Attributes=new()})).StatusCode);
+    }
+    [Fact]
     public async Task Product_choice_batches_are_scoped_to_staff_and_never_reveal_another_tenants_drafts()
     {
         var a=await fixture.Business();var b=await fixture.Business();using var owner=a.Client;using var otherOwner=b.Client;using var anonymous=fixture.Factory.Client();

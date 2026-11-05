@@ -26,6 +26,7 @@ try {
   await page.getByRole('button', { name: 'Secure sign in', exact: true }).click();
   await page.locator('input[name="email"]').fill(owner.OwnerEmail); await page.locator('input[name="password"]').fill(owner.OwnerPassword);
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await page.locator('summary').filter({ hasText: 'Catalog setup & bulk tools' }).click();
   const org = page.locator('app-catalog-organization'); await org.getByRole('heading', { name: 'Organize your catalog', exact: true }).waitFor();
   const response = (method, suffix) => page.waitForResponse(r => r.request().method() === method && r.url().endsWith('/catalog/' + suffix));
   async function save(button, method, suffix) { const pending = response(method, suffix); await org.getByRole('button', { name: button, exact: true }).click(); const r = await pending; assert(r.ok(), 'Organization write failed'); return r.json(); }

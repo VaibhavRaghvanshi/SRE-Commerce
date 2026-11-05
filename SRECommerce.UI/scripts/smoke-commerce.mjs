@@ -3,12 +3,13 @@ import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {randomBytes} from 'node:crypto';
+import {request,signIn} from '../../scripts/lib/local-commerce.mjs';
 const root=resolve(fileURLToPath(new URL('../../',import.meta.url))),base=process.env.COMMERCE_SMOKE_UI_URL||'http://localhost:4000';
 if(!['localhost','127.0.0.1'].includes(new URL(base).hostname))throw new Error('Explicit local browser smoke URL required.');
 const privateConfig=JSON.parse(readFileSync(join(process.env.APPDATA,'Microsoft/UserSecrets/SRECommerce-LegacyDemo-Development/secrets.json'),'utf8'));
 const output=join(root,'artifacts/commerce-browser-smoke');mkdirSync(output,{recursive:true});
 const browser=await chromium.launch({executablePath:process.env.CHROME_BIN||'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',headless:true});
-const page=await browser.newPage({viewport:{width:1365,height:900}});let phase='load workspace';const checks=[];
+const page=await browser.newPage({viewport:{width:1365,height:900}});let phase='load workspace';let fixture=null;const checks=[];
 const failures=[],requests=[];page.on('response',response=>{const url=new URL(response.url());if(url.port==='5181'||url.pathname.startsWith('/commerce/'))requests.push({path:url.pathname,method:response.request().method(),status:response.status()});if(response.status()>=400)failures.push({path:url.pathname,status:response.status()});});
 const pageErrors=[];page.on('pageerror',error=>{const code=error.message.match(/NG\d+/)?.[0];pageErrors.push({type:error.name,code:code||'runtime-error'});});
 page.on('requestfailed',request=>{if(new URL(request.url()).pathname.startsWith('/commerce/'))failures.push({path:new URL(request.url()).pathname,error:request.failure()?.errorText});});
@@ -21,15 +22,16 @@ try{
   phase='complete PKCE sign-in';await page.getByRole('button',{name:'Sign in',exact:true}).click();
   await page.waitForURL(base+'/workspace/'+privateConfig.TenantId+'/catalog',{timeout:30000});
   await page.getByRole('button',{name:'New product',exact:true}).waitFor({timeout:20000});checks.push('Real Identity code+PKCE callback and Owner workspace');
-  phase='save product draft';const suffix=randomBytes(5).toString('hex'),name='000 Browser smoke '+suffix,slug='browser-smoke-'+suffix;
+  phase='save product draft';const suffix=randomBytes(5).toString('hex'),name='000 Browser smoke '+suffix,slug='browser-smoke-'+suffix;fixture={name,slug,sku:'UI-'+suffix.toUpperCase()};
   await page.getByRole('button',{name:'New product',exact:true}).click();await page.locator('input[name="name"]').fill(name);await page.locator('input[name="slug"]').fill(slug);
   const category=await page.locator('select[name="category"] option').evaluateAll(options=>options.map(o=>o.value).find(Boolean));if(!category)throw new Error('No category available');
   await page.locator('select[name="category"]').selectOption(category);await page.getByLabel('SKU',{exact:true}).fill('UI-'+suffix.toUpperCase());
   await page.getByRole('button',{name:'Save draft',exact:true}).click();await page.getByText('Draft saved. Publish it when it is ready.',{exact:true}).waitFor({timeout:20000});
+  await page.locator('input[name="catalog-search"]').fill(name);await page.getByRole('button',{name:'Search products',exact:true}).click();
   const row=page.locator('tbody tr').filter({hasText:name});await row.waitFor({timeout:20000});checks.push('Product draft persisted through gateway to SQL');
   phase='publish product';await row.getByRole('button',{name:'Publish',exact:true}).click();await page.getByText('Product published.',{exact:true}).waitFor({timeout:20000});checks.push('Owner publication committed');
   if(process.argv.includes('--inventory')){
-    phase='register published inventory SKU';await page.getByRole('link',{name:'Manage inventory',exact:true}).click();await page.getByRole('heading',{name:'Inventory workspace',exact:true}).waitFor();
+    phase='register published inventory SKU';await page.getByRole('navigation',{name:'Workspace navigation',exact:true}).getByRole('link',{name:'Inventory',exact:true}).click();await page.getByRole('heading',{name:'Inventory workspace',exact:true}).waitFor();
     await page.getByLabel('Product search',{exact:true}).fill(suffix);await page.getByRole('button',{name:'Find products',exact:true}).click();
     await page.locator('select[name="product"]').selectOption({label:name});await page.locator('select[name="variant"]').selectOption({label:'UI-'+suffix.toUpperCase()});
     await page.getByRole('button',{name:'Register SKU',exact:true}).click();await page.getByText('Published SKU registered.',{exact:true}).waitFor({timeout:20000});checks.push('Inventory verifies and registers published Catalog SKU');
@@ -44,7 +46,7 @@ try{
   }
   const couponCode='UI10'+suffix.toUpperCase();
   if(process.argv.includes('--pricing')){
-    phase='configure pricing currency';await page.getByRole('link',{name:'Manage pricing',exact:true}).click();await page.getByRole('heading',{name:'Pricing workspace',exact:true}).waitFor();await page.getByRole('button',{name:'Save currency settings',exact:true}).click();await page.getByText('Currency settings saved.',{exact:true}).waitFor({timeout:20000});
+    phase='configure pricing currency';await page.getByRole('navigation',{name:'Workspace navigation',exact:true}).getByRole('link',{name:'Pricing & offers',exact:true}).click();await page.getByRole('heading',{name:'Pricing workspace',exact:true}).waitFor();await page.getByRole('button',{name:'Save currency settings',exact:true}).click();await page.getByText('Currency settings saved.',{exact:true}).waitFor({timeout:20000});
     phase='configure tax and price list';const taxName='Browser tax '+suffix,listName='Browser retail '+suffix,promotionName='Browser coupon '+suffix;
     await page.locator('input[name="tax-code"]').fill('BROWSER-'+suffix.toUpperCase());await page.locator('input[name="tax-name"]').fill(taxName);await page.locator('input[name="tax-rate"]').fill('18');await page.getByRole('button',{name:'Save tax policy',exact:true}).click();await page.getByText('Tax policy saved.',{exact:true}).waitFor({timeout:20000});
     await page.locator('input[name="list-code"]').fill('BROWSER-'+suffix.toUpperCase());await page.locator('input[name="list-name"]').fill(listName);await page.getByRole('button',{name:'Save price list',exact:true}).click();await page.getByText('Price list saved.',{exact:true}).waitFor({timeout:20000});checks.push('Owner configures currency, tax and scheduled retail price list');
@@ -72,4 +74,15 @@ try{
   const fields=await page.locator('input').evaluateAll(inputs=>inputs.filter(i=>i.type!=='hidden').map(i=>({name:i.name,type:i.type,valid:i.checkValidity(),length:i.value.length})));
   writeFileSync(join(output,'failure.json'),JSON.stringify({phase,path,failures,requests,fields,pageErrors,errorType:error?.name||'Error',credentialsPrinted:false},null,2));
   console.error('Commerce browser smoke failed during '+phase+'; private credentials/tokens were not printed.');process.exitCode=1;
-}finally{await browser.close();}
+ }finally{
+  if(fixture)try{
+    const token=await signIn('http://localhost:5181',privateConfig.OwnerEmail,privateConfig.OwnerPassword,privateConfig.TenantId);
+    const path='/api/v1/tenants/'+privateConfig.TenantId+'/catalog';
+    const rows=await(await request('http://localhost:5185',path+'/products?search='+encodeURIComponent(fixture.slug),{token})).json();
+    const own=rows.items.filter(p=>p.name===fixture.name&&p.slug===fixture.slug&&p.variants.length===1&&p.variants[0].sku===fixture.sku);
+    if(own.length>1)throw new Error('Owned fixture was not unique');
+    if(own[0]&&own[0].status!==2)await request('http://localhost:5185',path+'/products/'+own[0].id+'/archive',{token,method:'POST',body:{version:own[0].version},status:204});
+    writeFileSync(join(output,'cleanup.json'),JSON.stringify({ownProductArchived:own.length===1,deletedRows:0,stockAndPricingHistoryPreserved:true}));
+  }catch{writeFileSync(join(output,'cleanup.json'),JSON.stringify({ownFixtureRequiresReview:true,deletedRows:0}));process.exitCode=1;}
+  await browser.close();
+}

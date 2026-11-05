@@ -72,8 +72,10 @@ app.use((req, res, next) => {
  * The server listens on the port defined by the `PORT` environment variable, or defaults to 4000.
  */
 if (isMainModule(import.meta.url) || process.env['pm_id']) {
-  const port = process.env['PORT'] || 4000;
-  app.listen(port, (error) => {
+  const port = Number(process.env['PORT'] || 4000);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid web server port.');
+  const host = process.env['HOST'] || '0.0.0.0';
+  app.listen(port, host, (error) => {
     if (error) {
       throw error;
     }

@@ -14,6 +14,7 @@ public sealed class CatalogRepository(CatalogDbContext db,ModuleScope scope,IHtt
     public async Task<IReadOnlyCollection<Brand>> Brands(CancellationToken ct)=>await db.Brands.OrderBy(b=>b.Name).ToListAsync(ct);
     public async Task<IReadOnlyCollection<AttributeDefinition>> Definitions(CancellationToken ct)=>await db.Attributes.OrderBy(a=>a.Code).ToListAsync(ct);
     public async Task<IReadOnlyCollection<CategoryAttribute>> Bindings(Guid category,CancellationToken ct)=>await db.Bindings.Where(b=>b.CategoryId==category).ToListAsync(ct);
+    public Task<bool> AttributeBound(Guid id,CancellationToken ct)=>db.Bindings.AnyAsync(b=>b.AttributeId==id&&b.Active,ct);
     private IQueryable<Product> Aggregate()=>db.Products.Include(p=>p.Variants).Include(p=>p.Media).Include(p=>p.BundleItems).Include(p=>p.Relationships).AsSplitQuery();
     public Task<Product?> Product(Guid id,CancellationToken ct)=>Aggregate().SingleOrDefaultAsync(p=>p.Id==id,ct);
     public Task<ProductChoice[]> ProductChoices(Guid[] ids,CancellationToken ct)=>db.Products.AsNoTracking().Where(p=>ids.Contains(p.Id))

@@ -69,6 +69,7 @@ public sealed class CatalogService(ICatalogRepository repository,ICatalogAccess 
             foreach(var option in request.Options)CatalogRules.Text(option,80);
             var value=id is null?new AttributeDefinition{TenantId=tenant}:(await repository.Definitions(token)).SingleOrDefault(a=>a.Id==id)??throw new BusinessFault("AttributeNotFound",404);
             if(id is null)repository.Add(value);else{repository.Version(value,request.Version);if(value.Code!=CatalogRules.Slug(request.Code)||value.DataType!=request.DataType)throw new BusinessFault("AttributeIdentityAndTypeImmutable");}
+            if(request.Archived&&await repository.AttributeBound(value.Id,token))throw new BusinessFault("UnassignAttributeBeforeArchive");
             value.Code=CatalogRules.Slug(request.Code);value.Name=CatalogRules.Text(request.Name);value.DataType=request.DataType;value.Options=Json(request.Options);value.Unit=request.Unit is null?null:CatalogRules.Text(request.Unit,30);value.Archived=request.Archived;
             await repository.Commit("catalog.attribute.saved",value.Id,null,token);return new{value.Id,value.Code,value.Name,value.DataType,Options=request.Options,value.Unit,value.Archived,Version=Convert.ToBase64String(value.Version)};
         },ct);

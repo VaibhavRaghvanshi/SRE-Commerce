@@ -1,11 +1,12 @@
 import { HttpClient } from '@angular/common/http';
-import { Directive, ElementRef, effect, inject, input } from '@angular/core';
+import { Directive, ElementRef, effect, inject, input, output } from '@angular/core';
 import { CommerceSessionService } from '../services/commerce-session.service';
 
 @Directive({ selector: 'img[commerceImage]', standalone: true })
 export class CommerceImageDirective {
   readonly commerceImage = input.required<string>();
   readonly imageTenant = input.required<string>();
+  readonly commerceImageError = output<void>();
   private readonly element = inject<ElementRef<HTMLImageElement>>(ElementRef);
   private readonly http = inject(HttpClient);
   private readonly session = inject(CommerceSessionService);
@@ -22,9 +23,9 @@ export class CommerceImageDirective {
       let objectUrl: string | null = null;
       const subscription = this.http.get('/commerce/catalog/tenants/' + tenant + '/catalog/buyer/media/' + managed[2], { responseType: 'blob' })
         .subscribe({ next: blob => {
-          if (!['image/png', 'image/jpeg'].includes(blob.type)) return;
+          if (!['image/png', 'image/jpeg'].includes(blob.type)) { this.commerceImageError.emit(); return; }
           objectUrl = URL.createObjectURL(blob); image.src = objectUrl;
-        }, error: () => image.removeAttribute('src') });
+        }, error: () => { image.removeAttribute('src'); this.commerceImageError.emit(); } });
       onCleanup(() => { subscription.unsubscribe(); image.removeAttribute('src'); if (objectUrl) URL.revokeObjectURL(objectUrl); });
     });
   }

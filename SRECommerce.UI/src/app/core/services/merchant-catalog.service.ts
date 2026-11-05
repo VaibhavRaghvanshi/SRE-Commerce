@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { timeout } from 'rxjs';
 import { CommerceLookup, CommercePage, CommerceProduct } from '../models/commerce.models';
-export interface CatalogDefinition { id: string; code: string; name: string; dataType: number; options: string[]; required: boolean; unit: string | null; }
+export interface CatalogDefinition { id: string; code: string; name: string; dataType: number; options: string[]; required: boolean; unit: string | null; version?: string; archived?: boolean; }
 export interface MerchantLookup extends CommerceLookup { version: string; archived: boolean; }
 export interface MerchantCollection extends MerchantLookup { productIds: string[]; }
 export interface MerchantLookups { categories: MerchantLookup[]; brands: MerchantLookup[]; definitions: CatalogDefinition[]; collections: MerchantCollection[]; }
@@ -34,5 +34,8 @@ export class MerchantCatalogService {
   archive(tenant: string, product: CommerceProduct, reason: string) { return this.http.post(this.base(tenant) + `/products/${product.id}/archive`, { version: product.version }, this.options(reason)); }
   category(tenant: string, name: string, slug: string, reason: string) { return this.http.post(this.base(tenant) + '/categories', { name, slug, parentId: null }, this.options(reason)); }
   definition(tenant: string, value: object, reason: string) { return this.http.post(this.base(tenant) + '/attributes', value, this.options(reason)); }
+  saveDefinition(tenant: string, id: string, value: object, reason: string) { return id ? this.http.put(this.base(tenant) + '/attributes/' + id, value, this.options(reason)) : this.definition(tenant, value, reason); }
+  exportPage(tenant: string, page: number, reason: string) { return this.http.get<CommercePage<CommerceProduct>>(this.base(tenant) + '/export', { ...this.options(reason), params: { page, pageSize: 100 } }).pipe(timeout(15000)); }
+  importDrafts(tenant: string, key: string, source: string, products: CatalogEditor[], reason: string) { return this.http.post<string[]>(this.base(tenant) + '/import', { key, source, products }, this.options(reason)).pipe(timeout(30000)); }
   bind(tenant: string, category: string, version: string, bindings: { attributeId: string; required: boolean }[], reason: string) { return this.http.put(this.base(tenant) + `/categories/${category}/attributes`, bindings, { ...this.options(reason), params: { version } }); }
 }

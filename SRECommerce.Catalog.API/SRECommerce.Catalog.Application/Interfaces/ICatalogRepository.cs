@@ -8,6 +8,7 @@ public interface ICatalogRepository
     Task<IReadOnlyCollection<Brand>> Brands(CancellationToken ct);
     Task<IReadOnlyCollection<AttributeDefinition>> Definitions(CancellationToken ct);
     Task<IReadOnlyCollection<CategoryAttribute>> Bindings(Guid category,CancellationToken ct);
+    Task<bool> AttributeBound(Guid id,CancellationToken ct);
     Task<Product?> Product(Guid id,CancellationToken ct);
     Task<ProductChoice[]> ProductChoices(Guid[] ids,CancellationToken ct);
     Task<ProductVariant?> Variant(Guid id,CancellationToken ct);

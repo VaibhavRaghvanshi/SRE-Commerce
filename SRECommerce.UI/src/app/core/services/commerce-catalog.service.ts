@@ -16,6 +16,9 @@ export class CommerceCatalogService {
   lookups(tenant: string) {
     return this.http.get<CommerceLookups>(this.base(tenant) + '/lookups').pipe(timeout(15000));
   }
+  featured(tenant: string) {
+    return this.http.get<CommercePage<CommerceProduct>>(this.base(tenant) + '/products', { params: { page: 1, pageSize: 24 } }).pipe(timeout(15000));
+  }
   products(tenant: string, page: number, search: string, category: string, brand: string, collection: string) {
     let params = new HttpParams().set('page', page).set('pageSize', 24);
     for (const [key, value] of Object.entries({ search, categoryId: category, brandId: brand, collection })) {
