@@ -1,5 +1,13 @@
 # SRECommerce migration progress
 
+## Product recommendations checkpoint — 2026-11-05
+
+Merchant Catalog now has a paged, scoped product picker for related products, upgrades and matching items, with saved label resolution, duplicate/self protection, forty-link limit and explicit draft-save/publication semantics. Existing relationship values are retained during edit. Customer product pages resolve those IDs through the public or current-member publication batch, render only returned eligible snapshots and use the protected image directive. Logout clears private suggestions before the guest lookup; changing the detail product cancels the old request.
+
+The optimized Angular build and **61 Chrome tests pass**, including audience changes and stale-request cancellation. Backend contracts and SQL schema were unchanged; the preceding aggregate backend build and Catalog 24 / Cart 24 / Tenant 31 / Gateway 15 results remain the latest affected evidence. No main data was changed. Original SQLite SHA256 remains `FC6D183D231508E14F9505523DE86B94B6891AF18E55692D144F27932AAEFE01`.
+
+Source checkpoints `a66a385`, `c67e311`, `f5fd35d` and `d222bb1` were pushed to the existing migration branch before this follow-up. Read [remaining delivery work](remaining-delivery-work.md) before treating any source checkpoint as completion of the entire master prompt. No application was published.
+
 ## Platform operations checkpoint — 2026-11-05
 
 The platform workspace now includes actual Tenant lifecycle/business-type counts, effective/expiring subscription counts, configured module counts and thirty UTC registration days. New admin-only summary/health endpoints audit each read and return no owner directory or cross-service financial claims. On-demand probes use fixed service names and operator configuration, four concurrent requests, two-second timeouts, no redirects/cookies/bearer forwarding and a six-per-minute caller limit. Gateway now has a direct readiness endpoint; downstream health/internal paths stay blocked at commerce routes.

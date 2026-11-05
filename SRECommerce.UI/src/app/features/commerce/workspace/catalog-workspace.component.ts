@@ -9,8 +9,9 @@ import { CommerceSessionService } from '../../../core/services/commerce-session.
 import { CommerceProduct } from '../../../core/models/commerce.models';
 import { CatalogDefinition, CatalogEditor, MerchantCatalogService, MerchantLookups } from '../../../core/services/merchant-catalog.service';
 import { CatalogOrganizationComponent } from './catalog-organization.component';
+import { CatalogRelationsComponent } from './catalog-relations.component';
 
-@Component({selector:'app-catalog-workspace',standalone:true,imports:[CommonModule,FormsModule,RouterLink,CatalogOrganizationComponent],templateUrl:'./catalog-workspace.component.html',styleUrl:'./catalog-workspace.component.scss'})
+@Component({selector:'app-catalog-workspace',standalone:true,imports:[CommonModule,FormsModule,RouterLink,CatalogOrganizationComponent,CatalogRelationsComponent],templateUrl:'./catalog-workspace.component.html',styleUrl:'./catalog-workspace.component.scss'})
 export class CatalogWorkspaceComponent {
   readonly session=inject(CommerceSessionService);private readonly api=inject(MerchantCatalogService);private readonly route=inject(ActivatedRoute);private readonly destroy=inject(DestroyRef);
   readonly tenant=this.route.snapshot.paramMap.get('tenant')||'';readonly products=signal<CommerceProduct[]>([]);readonly lookups=signal<MerchantLookups>({categories:[],brands:[],definitions:[],collections:[]});readonly definitions=signal<CatalogDefinition[]>([]);

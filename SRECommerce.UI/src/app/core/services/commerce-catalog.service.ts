@@ -29,6 +29,9 @@ export class CommerceCatalogService {
   publicProductsById(tenant: string, ids: string[]) {
     return this.http.get<CommerceProduct[]>(this.base(tenant) + '/published-products', { params: { ids } });
   }
+  shoppingProductsById(tenant: string, ids: string[]) {
+    return this.http.get<CommerceProduct[]>(this.shoppingBase(tenant) + '/published-products', { params: { ids } }).pipe(timeout(15000));
+  }
   private base(tenant: string) {
     return `/commerce/catalog/public/tenants/${encodeURIComponent(tenant)}/catalog`;
   }

@@ -28,6 +28,7 @@ export interface CommerceProduct {
   variants: CommerceVariant[];
   media: { id: string; url: string; alt: string; order: number }[];
   bundleItems: { variantId: string; quantity: number }[];
+  relationships?: { productId: string; kind: string }[];
   publishedRevision: number;
   version: string | null;
 }
