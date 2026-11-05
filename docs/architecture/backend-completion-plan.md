@@ -12,6 +12,8 @@ Backend, SQL and Angular now move together. GitHub source pushes are approved. P
 
 **2026-11-05 buyer checkpoint:** authenticated publication/media routes and Angular member/wholesale shopping, private image memory URLs, wishlist reconciliation and member price/stock previews are implemented. Latest affected suites pass Catalog 24 / Cart 24 / Angular 56, and the aggregate backend and Angular builds pass. No schema migration was required. Native private-buyer browser execution remains pending after automatic approval review rejected the local API/UI launch. The actual Windows SQL endpoint is the running MSSQL22 instance at localhost:1433, not the stopped default MSSQLSERVER service. Advanced platform scope and complete runtime acceptance remain open.
 
+**2026-11-05 platform checkpoint:** platform aggregate analytics, audited administrator-only service health, subscription-plan Angular controls and paged platform audit UI are implemented. Tenant 31 / Gateway 15 / Angular 59 cases and the Angular build pass. These views use existing schemas; live health/browser proof and the held runtime/integration work remain pending. Read the latest dated migration checkpoint for the distinction between code, isolated verification and full runtime acceptance.
+
 The owner also selected current SQLite data (1,000 products / 3 orders) for non-destructive backfill into an explicit **Legacy Demo** tenant. Preserve both original stores; do not merge the divergent older SQL product catalog into it. Imported identities retain their reviewed mappings and unconfirmed email state; no legacy administrator becomes platform SuperAdmin. Dedicated demo ownership and customer memberships will be explicit and audited.
 
 ## Delivery matrix

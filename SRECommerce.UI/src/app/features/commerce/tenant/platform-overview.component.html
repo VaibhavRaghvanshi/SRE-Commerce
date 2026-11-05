@@ -1,0 +1,43 @@
+<section class="platform-summary" aria-label="Platform overview">
+  <header><div><p class="eyebrow">Platform operations</p><h2>Business overview</h2></div><button type="button" (click)="refresh()" [disabled]="loading()">{{loading() ? 'Loading…' : 'Refresh analytics'}}</button></header>
+  <p role="alert" *ngIf="error()">{{error()}}</p>
+  <ng-container *ngIf="overview() as summary">
+    <p class="sample">Sampled {{summary.sampledAt | date:'medium'}}. Counts come from Tenant records; they do not represent sales revenue or paid invoices.</p>
+    <div class="metrics">
+      <article><span>All businesses</span><strong>{{summary.totalTenants | number}}</strong></article>
+      <article><span>Effective subscriptions</span><strong>{{summary.effectiveSubscriptions | number}}</strong><small>Active businesses with a current active/trial term</small></article>
+      <article><span>Terms ending within 7 days</span><strong>{{summary.expiringNextSevenDays | number}}</strong></article>
+      <article><span>Available plans</span><strong>{{summary.activePlans | number}}</strong></article>
+    </div>
+    <div class="breakdowns">
+      <article><h3>Business status</h3><dl><ng-container *ngFor="let row of summary.tenantStates"><dt>{{states[row.status]}}</dt><dd>{{row.count | number}}</dd></ng-container></dl></article>
+      <article><h3>Business types</h3><p *ngIf="!summary.businessTypes.length">No registered businesses.</p><dl><ng-container *ngFor="let row of summary.businessTypes"><dt>{{row.code}}</dt><dd>{{row.count | number}}</dd></ng-container></dl></article>
+      <article><h3>Configured modules</h3><p class="sample">Enabled switches on active businesses. Current plan entitlement is checked separately when a service is used.</p><dl><ng-container *ngFor="let row of summary.configuredModules"><dt>{{row.code}}</dt><dd>{{row.count | number}}</dd></ng-container></dl></article>
+    </div>
+    <details><summary>Daily registrations · last 30 UTC days</summary><div class="table-wrap"><table><caption>New Tenant records by UTC registration date</caption><thead><tr><th scope="col">Date (UTC)</th><th scope="col">Registrations</th></tr></thead><tbody><tr *ngFor="let day of summary.registrations"><td>{{day.date | date:'mediumDate':'UTC'}}</td><td>{{day.count | number}}</td></tr></tbody></table></div></details>
+  </ng-container>
+  <article class="health">
+    <h3>Service health</h3><p>Check configured readiness endpoints on demand. An unavailable service may be stopped in local development. A readiness response does not verify checkout, delivery or every dependency.</p>
+    <button type="button" (click)="checkHealth()" [disabled]="checking()">{{checking() ? 'Checking services…' : 'Check service health'}}</button>
+    <p role="alert" *ngIf="healthError()">{{healthError()}}</p>
+    <ng-container *ngIf="health() as sample"><p class="sample">Last sample: {{sample.sampledAt | date:'medium'}}</p><div class="table-wrap"><table><caption>Configured service readiness</caption><thead><tr><th scope="col">Service</th><th scope="col">Status</th><th scope="col">Probe time</th></tr></thead><tbody><tr *ngFor="let service of sample.services"><th scope="row">{{service.service}}</th><td><span class="status" [class.ready]="service.status === 'Ready'">{{service.status}}</span></td><td>{{service.elapsedMilliseconds === null ? '—' : service.elapsedMilliseconds + ' ms'}}</td></tr></tbody></table></div></ng-container>
+  </article>
+  <article class="plan-editor"><h3>Create subscription plan</h3><p>Create a plan with explicit limits and modules, then assign it through a tenant's subscription controls.</p>
+    <form #editor="ngForm" (ngSubmit)="createPlan()">
+      <fieldset [disabled]="creating()"><legend>Plan details</legend><div class="plan-fields">
+        <label>Code<input name="plan-code" [(ngModel)]="plan.code" pattern="[a-z0-9]+(-[a-z0-9]+)*" maxlength="40" required /></label>
+        <label>Name<input name="plan-name" [(ngModel)]="plan.name" maxlength="100" required /></label>
+        <label>Locations<input name="plan-locations" type="number" [(ngModel)]="plan.maxLocations" min="1" max="100" step="1" required /></label>
+        <label>Domains<input name="plan-domains" type="number" [(ngModel)]="plan.maxDomains" min="0" max="50" step="1" required /></label>
+        <label>Members<input name="plan-users" type="number" [(ngModel)]="plan.maxUsers" min="1" max="100000" step="1" required /></label>
+      </div><fieldset class="module-options"><legend>Available modules</legend><label *ngFor="let module of modules"><input type="checkbox" [checked]="plan.modules.includes(module)" (change)="selectModule(module, $any($event.target).checked)" />{{module}}</label></fieldset></fieldset>
+      <button [disabled]="creating() || editor.invalid">{{creating() ? 'Creating…' : 'Create plan'}}</button>
+    </form><p role="status" *ngIf="planMessage()">{{planMessage()}}</p>
+  </article>
+  <article class="health"><h3>Platform audit history</h3><button type="button" (click)="loadAudit()" [disabled]="historyLoading()">{{historyLoading() ? 'Loading…' : 'Load platform activity'}}</button>
+    <p role="alert" *ngIf="historyError()">{{historyError()}}</p>
+    <ng-container *ngIf="audit() as history"><p *ngIf="!history.length">No audit entries on this page.</p><div class="table-wrap"><table><caption>Platform activity · page {{auditPage}}</caption><thead><tr><th scope="col">Time</th><th scope="col">Action</th><th scope="col">Resource</th><th scope="col">Actor</th></tr></thead><tbody><tr *ngFor="let row of history"><td>{{row.createdAt | date:'short'}}</td><td>{{row.action}}</td><td>{{row.resource}}</td><td><code>{{row.actorUserId}}</code></td></tr></tbody></table></div>
+      <button type="button" (click)="loadAudit(auditPage - 1)" [disabled]="historyLoading() || auditPage <= 1">Previous activity</button><button type="button" (click)="loadAudit(auditPage + 1)" [disabled]="historyLoading() || history.length < 50 || auditPage >= 10000">Next activity</button>
+    </ng-container>
+  </article>
+</section>

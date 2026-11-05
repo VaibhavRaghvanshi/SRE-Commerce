@@ -1,5 +1,13 @@
 # SRECommerce migration progress
 
+## Platform operations checkpoint — 2026-11-05
+
+The platform workspace now includes actual Tenant lifecycle/business-type counts, effective/expiring subscription counts, configured module counts and thirty UTC registration days. New admin-only summary/health endpoints audit each read and return no owner directory or cross-service financial claims. On-demand probes use fixed service names and operator configuration, four concurrent requests, two-second timeouts, no redirects/cookies/bearer forwarding and a six-per-minute caller limit. Gateway now has a direct readiness endpoint; downstream health/internal paths stay blocked at commerce routes.
+
+Angular adds aggregate cards/tables, explicit readiness status/sample times, subscription-plan creation and paged platform audit history. Uncertain plan writes preserve the attempted code instead of announcing success. The local launcher supplies health target addresses without starting additional services. See the [platform operations runbook](runbooks/platform-overview.md).
+
+Verification passed: **75-project backend build with zero warnings/errors**, **Tenant 31 isolated SQL/API cases**, **Gateway 15 cases**, **Angular optimized build and 59 Chrome tests**. One new Angular DOM assertion initially read before its async sample rendered; the fixture synchronization was corrected and the full suite passed. No production timeout was increased. No SQL migration or main-database mutation was required. Native browser proof and live health targets remain unverified after the earlier API/UI launch rejection. Deferred runtime credentials, full integrated runtime acceptance and remaining customer/admin refinements are still open; no application was published.
+
 ## Member and wholesale storefront checkpoint — 2026-11-05
 
 Catalog now exposes authenticated, tenant-scoped buyer publication/list/detail/batch/image routes. Owner/Manager/B2BBuyer membership can see eligible wholesale publications; ordinary customers cannot. Public routes still exclude wholesale products/images and private drafts. Cart wishlist/recent reconciliation delegates the requesting user's bearer to the buyer publication route. Angular adds normal storefront PKCE sign-in, member catalog reload on audience change, protected image blobs with logout revocation, and authenticated price/stock previews for the selected store. No SQL schema change or runtime credential provisioning was needed.

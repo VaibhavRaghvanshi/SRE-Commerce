@@ -82,7 +82,7 @@ public sealed class GatewayTests(GatewayFixture fixture):IClassFixture<GatewayFi
     {using var client=fixture.Factory.CreateClient();Assert.Equal(HttpStatusCode.NotFound,(await client.GetAsync(path)).StatusCode);}
     [Fact]
     public async Task Business_post_preserves_method_and_health_works()
-    {using var client=fixture.Factory.CreateClient();var result=await client.PostAsJsonAsync("/commerce/catalog/tenants/id/catalog/products",new{value="sample"});Assert.Equal(HttpStatusCode.OK,result.StatusCode);Assert.Equal("POST",(await result.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("method").GetString());Assert.Equal(HttpStatusCode.OK,(await client.GetAsync("/health/live")).StatusCode);}
+    {using var client=fixture.Factory.CreateClient();var result=await client.PostAsJsonAsync("/commerce/catalog/tenants/id/catalog/products",new{value="sample"});Assert.Equal(HttpStatusCode.OK,result.StatusCode);Assert.Equal("POST",(await result.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("method").GetString());Assert.Equal(HttpStatusCode.OK,(await client.GetAsync("/health/live")).StatusCode);Assert.Equal(HttpStatusCode.OK,(await client.GetAsync("/health/ready")).StatusCode);}
     [Fact]
     public async Task Cors_uses_explicit_origin_allowlist()
     {using var client=fixture.Factory.CreateClient();using var request=new HttpRequestMessage(HttpMethod.Get,"/health/live");request.Headers.Add("Origin","https://untrusted.example");var response=await client.SendAsync(request);Assert.False(response.Headers.Contains("Access-Control-Allow-Origin"));}

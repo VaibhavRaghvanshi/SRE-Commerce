@@ -25,6 +25,9 @@ $specs=@(
     @{Name='ApiGateway';Port=5180;Extra=@{'Services__Identity'='http://localhost:5181/';'Services__Tenant'='http://localhost:5182/';'Services__Theme'='http://localhost:5183/';'Services__Storefront'='http://localhost:5184/';'Services__Catalog'='http://localhost:5185/';'Services__Inventory'='http://localhost:5186/';'Services__Pricing'='http://localhost:5187/';'Services__Cart'='http://localhost:5188/';'Services__Order'='http://localhost:5189/';'Services__Payment'='http://localhost:5190/';'Services__Shipping'='http://localhost:5191/';'Services__Notification'='http://localhost:5192/';'Services__Manufacturing'='http://localhost:5193/';'Services__Discovery'='http://localhost:5194/'}}
 )
 $processes=@{}
+foreach($taskHealthSpec in $specs){
+    ($specs|Where-Object {$_.Name -eq 'Tenant'}).Extra['PlatformHealth__Services__'+$taskHealthSpec.Name]='http://localhost:'+$taskHealthSpec.Port+'/'
+}
 $processManifest=Join-Path $runDirectory 'processes.json'
 if(Test-Path -LiteralPath $processManifest){foreach($record in (Get-Content -LiteralPath $processManifest -Raw|ConvertFrom-Json)){$processes[$record.Service]=$record}}
 foreach($spec in $specs|Where-Object {$_.Name -in $Services}){

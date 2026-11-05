@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom, timeout } from 'rxjs';
 import { CommerceSessionService } from '../../../core/services/commerce-session.service';
+import { PlatformOverviewComponent } from './platform-overview.component';
 
 interface Business { id: string; ownerUserId: string; name: string; slug: string; businessTypeCode: string; status: number; version: string; }
 interface Settings { displayName: string; currency: string; culture: string; timeZone: string; logoUrl: string | null; }
@@ -18,7 +19,7 @@ interface Audit { action: string; createdAt: string; platformOperation: boolean;
 interface Plan { code: string; name: string; maxLocations: number; maxDomains: number; maxUsers: number; modules: string[]; }
 
 @Component({
-  selector: 'app-business-workspace', standalone: true, imports: [CommonModule, FormsModule, RouterLink],
+  selector: 'app-business-workspace', standalone: true, imports: [CommonModule, FormsModule, RouterLink, PlatformOverviewComponent],
   templateUrl: './business-workspace.component.html',
   styles: [`:host{display:block;background:#f5f7fa;color:#182a39;min-height:100vh}main{max-width:1100px;margin:auto;padding:2rem 1rem}
     article{background:#fff;border:1px solid #ccdbe8;border-radius:10px;padding:1rem;margin-block:1rem}label{display:block;margin:.45rem 0}.fields,nav{display:flex;gap:.8rem;flex-wrap:wrap;align-items:end}

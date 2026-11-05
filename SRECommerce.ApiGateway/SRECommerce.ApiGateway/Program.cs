@@ -55,6 +55,7 @@ public partial class GatewayProgram
         });
         if(!app.Environment.IsDevelopment()){app.UseHsts();app.UseHttpsRedirection();}
         app.UseCors();app.UseRateLimiter();app.MapGet("/health/live",()=>Results.Ok(new{status="healthy",service="ApiGateway"}));
+        app.MapGet("/health/ready",()=>Results.Ok(new{status="ready",service="ApiGateway"}));
         app.MapReverseProxy();await app.RunAsync();
     }
 }

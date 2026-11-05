@@ -38,9 +38,13 @@ public partial class TenantProgram
         builder.Services.AddScoped<IIdentityOwnerProvisioner>(p=>p.GetRequiredService<IdentityConnection>());
         builder.Services.AddSingleton<IDomainOwnershipVerifier,DnsOwnershipVerifier>();builder.Services.AddScoped<ITenantOperations,TenantOperations>();
         builder.Services.AddScoped<ITenantRegistry,TenantRegistry>();
+        builder.Services.AddScoped<IPlatformOverview,PlatformOverviewService>();
+        builder.Services.AddHttpClient("platform-health",http=>http.Timeout=TimeSpan.FromSeconds(2))
+            .ConfigurePrimaryHttpMessageHandler(()=>new HttpClientHandler{AllowAutoRedirect=false,UseCookies=false,UseProxy=false});
         builder.Services.AddAuthentication("IdentityContext").AddScheme<AuthenticationSchemeOptions,IdentityContextHandler>("IdentityContext",_=>{});
         builder.Services.AddAuthorization();builder.Services.AddControllers();builder.Services.AddOpenApi();builder.Services.AddProblemDetails();builder.Services.AddExceptionHandler<TenantExceptionHandler>();
         builder.Services.AddRateLimiter(o=>{o.RejectionStatusCode=429;o.AddPolicy("tenant",context=>RateLimitPartition.GetFixedWindowLimiter(context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value??context.Connection.RemoteIpAddress?.ToString()??"local",_=>new FixedWindowRateLimiterOptions{PermitLimit=120,Window=TimeSpan.FromMinutes(1),QueueLimit=0}));});
+        builder.Services.AddRateLimiter(o=>o.AddPolicy("platform-health",context=>RateLimitPartition.GetFixedWindowLimiter(context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value??context.Connection.RemoteIpAddress?.ToString()??"local",_=>new FixedWindowRateLimiterOptions{PermitLimit=6,Window=TimeSpan.FromMinutes(1),QueueLimit=0})));
         var app=builder.Build();app.UseExceptionHandler();
         app.Use(async(context,next)=>{context.Response.Headers["X-Content-Type-Options"]="nosniff";context.Response.Headers.CacheControl="no-store";await next();});
         if(!app.Environment.IsDevelopment()){app.UseHsts();app.UseWhen(c=>!c.Request.Path.StartsWithSegments("/health"),branch=>branch.UseHttpsRedirection());}

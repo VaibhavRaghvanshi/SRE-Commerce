@@ -4,6 +4,7 @@
   <p role="alert" *ngIf="error()">{{error()}}</p><p role="status" *ngIf="busy() || message()">{{busy() ? 'Working…' : message()}}</p>
   <button *ngIf="!session.token" type="button" (click)="signIn()">Sign in</button>
   <ng-container *ngIf="session.token">
+    <app-platform-overview *ngIf="platform && session.access()?.isPlatformAdmin" (plansChanged)="reload()" />
     <button type="button" (click)="reload()" [disabled]="busy()">Refresh businesses</button>
     <article *ngIf="!tenant">
       <h2>{{platform ? 'Tenant directory' : 'Business drafts and active memberships'}}</h2>
