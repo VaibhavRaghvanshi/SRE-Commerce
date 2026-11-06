@@ -39,7 +39,7 @@ Open an individual service `.sln` to work on that API. `Controllers`, `DTOs`, `I
 
 All fourteen service folders have source, an individual solution and their own SQL database. See [migration progress](docs/migration-progress.md) for what was verified and what remains. Entity Framework persistence lives in Infrastructure.
 
-**Current local runtime:** MSSQL22 connectivity and its original memory setting have been restored. Five read-only data checks and fourteen API/Gateway readiness checks passed. The local review UI runs at http://localhost:4000; checkout acceptance is still pending. See the [local review/recovery runbook](docs/runbooks/local-review-website.md). Do not start the unrelated default SQL instance or delete retained databases.
+**Current local runtime:** MSSQL22 and its original memory setting are restored. The native review website runs at http://localhost:4000. Real checkout/stock restoration, private buyer access, Catalog import/export and desktop/mobile checks passed. Docker Desktop's three older project containers are deliberately paused for this 8 GB laptop; native Mailpit captures mail at http://localhost:8025. Data/volumes are preserved. See the [review runbook](docs/runbooks/local-review-website.md) for evidence, remaining scope and Docker restoration. This is local review, not production deployment.
 
 ## Build modern APIs
 

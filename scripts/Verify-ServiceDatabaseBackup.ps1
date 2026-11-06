@@ -2,7 +2,8 @@
 param(
     [Parameter(Mandatory)]
     [ValidateSet('Catalog','Inventory','Pricing','Cart','Order','Payment','Shipping','Notification','Manufacturing','Discovery')]
-    [string]$Service
+    [string]$Service,
+    [switch]$BackupOnly
 )
 $ErrorActionPreference='Stop'
 $repository=Split-Path $PSScriptRoot -Parent
@@ -33,13 +34,26 @@ ALTER DATABASE [$restore] SET READ_ONLY;
 SELECT COUNT(*) AS RestoredAuditRows FROM [$restore].dbo.AuditEntries;
 SELECT MigrationId FROM [$restore].dbo.__EFMigrationsHistory ORDER BY MigrationId;
 "@
+if($BackupOnly){
+    $sql=@"
+SET NOCOUNT ON;
+IF DB_NAME() <> $(SqlLiteral $database) THROW 50001, 'Wrong backup source database', 1;
+BACKUP DATABASE [$database] TO DISK=$(SqlLiteral $backup) WITH COPY_ONLY,CHECKSUM;
+RESTORE VERIFYONLY FROM DISK=$(SqlLiteral $backup) WITH CHECKSUM;
+"@
+}
 $artifactDirectory=Join-Path $repository artifacts
 New-Item -ItemType Directory -Path $artifactDirectory -Force|Out-Null
-$name=$Service.ToLowerInvariant()+'-backup-restore-'+$stamp
+$name=$Service.ToLowerInvariant()+$(if($BackupOnly){'-checkpoint-backup-'}else{'-backup-restore-'})+$stamp
 $sqlFile=Join-Path $artifactDirectory ($name+'.sql')
 $logFilePath=Join-Path $artifactDirectory ($name+'.log')
 [IO.File]::WriteAllText($sqlFile,$sql,[Text.UTF8Encoding]::new($false))
 & sqlcmd -S 'tcp:localhost,1433' -E -C -b -I -d $database -i $sqlFile -o $logFilePath
 if($LASTEXITCODE -ne 0){throw 'Service backup/restore verification failed. Existing source/target files and logs are preserved.'}
-@{Service=$Service;SourceDatabase=$database;Verified='COPY_ONLY,CHECKSUM,RESTORE VERIFYONLY,DBCC CHECKDB,READ_ONLY';Backup=$backup;RestoreDatabase=$restore;Log=$logFilePath}|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $artifactDirectory ($Service.ToLowerInvariant()+'-backup-manifest.json')) -Encoding utf8
-Write-Output ($Service+' backup and separate read-only restore verified: '+$restore)
+if($BackupOnly){
+    @{Service=$Service;SourceDatabase=$database;Verified='COPY_ONLY,CHECKSUM,RESTORE VERIFYONLY';Backup=$backup;Log=$logFilePath}|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $artifactDirectory ($Service.ToLowerInvariant()+'-checkpoint-backup-manifest.json')) -Encoding utf8
+    Write-Output ($Service+' checkpoint backup checksum/VERIFYONLY passed; no restore database was created.')
+}else{
+    @{Service=$Service;SourceDatabase=$database;Verified='COPY_ONLY,CHECKSUM,RESTORE VERIFYONLY,DBCC CHECKDB,READ_ONLY';Backup=$backup;RestoreDatabase=$restore;Log=$logFilePath}|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $artifactDirectory ($Service.ToLowerInvariant()+'-backup-manifest.json')) -Encoding utf8
+    Write-Output ($Service+' backup and separate read-only restore verified: '+$restore)
+}

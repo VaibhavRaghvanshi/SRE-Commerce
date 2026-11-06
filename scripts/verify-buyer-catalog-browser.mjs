@@ -80,17 +80,23 @@ try {
 } finally {
   const cleanup = [];
   if (token && product) try {
-    for (const kind of [0, 1]) {
-      const saved = await (await request(base.cart, account + '/products/' + kind, { token })).json();
-      const item = saved.items.find(row => row.productId === product.id);
-      if (item) await request(base.cart, account + '/products/' + kind + '/' + product.id, { token, method: 'PUT', body: { active: false, version: item.version } });
-    }
+    token = await signIn(base.identity, owner.OwnerEmail, owner.OwnerPassword, tenant);
     const fresh = await (await request(base.catalog, cp + '/products/' + product.id, { token })).json();
     assert(fresh.slug === slug, 'Owned product identity changed');
-    await request(base.catalog, cp + '/products/' + product.id + '/archive', { token, method: 'POST', body: { version: fresh.version }, status: 204 });
-    cleanup.push('only own labelled product archived and saved-product references removed; media preserved');
+    if (fresh.status !== 2) await request(base.catalog, cp + '/products/' + product.id + '/archive', { token, method: 'POST', body: { version: fresh.version }, status: 204 });
+    cleanup.push('only own labelled product archived; managed media preserved');
+    const saved = await (await request(base.cart, account + '/products/0', { token })).json();
+    const item = saved.items.find(row => row.productId === product.id);
+    if (item) await request(base.cart, account + '/products/0/' + product.id, { token, method: 'PUT', body: { active: false, version: item.version } });
+    cleanup.push('only own wishlist reference removed');
+    // Recent history supports clearing the whole list, not deleting one item.
+    // Preserve that history and verify the archived fixture no longer resolves.
+    const recent = await (await request(base.cart, account + '/products/1', { token })).json();
+    const viewed = recent.items.find(row => row.productId === product.id);
+    assert(!viewed || !viewed.available && viewed.name === null && viewed.slug === null, 'Archived recent fixture still resolved');
+    cleanup.push('recent history preserved; own archived reference is unavailable');
   } catch { cleanup.push('own labelled resources require review'); process.exitCode = 1; }
   if (browser) await browser.close();
-  writeFileSync(join(root, 'result.json'), JSON.stringify({ checks, cleanup, success: !process.exitCode }, null, 2));
+  writeFileSync(join(root, 'result.json'), JSON.stringify({ checks, resource: product ? { id: product.id, slug } : null, cleanup, success: !process.exitCode }, null, 2));
   console.log(JSON.stringify({ checks: checks.length, cleanup, success: !process.exitCode }));
 }

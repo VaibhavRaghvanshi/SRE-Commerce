@@ -1,5 +1,7 @@
 # Local Docker development — SRE-Commerce
 
+**6 November 2026 native-review mode:** the three existing project Identity/Tenant/Mailpit containers and Docker Desktop were gracefully stopped to release the approximately 3.9 GB WSL VM allocation on this 8 GB laptop. Data, volumes and images were preserved. The current website uses native APIs/SQL and native loopback Mailpit. Docker's engine is intentionally stopped; the verification below is historical. See the [current review runbook](runbooks/local-review-website.md) for safe switching/restoration commands. No distribution delete/reset/unregister commands or WSL resource changes were used; its backend VM stopped through normal Docker Desktop shutdown.
+
 ## Verified environment
 
 Windows 11 Home Single Language, 64-bit; Docker Desktop 4.45.0.203075; Docker Client/Server 28.3.3; Compose v2.39.2-desktop.1. Active context `desktop-linux`; server OS `linux`. WSL 3.0.3.0, kernel 6.18.54.1-1; `docker-desktop` distribution running on WSL 2. WSL and VirtualMachinePlatform Windows features enabled; hypervisor running.

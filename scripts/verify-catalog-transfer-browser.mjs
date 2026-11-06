@@ -33,7 +33,9 @@ try {
   await fields.getByRole('button', { name: 'Create field', exact: true }).click(); const fieldResponse = await created; assert(fieldResponse.status() === 201, 'FieldCreateRejected'); field = await fieldResponse.json();
   await fields.getByText('Product field saved.', { exact: true }).waitFor(); record('merchant creates a versioned field through the live gateway');
   step = 'bound field protection';
-  await page.locator('[name=binding-category]').selectOption(category.id); await page.locator('[name="bind-' + field.id + '"]').check();
+  const categoryFields = page.waitForResponse(r => r.request().method() === 'GET' && new URL(r.url()).pathname.endsWith('/categories/' + category.id + '/attributes'));
+  await page.locator('[name=binding-category]').selectOption(category.id); assert((await categoryFields).status() === 200, 'CategoryFieldReadRejected');
+  await page.getByRole('checkbox', { name, exact: true }).check();
   const bind = () => page.waitForResponse(r => r.request().method() === 'PUT' && new URL(r.url()).pathname.endsWith('/categories/' + category.id + '/attributes'));
   let bindingResponse = bind(); await page.getByRole('button', { name: 'Save category fields', exact: true }).click(); assert((await bindingResponse).status() === 204, 'BindingRejected');
   await fields.locator('[name=field-selection]').selectOption(field.id); await fields.locator('[name=field-archived]').check();
@@ -41,7 +43,7 @@ try {
   await fields.getByText('Unassign this field from all categories before archiving it.', { exact: true }).waitFor();
   record('archiving a bound field is rejected with actionable UI feedback');
   step = 'field unbind and archive';
-  await page.locator('[name="bind-' + field.id + '"]').uncheck(); bindingResponse = bind();
+  await page.getByRole('checkbox', { name, exact: true }).uncheck(); bindingResponse = bind();
   await page.getByRole('button', { name: 'Save category fields', exact: true }).click(); assert((await bindingResponse).status() === 204, 'UnbindingRejected');
   await fields.getByRole('button', { name: 'Save field', exact: true }).click(); await fields.getByText('Product field saved.', { exact: true }).waitFor();
   assert((await get('/lookups')).definitions.some(row => row.id === field.id && row.archived), 'FieldWasNotArchived'); record('explicit unbinding permits versioned field archival');

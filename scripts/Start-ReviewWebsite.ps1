@@ -22,6 +22,7 @@ if(Get-NetTCPConnection -LocalPort 4000 -State Listen -ErrorAction SilentlyConti
 # is ready. Never start the unrelated default MSSQLSERVER service to replace it.
 $sqlProbe=& sqlcmd -S 'tcp:localhost,1433' -E -C -b -I -l 5 -t 5 -d SRECommerce_TenantDB -Q 'SET NOCOUNT ON; SELECT TOP(1) Code FROM dbo.BusinessTypes;' 2>&1
 if($LASTEXITCODE -ne 0){throw 'MSSQL22 did not answer the read-only Tenant probe. No database or service configuration was changed; review the SQL recovery runbook.'}
+& (Join-Path $PSScriptRoot 'Start-ReviewMailpit.ps1')
 # Only implemented services used by the current storefront/admin review; the optional
 # Manufacturing service, Kafka, SQL containers and credential scripts are not started.
 & (Join-Path $PSScriptRoot 'Start-CommerceDevelopment.ps1') -Services Identity,Tenant,Theme,Storefront,Catalog,Inventory,Pricing,Cart,Order,Payment,Shipping,Notification,Discovery,ApiGateway
