@@ -1,10 +1,12 @@
-# Local website review and current recovery requirement
+# Local website review and SQL recovery
 
 ## Current state — 6 November 2026
 
-**SQL recovery is required before the website can be called ready.** During local resource tuning, the agent changed MSSQL22's `max server memory (MB)` from its recorded original `2147483647` to `1536`. SQL then returned error 701 (insufficient memory in the internal resource pool) and stopped accepting normal connections. Attempts to restore the original value through normal and diagnostic connections failed. The agent's native APIs and review UI were stopped to reduce pressure. No database deletion, reset, migration or security-setting change was performed during this incident. Data integrity after recovery still needs verification.
+**SQL connectivity and the original memory setting have recovered.** After the owner re-established connectivity, the 1536 MB value was still present. The agent ran the normal-connection recovery script, restored `2147483647` and verified normal mode. Five read-only checks passed: original SQL configuration, fourteen main databases online, all 1000 mapped products present/published, three historical order totals reconciled and unchanged source SQLite hash. Fourteen API/Gateway readiness checks passed after startup. Full checkout acceptance is still pending.
 
-The prepared recovery script is syntax checked; its privileged restart has **not** been executed. Open **PowerShell as Administrator**, then run:
+Historical incident: the agent's resource tuning changed max server memory to `1536`, which proved too low. SQL returned error 701 and initial normal/DAC rollback attempts failed. Owned APIs/UI were stopped until the owner re-established connectivity. No database deletion, reset, migration or security-setting change was performed during the incident.
+
+The normal recovery path has executed successfully. Its optional privileged restart path is syntax checked only and was not executed by the agent. **No administrator action is currently pending.** If normal connections are unavailable in a future recurrence, the reviewed administrator recovery command is:
 
 ```powershell
 & 'D:\Projects\SRECommerce\scripts\Restore-LocalSqlMemory.ps1' -RestartRecovery
@@ -28,7 +30,9 @@ From the repository root:
 ./scripts/Stop-ReviewWebsite.ps1 -Apis
 ```
 
-The intended URL is **http://localhost:4000**. The optimized Angular server binds only to `127.0.0.1`. Native APIs use 5181–5192 and 5194, with YARP at 5180. Manufacturing and Kafka are excluded from this local review group. Starting the helper does not initialize clients, migrate databases, start SQL containers or publish the application. An already-owned UI is reused while API startup is checked; an unrelated process on port 4000 is preserved. SQL must answer the read-only preflight. Check `/health/ready` on the individual APIs separately before declaring complete runtime acceptance.
+The intended URL is **http://localhost:4000**. The optimized Angular server binds only to `127.0.0.1`. Native APIs use 5181–5192 and 5194, with YARP at 5180. Manufacturing and Kafka are excluded from this local review group. Starting the helper does not initialize clients, migrate databases, start SQL containers or publish the application. An already-owned UI is reused while API startup is checked; an unrelated process on port 4000 is preserved. SQL must answer the read-only preflight. The helper now runs `verify-review-readiness.mjs` serially and requires all fourteen SQL-backed readiness endpoints to pass. The ignored report records the actual sample time and individual results. Readiness alone does not prove checkout acceptance.
+
+The native launcher opts its child processes into `LocalReview__DependencyTimeouts=true`. This is honored only in **Development**: an outgoing dependency has an 8-second attempt budget and 12-second overall budget, beneath the UI/proxy's existing 15-second boundary. Production and non-opted-in environments retain their existing 2/5-second budgets. Safe reads retain one bounded retry; POST/PUT/PATCH/DELETE/CONNECT are not automatically replayed, including after a timeout. Ten focused tests passed for environment isolation and retry behavior. This uses the [documented .NET resilience configuration](https://learn.microsoft.com/en-us/dotnet/core/resilience/http-resilience). No machine-wide environment or SQL resource setting is changed by this profile.
 
 The homepage uses the actual Legacy Demo Tenant/Catalog. Open **Explore the store** for products, or **For businesses** for workspace selection. Owner login details remain only in `%APPDATA%\Microsoft\UserSecrets\SRECommerce-LegacyDemo-Development\secrets.json`; they must not be pasted into Git, reports or chat. Authentication uses normal code + PKCE and keeps OAuth tokens in memory.
 
@@ -36,7 +40,7 @@ The homepage uses the actual Legacy Demo Tenant/Catalog. Open **Explore the stor
 
 The owner released the previous OAuth hold only for **Identity, Catalog, Inventory, Pricing, Cart, Order, Payment, Shipping and Notification**. Those nine service clients were provisioned and their real client-credentials grants, machine access and rejection of the human `identity_api` scope passed. Their values remain in per-service UserSecrets and ignored local manifests. Existing passwords were preserved. New SQL runtime logins, broker/cache accounts and other confidential service clients remain held. Native Windows-auth SQL does not prove Docker runtime-login acceptance.
 
-The dedicated demo tenant now has sandbox COD/UPI and a labelled India delivery option charging INR 99, with zero configured delivery tax. This is a development policy, not a tax-compliance or real-provider claim. Originals were preserved, and pre-change Tenant/Payment/Shipping backups were verified through separate read-only restores. Only seven precisely matched old browser fixture products were soft-archived; the 1,000 mapped original products were explicitly protected.
+The dedicated demo tenant now has sandbox COD/UPI and a labelled India delivery option charging INR 99, with zero configured delivery tax. The first real order-create request exposed a missing Order policy (`OrderingNotConfigured`). After a verified Order backup/read-only restore, its Owner API created a demo-only guest/COD policy, 14-day return window, exchanges enabled and INR 1000000 maximum. Existing policies are preserved by the preparation script. This is a development policy, not a tax-compliance or real-provider claim. Originals were preserved, and pre-change Tenant/Payment/Shipping backups were verified through separate read-only restores. Only seven precisely matched old browser fixture products were soft-archived; the 1,000 mapped original products were explicitly protected.
 
 ## Verified evidence and pending acceptance
 
@@ -47,7 +51,7 @@ The dedicated demo tenant now has sandbox COD/UPI and a labelled India delivery 
 - Full guest checkout verification did **not** pass: initial requests suffered dependency timeouts, then SQL became unavailable. The verifier recorded zero accepted checks and no checkout/order ID. Do not announce a successful order or stock compensation. Its labelled-order cancellation/reconciliation path remains unverified.
 - The private buyer image/wishlist/logout verifier and new Catalog CSV write/export browser acceptance remain pending. Existing isolated tests do not replace this runtime evidence.
 
-After SQL recovery, verify all fourteen main databases are online, the original three historical order snapshots remain unchanged, the mapped product count is intact and the source SQLite hash remains `FC6D183D231508E14F9505523DE86B94B6891AF18E55692D144F27932AAEFE01`. Restart the native group, then run one browser verifier at a time:
+The read-only `node scripts/verify-local-review-data.mjs` audit passed all five checks. Source SQLite SHA256 remains `FC6D183D231508E14F9505523DE86B94B6891AF18E55692D144F27932AAEFE01`. The native group is running again. Run one browser verifier at a time:
 
 ```powershell
 node scripts/verify-review-design.mjs

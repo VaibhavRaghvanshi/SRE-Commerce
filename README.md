@@ -39,7 +39,7 @@ Open an individual service `.sln` to work on that API. `Controllers`, `DTOs`, `I
 
 All fourteen service folders have source, an individual solution and their own SQL database. See [migration progress](docs/migration-progress.md) for what was verified and what remains. Entity Framework persistence lives in Infrastructure.
 
-**Current local runtime:** MSSQL22 needs administrator recovery after a failed memory-tuning change. The website is not currently verified ready. See the [local review/recovery runbook](docs/runbooks/local-review-website.md) for the exact command, verified design/code checkpoint and remaining acceptance work. Do not start the unrelated default SQL instance or delete retained databases to work around this issue.
+**Current local runtime:** MSSQL22 connectivity and its original memory setting have been restored. Five read-only data checks and fourteen API/Gateway readiness checks passed. The local review UI runs at http://localhost:4000; checkout acceptance is still pending. See the [local review/recovery runbook](docs/runbooks/local-review-website.md). Do not start the unrelated default SQL instance or delete retained databases.
 
 ## Build modern APIs
 

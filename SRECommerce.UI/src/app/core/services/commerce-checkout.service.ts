@@ -8,6 +8,7 @@ import { CommerceOrder, CommerceOrderHistory, OrderContact } from '../models/com
 import { CommerceCheckout, CommerceCheckoutRequest, CommerceExchange, CommercePaymentMethods, CommerceReturn, CommerceShippingOption, CommerceTracking, SavedOrderReference } from '../models/commerce-checkout.models';
 interface StoredOrder extends SavedOrderReference { key: string | null; }
 interface PendingCheckout { signature: string; body: CommerceCheckoutRequest; reference: StoredOrder; headers: Record<string, string>; }
+export interface CommerceOrderPolicy { allowGuest: boolean; allowCOD: boolean; allowExchanges: boolean; returnWindowDays: number; maximumTotal: number; }
 @Injectable({ providedIn: 'root' })
 export class CommerceCheckoutService {
   private readonly http = inject(HttpClient); private readonly carts = inject(CommerceCartService); private readonly session = inject(CommerceSessionService);
@@ -45,6 +46,7 @@ export class CommerceCheckoutService {
   private base(tenant: string, guest: boolean) { return '/commerce/order/' + (guest ? 'public/' : '') + 'tenants/' + encodeURIComponent(tenant) + '/orders'; }
   private headers(reference: StoredOrder): Record<string, string> { return reference.guest ? { 'X-Order-Key': reference.key! } : {}; }
   methods(tenant: string) { return this.request<CommercePaymentMethods>('/commerce/payment/public/tenants/' + encodeURIComponent(tenant) + '/payments/methods', 'GET'); }
+  policy(tenant: string) { return this.request<CommerceOrderPolicy>(this.base(tenant, true) + '/options', 'GET'); }
   regions(tenant: string) { return this.request<{ countries: string[]; currency: string }>('/commerce/shipping/public/tenants/' + encodeURIComponent(tenant) + '/shipping/regions', 'GET'); }
   options(tenant: string, preparation: CommercePreparation, country: string, postal: string, id: string) {
     const context = this.carts.checkoutContext(tenant, preparation);

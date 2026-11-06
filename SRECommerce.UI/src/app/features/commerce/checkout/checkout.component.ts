@@ -1,5 +1,6 @@
 import { Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -23,6 +24,7 @@ export class CommerceCheckoutComponent {
   readonly tenant = signal<CommerceTenant | null>(null); readonly preparation = signal<CommercePreparation | null>(null); readonly options = signal<CommerceShippingOption[]>([]);
   readonly countries = signal<string[]>([]); readonly methods = signal<string[]>([]); readonly sandbox = signal(true); readonly selected = signal(''); readonly busy = signal(true);
   readonly error = signal(''); readonly status = signal<CommerceCheckout | null>(null); readonly needsSignIn = signal(false); readonly waiting = signal(false);
+  readonly requiresAccount = signal(false);
   readonly reference = signal<string | null>(null);
   private readonly customer = inject(CommerceCustomerService);
   readonly addresses = signal<CustomerAddress[]>([]);
@@ -48,16 +50,18 @@ export class CommerceCheckoutComponent {
       const existing = this.route.snapshot.queryParamMap.get('order') || this.api.active(tenant.tenantId)?.id;
       if (existing) { await this.check(existing); return; }
       if (!['cart', 'orders', 'payments', 'shipping'].every(m => tenant.modules.includes(m))) throw new Error('CheckoutUnavailable');
-      const [regions, methods] = await Promise.all([this.api.regions(tenant.tenantId), this.api.methods(tenant.tenantId)]);
-      this.countries.set(regions.countries); this.methods.set(methods.methods); this.sandbox.set(methods.sandbox);
-      this.form.patchValue({ countryCode: regions.countries.length === 1 ? regions.countries[0] : '', paymentMethod: methods.methods[0] || '', email: this.session.user()?.profile.email || '' });
+      const [regions, methods, policy] = await Promise.all([this.api.regions(tenant.tenantId), this.api.methods(tenant.tenantId), this.api.policy(tenant.tenantId)]);
+      if (!policy.allowGuest && !this.customer.signedIn(tenant.tenantId)) { this.requiresAccount.set(true); this.error.set('Sign in to this store before checking out. Your saved cart is safe.'); return; }
+      const allowedMethods = methods.methods.filter(method => method !== 'COD' || policy.allowCOD);
+      this.countries.set(regions.countries); this.methods.set(allowedMethods); this.sandbox.set(methods.sandbox);
+      this.form.patchValue({ countryCode: regions.countries.length === 1 ? regions.countries[0] : '', paymentMethod: allowedMethods[0] || '', email: this.session.user()?.profile.email || '' });
       if (this.customer.signedIn(tenant.tenantId)) {
         try { const user = this.session.access()?.userId; const addresses = await this.customer.addresses(tenant.tenantId);
           if (this.customer.signedIn(tenant.tenantId) && this.session.access()?.userId === user) this.addresses.set(addresses); }
         catch { this.addressError.set('Saved addresses could not be loaded. You can enter the delivery details below.'); }
       }
       await this.refreshPreparation();
-    } catch { this.error.set('Checkout is temporarily unavailable. Your saved cart is safe. Please try again.'); } finally { this.busy.set(false); }
+    } catch (error) { this.error.set(error instanceof HttpErrorResponse && error.error?.title === 'OrderingNotConfigured' ? 'This store has not finished checkout setup. Your saved cart is safe. Please contact the store.' : 'Checkout is temporarily unavailable. Your saved cart is safe. Please try again.'); } finally { this.busy.set(false); }
   }
   private async refreshPreparation() {
     const tenant = this.tenant(); if (!tenant) return;
@@ -108,6 +112,7 @@ export class CommerceCheckoutComponent {
     catch { if (this.destroyed || sequence !== this.statusRead) return; this.waiting.set(false); const guest = this.api.references(tenant.tenantId).some(r => r.id === reference && r.guest); this.needsSignIn.set(!guest && !this.session.token); this.error.set(guest ? 'The latest checkout status could not be loaded. Check this reference again before placing another order.' : 'The latest checkout status could not be loaded. Sign in if this is an account order, then check again.'); }
   }
   async signIn() { const tenant = this.tenant(); if (tenant) try { await this.session.signInStore(tenant.tenantId, tenant.slug, 'orders'); } catch { this.error.set('Sign-in could not be started.'); } }
+  async signInCheckout() { const tenant = this.tenant(); if (tenant) try { await this.session.signInStore(tenant.tenantId, tenant.slug, 'cart'); } catch { this.error.set('Sign-in could not be started.'); } }
   async cancelPending(id: string) {
     const tenant = this.tenant(), current = this.status();
     if (!tenant || !current || current.id !== id || ![0,1].includes(current.state) || this.busy()) return;

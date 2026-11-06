@@ -40,7 +40,7 @@ foreach($spec in $specs|Where-Object {$_.Name -in $Services}){
         if($health.service -ne $spec.Name){throw ('Port '+$spec.Port+' belongs to another service; it was preserved.')}
         Write-Output ($spec.Name+' already listening on '+$spec.Port);continue
     }
-    $environment=@{'ASPNETCORE_ENVIRONMENT'='Development';'DOTNET_gcServer'='0';'DOTNET_GCConserveMemory'='7'}+$spec.Extra;$previous=@{}
+    $environment=@{'ASPNETCORE_ENVIRONMENT'='Development';'DOTNET_gcServer'='0';'DOTNET_GCConserveMemory'='7';'LocalReview__DependencyTimeouts'='true'}+$spec.Extra;$previous=@{}
     foreach($key in $environment.Keys){$previous[$key]=[Environment]::GetEnvironmentVariable($key,'Process');[Environment]::SetEnvironmentVariable($key,$environment[$key],'Process')}
     try{
         if($spec.Name -eq 'Identity' -and $InitializeIdentity){Push-Location $working;try{& $runtime $dll --initialize;if($LASTEXITCODE -ne 0){throw 'Explicit Identity client initialization failed'}}finally{Pop-Location}}

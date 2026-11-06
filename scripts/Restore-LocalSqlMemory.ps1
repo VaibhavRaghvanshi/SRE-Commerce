@@ -14,7 +14,7 @@ DECLARE @advanced int=(SELECT CONVERT(int,value_in_use) FROM sys.configurations 
 IF @advanced=0 BEGIN EXEC sp_configure 'show advanced options',1; RECONFIGURE; END;
 EXEC sp_configure 'max server memory (MB)',2147483647; RECONFIGURE;
 IF @advanced=0 BEGIN EXEC sp_configure 'show advanced options',0; RECONFIGURE; END;
-SELECT name,value_in_use FROM sys.configurations WHERE name='max server memory (MB)';
+SELECT name,CONVERT(bigint,value_in_use) AS value_in_use FROM sys.configurations WHERE name='max server memory (MB)';
 "@
 $sqlcmd=(Get-Command sqlcmd -ErrorAction Stop).Source
 function Restore-Setting([string]$server='tcp:localhost,1433') {
@@ -48,7 +48,7 @@ if(!$RestartRecovery){
     }
     if(!$restored){throw 'Recovery failed; MSSQL22 was returned to normal startup mode. No databases were deleted or reset.'}
 }
-& $sqlcmd -S 'tcp:localhost,1433' -E -C -b -I -l 10 -t 15 -d master -Q "SET NOCOUNT ON; IF CONVERT(nvarchar(128),SERVERPROPERTY('InstanceName'))<>N'MSSQL22' OR CONVERT(int,SERVERPROPERTY('IsSingleUser'))<>0 OR (SELECT CONVERT(bigint,value_in_use) FROM sys.configurations WHERE name='max server memory (MB)')<>2147483647 THROW 50001,'Recovery state is not verified',1; SELECT CONVERT(nvarchar(128),SERVERPROPERTY('InstanceName')) AS instance_name,SERVERPROPERTY('IsSingleUser') AS single_user; SELECT name,value_in_use FROM sys.configurations WHERE name='max server memory (MB)';"
+& $sqlcmd -S 'tcp:localhost,1433' -E -C -b -I -l 10 -t 15 -W -d master -Q "SET NOCOUNT ON; IF CONVERT(nvarchar(128),SERVERPROPERTY('InstanceName'))<>N'MSSQL22' OR CONVERT(int,SERVERPROPERTY('IsSingleUser'))<>0 OR (SELECT CONVERT(bigint,value_in_use) FROM sys.configurations WHERE name='max server memory (MB)')<>2147483647 THROW 50001,'Recovery state is not verified',1; SELECT CONVERT(nvarchar(128),SERVERPROPERTY('InstanceName')) AS instance_name,CONVERT(int,SERVERPROPERTY('IsSingleUser')) AS single_user; SELECT name,CONVERT(bigint,value_in_use) AS value_in_use FROM sys.configurations WHERE name='max server memory (MB)';"
 if($LASTEXITCODE -ne 0){throw 'Post-recovery verification failed.'}
 $record|Add-Member -NotePropertyName RestoredAt -NotePropertyValue ([DateTime]::UtcNow.ToString('o')) -Force
 $record|ConvertTo-Json|Set-Content -LiteralPath $journal

@@ -50,7 +50,9 @@ public sealed partial class OrderService(IOrderRepository repository,IOrderAcces
   await repository.Transaction(async token=>
   {
    var previous=await repository.Intent(request.Id,token);if(previous is not null){Owner(previous,guest,orderCapability);if(previous.RequestHash!=hash)throw new BusinessFault("CheckoutKeyReused");return true;}
-   repository.Add(new CheckoutIntent{TenantId=tenant,Id=request.Id,PreparationId=request.PreparationId,ShippingQuoteId=request.ShippingQuoteId,UserId=user,CustomerRole=role,GuestKeyHash=digest,RequestHash=hash,RequestDocument=ContractJson.Write(request),CreatedAt=Now,Deadline=Now.AddMinutes(5),NextAttemptAt=Now});await repository.Commit("order.checkout.intent",request.Id,null,token);return true;
+   // Let the interactive request prove the guest cart before recovery can claim
+   // this intent. A crashed request becomes recoverable after the lease window.
+   repository.Add(new CheckoutIntent{TenantId=tenant,Id=request.Id,PreparationId=request.PreparationId,ShippingQuoteId=request.ShippingQuoteId,UserId=user,CustomerRole=role,GuestKeyHash=digest,RequestHash=hash,RequestDocument=ContractJson.Write(request),CreatedAt=Now,Deadline=Now.AddMinutes(5),NextAttemptAt=Now.AddSeconds(45)});await repository.Commit("order.checkout.intent",request.Id,null,token);return true;
   },ct);
   // The initial inline step proves the guest/customer cart. Recovery never stores or replays its secret.
   await saga.Run(tenant,request.Id,cartCapability,ct,true);return await CheckoutView(await repository.Intent(request.Id,ct)??throw new BusinessFault("CheckoutNotFound",404),ct);

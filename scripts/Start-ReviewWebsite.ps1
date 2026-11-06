@@ -25,8 +25,13 @@ if($LASTEXITCODE -ne 0){throw 'MSSQL22 did not answer the read-only Tenant probe
 # Only implemented services used by the current storefront/admin review; the optional
 # Manufacturing service, Kafka, SQL containers and credential scripts are not started.
 & (Join-Path $PSScriptRoot 'Start-CommerceDevelopment.ps1') -Services Identity,Tenant,Theme,Storefront,Catalog,Inventory,Pricing,Cart,Order,Payment,Shipping,Notification,Discovery,ApiGateway
-if($reuseUi){Write-Output 'Owned review UI was reused and API startup checked at http://localhost:4000';return}
 $node=(Get-Command node -ErrorAction Stop).Source
+Push-Location $repository
+try{
+    & $node (Join-Path $PSScriptRoot 'verify-review-readiness.mjs')
+    if($LASTEXITCODE -ne 0){throw 'A selected API failed SQL-backed readiness. Processes/logs were preserved; review artifacts/review-website/readiness.json.'}
+}finally{Pop-Location}
+if($reuseUi){Write-Output 'Owned review UI was reused and all fourteen readiness probes passed at http://localhost:4000';return}
 $environment=@{'HOST'='127.0.0.1';'PORT'='4000';'COMMERCE_PROXY_TARGET'='http://127.0.0.1:5180'};$previous=@{}
 foreach($key in $environment.Keys){$previous[$key]=[Environment]::GetEnvironmentVariable($key,'Process');[Environment]::SetEnvironmentVariable($key,$environment[$key],'Process')}
 try {

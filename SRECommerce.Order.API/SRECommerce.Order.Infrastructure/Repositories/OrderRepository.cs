@@ -4,7 +4,14 @@ public sealed class OrderRepository(OrderDbContext db,ModuleScope scope,IHttpCon
 {
  public async Task<T> Transaction<T>(Func<CancellationToken,Task<T>> action,CancellationToken ct){await using var transaction=await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable,ct);var result=await action(ct);await transaction.CommitAsync(ct);return result;}
  public Task<CheckoutIntent[]> Due(DateTimeOffset now,CancellationToken ct)=>db.Intents.Where(i=>(i.State==CheckoutState.AwaitingProof||i.State==CheckoutState.Processing||i.State==CheckoutState.Compensating)&&i.NextAttemptAt<=now&&(i.LeaseUntil==null||i.LeaseUntil<=now)).OrderBy(i=>i.NextAttemptAt).ThenBy(i=>i.Id).Take(5).ToArrayAsync(ct);
- public async Task<CheckoutIntent?> FreshIntent(Guid id,CancellationToken ct){var value=await Intent(id,ct);if(value is not null)await db.Entry(value).ReloadAsync(ct);return value;}
+ public async Task<CheckoutIntent?> FreshIntent(Guid id,CancellationToken ct)
+ {
+  var tenant=scope.TenantId??throw new BusinessFault("TenantScopeRequired",403);
+  // Lease contenders must not both take shared locks and then deadlock while
+  // converting them to update locks. The owning transaction retains this lock.
+  var value=await db.Intents.FromSqlInterpolated($"SELECT * FROM [dbo].[CheckoutIntents] WITH (UPDLOCK) WHERE [TenantId]={tenant} AND [Id]={id}").SingleOrDefaultAsync(ct);
+  if(value is not null)await db.Entry(value).ReloadAsync(ct);return value;
+ }
  public Task<CheckoutIntent[]> Reviews(int page,CancellationToken ct)=>db.Intents.AsNoTracking().Where(x=>x.State==CheckoutState.ManualReview)
   .OrderByDescending(x=>x.CreatedAt).ThenBy(x=>x.Id).Skip((page-1)*50).Take(50).ToArrayAsync(ct);
  public Task<OrderFulfillment[]> PendingFulfillments(DateTimeOffset now,CancellationToken ct)=>db.Fulfillments.Where(f=>f.Status==FulfillmentStatus.Requested&&f.NextAttemptAt<=now).OrderBy(f=>f.CreatedAt).Take(3).ToArrayAsync(ct);

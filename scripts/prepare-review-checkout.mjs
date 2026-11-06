@@ -2,7 +2,7 @@ import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { request, signIn } from './lib/local-commerce.mjs';
 
-if (!process.argv.includes('--apply')) { console.log(JSON.stringify({ applyRequired: true, scope: 'Legacy Demo payment/shipping settings only' })); process.exit(0); }
+if (!process.argv.includes('--apply')) { console.log(JSON.stringify({ applyRequired: true, scope: 'Legacy Demo order/payment/shipping settings only' })); process.exit(0); }
 const owner = JSON.parse(readFileSync(join(process.env.APPDATA, 'Microsoft/UserSecrets/SRECommerce-LegacyDemo-Development/secrets.json'), 'utf8'));
 const map = JSON.parse(readFileSync('artifacts/legacy-demo-catalog-mapping.json', 'utf8'));
 if (map.tenantId !== owner.TenantId) throw new Error('DedicatedDemoTenantMismatch');
@@ -22,6 +22,15 @@ for (const module of ['payments', 'shipping']) {
     await send(5182, tenantPath + '/modules/' + module, { version: tenant.version, enabled: true }, 'PUT'); journal.changes.push('enabled dedicated demo ' + module); save();
   }
 }
+const orderResponse = await fetch('http://localhost:5189' + tenantPath + '/order-management/policy', { headers: { Authorization: 'Bearer ' + token }, signal: AbortSignal.timeout(30000) });
+let orderPolicy = await orderResponse.json();
+if (orderResponse.status === 409 && orderPolicy.title === 'OrderingNotConfigured') orderPolicy = null;
+else if (!orderResponse.ok) throw new Error('OrderPolicyReadRejected');
+if (!orderPolicy) {
+  orderPolicy = await send(5189, tenantPath + '/order-management/policy', { allowGuest: true, allowCOD: true, allowExchanges: true, returnWindowDays: 14, maximumTotal: 1000000, version: null }, 'PUT');
+  journal.changes.push('created dedicated demo guest/COD order policy; 14-day returns and INR 1000000 cap'); save();
+}
+if (!orderPolicy.allowGuest || !orderPolicy.allowCOD) throw new Error('ExistingOrderPolicyPreservedNeedsReview');
 const paymentResponse = await fetch('http://localhost:5190' + tenantPath + '/payments/configuration', { headers: { Authorization: 'Bearer ' + token }, signal: AbortSignal.timeout(30000) });
 let payment = await paymentResponse.json();
 if (paymentResponse.status === 404 && payment.title === 'PaymentsNotConfigured') payment = null;

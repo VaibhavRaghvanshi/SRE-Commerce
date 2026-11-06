@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using SRECommerce.BuildingBlocks.Contracts;
@@ -14,6 +15,50 @@ namespace SRECommerce.Order.Tests;
 
 public sealed class OrderApiTests(OrderFixture fixture) : IClassFixture<OrderFixture>
 {
+    [Fact]
+    public async Task Recovery_cannot_steal_initial_guest_proof_and_concurrent_lease_claims_serialize()
+    {
+        using var business=await fixture.Business(guest:true);
+        var gate=new InitialProofGate();
+        using var gated=fixture.Factory.WithWebHostBuilder(builder=>builder.ConfigureServices(services=>
+        {
+            services.AddScoped<OrderSaga>();
+            services.AddScoped<IOrderSaga>(provider=>new GatedSaga(provider.GetRequiredService<OrderSaga>(),gate));
+        }));
+        using var client=gated.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions{BaseAddress=new Uri("https://localhost"),AllowAutoRedirect=false});
+        foreach(var header in business.Client.DefaultRequestHeaders)client.DefaultRequestHeaders.TryAddWithoutValidation(header.Key,header.Value);
+        var pending=client.PostAsJsonAsync(Path(business.Tenant,true)+"/checkout",business.Request);
+        try
+        {
+            await gate.Entered.Task.WaitAsync(TimeSpan.FromSeconds(20));
+            using(var scope=fixture.Factory.Services.CreateScope())
+            {
+                scope.ServiceProvider.GetRequiredService<ModuleScope>().BindEvent(business.Tenant,"Order");
+                var repository=scope.ServiceProvider.GetRequiredService<IOrderRepository>();
+                var intent=await repository.Intent(business.Request.Id,default);Assert.NotNull(intent);
+                Assert.True(intent.NextAttemptAt>=fixture.Cart.Pricing.Factory.Clock.GetUtcNow().AddSeconds(40));
+                Assert.DoesNotContain(await repository.Due(fixture.Cart.Pricing.Factory.Clock.GetUtcNow(),default),row=>row.Id==business.Request.Id);
+            }
+            await fixture.Step(business);
+        }
+        finally{gate.Release.TrySetResult();}
+        var accepted=await Read<CheckoutView>(await pending,HttpStatusCode.Accepted);
+        Assert.Equal(CheckoutState.Processing,accepted.State);Assert.Equal(SagaPhase.Validate,accepted.Phase);
+        await Task.WhenAll(fixture.Step(business),fixture.Step(business));
+        var completed=await fixture.Drain(business);Assert.Equal(CheckoutState.Accepted,completed.State);Assert.NotNull(completed.Order);
+        Assert.Equal(business.Request.Id,completed.Order.Id);
+    }
+    private sealed class InitialProofGate
+    {
+        public TaskCompletionSource Entered{get;}=new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release{get;}=new(TaskCreationOptions.RunContinuationsAsynchronously);
+    }
+    private sealed class GatedSaga(IOrderSaga inner,InitialProofGate gate):IOrderSaga
+    {
+        public Task Recover(CancellationToken ct)=>inner.Recover(ct);
+        public async Task Run(Guid tenant,Guid id,string? capability,CancellationToken ct,bool interactive=false)
+        {if(interactive){gate.Entered.TrySetResult();await gate.Release.Task.WaitAsync(ct);}await inner.Run(tenant,id,capability,ct,interactive);}
+    }
     [Fact]
     public async Task Sales_reports_are_manager_only_currency_scoped_and_exclude_pending_orders()
     {

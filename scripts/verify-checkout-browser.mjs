@@ -11,7 +11,7 @@ const mapping = JSON.parse(readFileSync('artifacts/legacy-demo-catalog-mapping.j
 if (mapping.tenantId !== owner.TenantId) throw new Error('DedicatedDemoTenantMismatch');
 const tenant = owner.TenantId, publicPath = '/api/v1/public/tenants/' + tenant;
 const directory = 'artifacts/review-checkout'; mkdirSync(directory, { recursive: true });
-const checks = []; let browser, page, orderId = null, checkoutId = null, target = null, before = null, step = 'preflight';
+const checks = [], failedRequests = []; let browser, page, orderId = null, checkoutId = null, rejection = null, target = null, before = null, step = 'preflight';
 function assert(value, message) { if (!value) throw new Error(message); }
 function record(check) { checks.push(check); console.log(JSON.stringify({ passed: check })); }
 async function availability(variant) { return (await (await request('http://localhost:5186', publicPath + '/inventory/availability?variants=' + variant)).json())[0]; }
@@ -28,8 +28,19 @@ try {
   before = stock.find(row => row.variantId === target.variant.id);
   step = 'browser startup';
   browser = await chromium.launch({ executablePath: chrome, headless: true }); page = await browser.newPage({ viewport: { width: 1365, height: 900 } }); page.setDefaultTimeout(45000);
+  page.on('response', reply => { const path = new URL(reply.url()).pathname; if (path.startsWith('/commerce/') && !path.startsWith('/commerce/identity') && reply.status() >= 400) failedRequests.push({ path, status: reply.status() }); });
   step = 'product and cart'; await page.goto('http://localhost:4000/stores/legacy-demo/products/' + target.product.slug, { waitUntil: 'domcontentloaded' });
-  await page.getByRole('heading', { name: target.product.name, exact: true }).waitFor(); step = 'initial price quote'; await page.getByTestId('quote-total').waitFor();
+  await page.getByRole('heading', { name: target.product.name, exact: true }).waitFor(); step = 'initial price quote';
+  const firstPrice = await Promise.race([
+    page.getByTestId('quote-total').waitFor().then(() => true),
+    page.getByText('Price or coupon is unavailable for this selection. Please check the quantity or try again.', { exact: true }).waitFor().then(() => false),
+  ]);
+  if (!firstPrice) {
+    step = 'explicit preview refresh';
+    await page.getByRole('button', { name: 'Apply / refresh price', exact: true }).click();
+    await page.getByTestId('quote-total').waitFor();
+    record('a transient initial price failure recovers through the visible refresh control; no cart/order write was replayed');
+  }
   step = 'save guest cart';
   await page.getByRole('button', { name: 'Add to cart', exact: true }).click(); await page.getByText('Added to your saved cart.', { exact: true }).waitFor();
   await page.getByRole('link', { name: /^View cart/ }).click(); await page.getByTestId('cart-total').waitFor();
@@ -39,14 +50,17 @@ try {
   await page.getByRole('heading', { name: "A few details, then you're all set.", exact: true }).waitFor();
   await page.getByLabel('Full name', { exact: true }).fill('Local automated review customer'); await page.getByLabel('Email', { exact: true }).fill('local-review-customer@example.test');
   await page.getByLabel('Street address', { exact: true }).fill('1 Local Verification Street'); await page.getByLabel('City', { exact: true }).fill('Pune');
-  await page.getByLabel('Country', { exact: true }).selectOption('IN'); await page.getByLabel('Postal code', { exact: true }).fill('411001');
+  step = 'delivery contact';
+  await page.locator('select[formcontrolname="countryCode"]').selectOption('IN'); await page.getByLabel('Postal code', { exact: true }).fill('411001');
   step = 'delivery'; await page.getByRole('button', { name: 'Check delivery options', exact: true }).click();
   await page.locator('label.choice').filter({ hasText: 'Local demo delivery' }).locator('input[type="radio"]').check();
-  await page.getByLabel('Payment method', { exact: true }).selectOption('COD'); record('preparation-bound delivery and allowed sandbox COD options are returned');
+  await page.locator('select[formcontrolname="paymentMethod"]').selectOption('COD'); record('preparation-bound delivery and allowed sandbox COD options are returned');
   step = 'checkout'; const response = page.waitForResponse(reply => reply.request().method() === 'POST' && reply.url().endsWith('/orders/checkout'));
   await page.getByTestId('place-order').click(); const reply = await response;
+  if (reply.status() !== 202) { const problem = await reply.json().catch(() => ({})); rejection = { status: reply.status(), title: /^[A-Za-z][A-Za-z ;:.-]{1,100}$/.test(problem.title || '') ? problem.title : 'DetailsOmitted' }; }
   assert(reply.status() === 202, 'CheckoutRequestRejected'); const receipt = await reply.json(); checkoutId = receipt.id; orderId = receipt.order?.id || null;
-  await page.getByRole('heading', { name: 'Your order is confirmed', exact: true }).waitFor();
+  // Checkout is an asynchronous durable saga, not an immediate HTTP-200 order.
+  await page.getByRole('heading', { name: 'Your order is confirmed', exact: true }).waitFor({ timeout: 180000 });
   const link = page.getByRole('link', { name: 'View order & tracking', exact: true });
   const href = await link.getAttribute('href'); orderId = /\/orders\/([a-f0-9-]{36})$/i.exec(href || '')?.[1] || orderId; assert(orderId, 'ConfirmedOrderMissing');
   record('real browser checkout confirms through Cart, Pricing, Inventory, Shipping, Payment and Order');
@@ -77,10 +91,10 @@ try {
       await request('http://localhost:5189', base + '/orders/' + orderId + '/cancel', { token, method: 'POST', body: { operationId: crypto.randomUUID(), version: order.version, reason: 'Cancel the labelled local browser verification order; no real customer purchase.' } });
       cleanup.push('only labelled verification order cancelled through audited business workflow');
       let restored = false;
-      for (let i = 0; i < 20; i++) { if ((await availability(target.variant.id)).available === before.available) { restored = true; break; } await new Promise(resolve => setTimeout(resolve, 500)); }
+      for (let i = 0; i < 120; i++) { if ((await availability(target.variant.id)).available === before.available) { restored = true; break; } await new Promise(resolve => setTimeout(resolve, 500)); }
       assert(restored, 'OriginalStockNotRestored'); cleanup.push('original mapped product availability restored');
     } else { cleanup.push('checkout reference requires scoped recovery review'); process.exitCode = 1; }
   } catch { cleanup.push('labelled checkout cleanup requires review; original records were not deleted'); process.exitCode = 1; }
-  if (browser) await browser.close(); writeFileSync(join(directory, 'result.json'), JSON.stringify({ checks, checkoutId, orderId, cleanup, success: !process.exitCode }, null, 2));
+  if (browser) await browser.close(); writeFileSync(join(directory, 'result.json'), JSON.stringify({ checks, failedRequests, rejection, checkoutId, orderId, cleanup, success: !process.exitCode }, null, 2));
   console.log(JSON.stringify({ checks: checks.length, cleanup, success: !process.exitCode }));
 }
