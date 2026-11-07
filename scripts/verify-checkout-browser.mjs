@@ -10,7 +10,8 @@ const owner = JSON.parse(readFileSync(join(process.env.APPDATA, 'Microsoft/UserS
 const mapping = JSON.parse(readFileSync('artifacts/legacy-demo-catalog-mapping.json', 'utf8')), originals = new Set(Object.values(mapping.products));
 if (mapping.tenantId !== owner.TenantId) throw new Error('DedicatedDemoTenantMismatch');
 const tenant = owner.TenantId, publicPath = '/api/v1/public/tenants/' + tenant;
-const directory = 'artifacts/review-checkout'; mkdirSync(directory, { recursive: true });
+const verifyGst = process.argv.includes('--gst-worksheet');
+const directory = verifyGst ? 'artifacts/review-gst-worksheet' : 'artifacts/review-checkout'; mkdirSync(directory, { recursive: true });
 const checks = [], failedRequests = []; let browser, page, orderId = null, checkoutId = null, rejection = null, target = null, before = null, step = 'preflight';
 function assert(value, message) { if (!value) throw new Error(message); }
 function record(check) { checks.push(check); console.log(JSON.stringify({ passed: check })); }
@@ -72,6 +73,46 @@ try {
   await link.click(); await page.getByRole('heading', { name: 'Order details', exact: true }).waitFor();
   await page.setViewportSize({ width: 390, height: 844 }); assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'MobileOrderOverflow');
   await page.screenshot({ path: join(directory, 'order-mobile.png'), fullPage: true }); record('guest order history and tracking remain accessible on mobile');
+  if (verifyGst) {
+    step = 'merchant GST worksheet';
+    page = await browser.newPage({ viewport: { width: 1365, height: 900 }, acceptDownloads: true });
+    page.setDefaultTimeout(45000);
+    await page.goto('http://localhost:4000/workspace/' + tenant + '/orders', { waitUntil: 'domcontentloaded' });
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+    await page.waitForURL(url => url.origin === 'http://localhost:5181' && url.pathname === '/account/login');
+    await page.locator('input[name=email]').fill(owner.OwnerEmail);
+    await page.locator('input[name=password]').fill(owner.OwnerPassword);
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+    await page.locator('tr').filter({ hasText: order.number }).getByRole('button', { name: 'View order', exact: true }).click();
+    const worksheet = page.locator('app-gst-worksheet');
+    await worksheet.getByText('GST preparation worksheet', { exact: true }).click();
+    const fields = { 'supplier-name': 'Synthetic worksheet supplier', 'supplier-address': 'Local worksheet verification address',
+      'supplier-gstin': '07ZZZZZ0000Z1Z0', 'place-name': 'Maharashtra', 'place-code': '27' };
+    if (order.shippingTotal > 0) fields['shipping-sac'] = '996511';
+    for (const [name, value] of Object.entries(fields)) await worksheet.locator(`[name="${name}"]`).fill(value);
+    for (let index = 0; index < order.items.length; index++) {
+      const item = worksheet.locator('.item').nth(index);
+      await item.getByLabel('HSN', { exact: true }).fill('0904');
+      await item.getByLabel('Unit code', { exact: true }).fill('PCS');
+    }
+    step = 'GST worksheet preview and download';
+    const response = page.waitForResponse(reply => reply.request().method() === 'POST' && reply.url().endsWith('/gst-worksheet'));
+    void response.catch(() => {});
+    await worksheet.getByRole('button', { name: 'Preview worksheet', exact: true }).click();
+    const preview = await response;
+    assert(preview.ok(), 'WorksheetPreviewRejected');
+    const result = await preview.json();
+    assert(result.documentType === 'GST_WORKSHEET_DRAFT' && result.orderNumber === order.number && result.total === order.total
+      && result.lines.length === order.items.length, 'WorksheetSnapshotMismatch');
+    const download = page.waitForEvent('download');
+    void download.catch(() => {});
+    await worksheet.getByRole('button', { name: 'Download draft JSON', exact: true }).click();
+    const file = await (await download).path();
+    const exported = JSON.parse(readFileSync(file, 'utf8'));
+    assert(exported.documentType === 'GST_WORKSHEET_DRAFT' && exported.total === order.total, 'WorksheetDownloadMismatch');
+    await page.screenshot({ path: join(directory, 'worksheet-preview.png'), fullPage: true });
+    record('merchant worksheet previews and downloads the recorded order amounts using synthetic GST fields');
+  }
 } catch (error) {
   process.exitCode = 1; if (page) try { await page.screenshot({ path: join(directory, 'failure.png'), fullPage: true }); } catch {}
   console.error(JSON.stringify({ step, failureType: error.name === 'Error' && /^[A-Za-z]+$/.test(error.message) ? error.message : error.name, privateDetailsOmitted: true }));

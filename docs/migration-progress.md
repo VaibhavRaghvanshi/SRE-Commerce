@@ -1,5 +1,11 @@
 # SRECommerce migration progress
 
+## GST preparation worksheet — 2026-11-07
+
+Managers and Owners can open a supported domestic INR order, enter billing and classification details, and preview or download a draft GST worksheet. The Order API uses the saved item and delivery amounts, verifies the order version and reconciles the total before returning the worksheet. The workflow uses the existing Order schema. Formal issuance and applicable IRP registration remain release work. [Order service design](architecture/order-service-design.md) · [GSTN e-invoice overview](https://tutorial.gst.gov.in/downloads/news/e_invoice_overview.pdf)
+
+Both targeted Order integration cases passed using the local review profile. They exercised the draft amount reconciliation, stale version and missing classifications, and guest denial. The optimized Angular build succeeded with a 500.58 kB initial bundle against the 500 kB warning threshold. All 14 local readiness checks passed. The browser run passed six checks including the worksheet JSON download, then cancelled the labelled sandbox order and verified stock restoration.
+
 ## Enrollment, localization and cart recovery — 2026-11-07
 
 Fresh customers can register, confirm their email and select a store through the existing PKCE flow. A published store grants the Customer role through the authenticated enrollment endpoint. The flow preserves existing roles and rejects disabled memberships. Owners can grant Manager access to a confirmed active account and revoke it with its tenant sessions. The Identity sign-in form has responsive styling served under a per-response CSP nonce.

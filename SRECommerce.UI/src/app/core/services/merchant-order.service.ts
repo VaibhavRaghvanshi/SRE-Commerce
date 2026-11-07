@@ -3,6 +3,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { timeout } from 'rxjs';
 import { CommerceOrder, CommerceOrderHistory, CommerceOrderPage, CommerceOrderPolicy } from '../models/commerce-order.models';
 import { CheckoutReview, CommerceCheckout } from '../models/commerce-checkout.models';
+import { GstWorksheet, GstWorksheetRequest } from '../models/commerce-gst.models';
 
 @Injectable({ providedIn: 'root' })
 export class MerchantOrderService {
@@ -40,5 +41,9 @@ export class MerchantOrderService {
   invoice(tenant: string, order: CommerceOrder, operationId: string, reference: string, reason: string) {
     return this.http.post<CommerceOrder>(this.base(tenant) + '/orders/' + encodeURIComponent(order.id) + '/invoice-reference',
       { operationId, version: order.version, reference: reference.trim() }, this.options(reason)).pipe(timeout(15000));
+  }
+  gstWorksheet(tenant: string, orderId: string, input: GstWorksheetRequest, reason: string) {
+    return this.http.post<GstWorksheet>(this.base(tenant) + '/orders/' + encodeURIComponent(orderId) + '/gst-worksheet', input,
+      this.options(reason)).pipe(timeout(15000));
   }
 }

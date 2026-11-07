@@ -300,6 +300,22 @@ public sealed class OrderApiTests(OrderFixture fixture) : IClassFixture<OrderFix
         Assert.Equal(8, await Available(business));
         Assert.Equal(captures + 1, fixture.Providers.Captures);
 
+        var worksheetPath = Manage(business.Tenant) + $"/orders/{completed.Id}/gst-worksheet";
+        var worksheetRequest = new GstWorksheetRequest(completed.Order.Version,
+            new("Worksheet fixture supplier", "Delhi fixture billing address", "07ZZZZZ0000Z1Z0"),
+            new("Worksheet fixture buyer", "Delhi fixture recipient address", null), "07", "Delhi", false,
+            [new(business.Variant, "0904", "PCS")], "996511");
+        var worksheet = await Read<GstWorksheet>(await business.Owner.PostAsJsonAsync(worksheetPath, worksheetRequest));
+        Assert.Equal("GST_WORKSHEET_DRAFT", worksheet.DocumentType);
+        Assert.Equal(completed.Order.Total, worksheet.Total);
+        Assert.Equal(completed.Order.Tax, worksheet.RecordedTax);
+        Assert.Equal(completed.Order.ShippingTotal, worksheet.Shipping.Total);
+        Assert.Equal("0904", Assert.Single(worksheet.Lines).Classification);
+        Assert.Equal(HttpStatusCode.Conflict, (await business.Owner.PostAsJsonAsync(worksheetPath, worksheetRequest with { Version = "stale" })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await business.Owner.PostAsJsonAsync(worksheetPath, worksheetRequest with { Items = [] })).StatusCode);
+        if (guest)
+            Assert.Equal(HttpStatusCode.Unauthorized, (await business.Client.PostAsJsonAsync(worksheetPath, worksheetRequest)).StatusCode);
+
         var replay = await fixture.Start(business);
         Assert.Equal(completed.Id, replay.Id);
         Assert.Equal(CheckoutState.Accepted, replay.State);

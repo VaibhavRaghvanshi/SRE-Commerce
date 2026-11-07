@@ -9,8 +9,9 @@ import { CommerceSessionService } from '../../../core/services/commerce-session.
 import { MerchantOrderService } from '../../../core/services/merchant-order.service';
 import { CommerceOrder, CommerceOrderHistory, CommerceOrderPage, CommerceOrderPolicy, ORDER_STATUSES, PAYMENT_STATES } from '../../../core/models/commerce-order.models';
 import { CheckoutReview } from '../../../core/models/commerce-checkout.models';
+import { GstWorksheetComponent } from './gst-worksheet.component';
 
-@Component({ selector: 'app-orders-workspace', standalone: true, imports: [CommonModule, FormsModule, RouterLink],
+@Component({ selector: 'app-orders-workspace', standalone: true, imports: [CommonModule, FormsModule, RouterLink, GstWorksheetComponent],
   templateUrl: './orders-workspace.component.html', styleUrl: './orders-workspace.component.scss' })
 export class OrdersWorkspaceComponent {
   readonly session = inject(CommerceSessionService);
