@@ -15,6 +15,7 @@ export interface CatalogEditor {
   media: { id: string | null; url: string; alt: string; order: number }[];
   bundleItems: { variantId: string; quantity: number }[];
   relationships: { productId: string; kind: string }[]; version: string | null;
+  translations?: Record<string, { name: string; description: string; seoTitle: string; seoDescription: string }> | null;
 }
 @Injectable({ providedIn: 'root' })
 export class MerchantCatalogService {

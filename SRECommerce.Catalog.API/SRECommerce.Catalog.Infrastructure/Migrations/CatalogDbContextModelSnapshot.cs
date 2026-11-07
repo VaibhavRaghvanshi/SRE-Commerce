@@ -462,6 +462,13 @@ namespace SRECommerce.Catalog.Infrastructure.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
+                    b.Property<string>("Translations")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(65536)
+                        .HasColumnType("nvarchar(max)")
+                        .HasDefaultValue("{}");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("datetimeoffset");
 
@@ -488,6 +495,8 @@ namespace SRECommerce.Catalog.Infrastructure.Migrations
                             t.HasCheckConstraint("CK_Products_Attributes", "ISJSON([Attributes])=1");
 
                             t.HasCheckConstraint("CK_Products_Specifications", "ISJSON([Specifications])=1");
+
+                            t.HasCheckConstraint("CK_Products_Translations", "ISJSON([Translations])=1");
                         });
                 });
 

@@ -12,6 +12,40 @@ namespace SRECommerce.Catalog.Tests;
 public sealed class CatalogApiTests(CatalogFixture fixture):IClassFixture<CatalogFixture>
 {
     [Fact]
+    public async Task Translations_publish_as_snapshots_and_old_clients_preserve_the_existing_draft_content()
+    {
+        var business=await fixture.Business();using var owner=business.Client;using var anonymous=fixture.Factory.Client();var category=await Category(business);
+        var translated=new Dictionary<string,ProductTranslation>{{"hi",new("स्थानीय मसाला","ताज़ा और सुगंधित मसाला","मसाला","स्थानीय दुकान से मसाला")}};
+        var product=await Publish(business,await Create(business,Draft(category.Id) with{Translations=translated}));
+        var path=Public(business.Id)+"/products/"+product.Slug;
+        Assert.Equal("स्थानीय मसाला",(await anonymous.GetFromJsonAsync<ProductView>(path))!.Translations!["hi"].Name);
+        var draft=await Read<ProductView>(await owner.PutAsJsonAsync(Path(business.Id)+"/products/"+product.Id,Edit(product) with
+        {Translations=new(){{"hi",new("नया मसाला","नया विवरण")}}}));
+        Assert.Equal("स्थानीय मसाला",(await anonymous.GetFromJsonAsync<ProductView>(path))!.Translations!["hi"].Name);
+        var compatible=await Read<ProductView>(await owner.PutAsJsonAsync(Path(business.Id)+"/products/"+product.Id,Edit(draft) with{Translations=null}));
+        Assert.Equal("नया मसाला",compatible.Translations!["hi"].Name);
+        await Publish(business,compatible);
+        Assert.Equal("नया मसाला",(await anonymous.GetFromJsonAsync<ProductView>(path))!.Translations!["hi"].Name);
+        var foreign=await fixture.Business();using var other=foreign.Client;
+        Assert.Equal(HttpStatusCode.Forbidden,(await other.GetAsync(Path(business.Id)+"/products/"+product.Id)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Invalid_translations_are_rejected_and_wholesale_translations_never_leak_to_public_catalog()
+    {
+        var business=await fixture.Business();using var owner=business.Client;using var anonymous=fixture.Factory.Client();var category=await Category(business);
+        var input=Draft(category.Id);
+        Assert.Equal(HttpStatusCode.BadRequest,(await owner.PostAsJsonAsync(Path(business.Id)+"/products",input with{Translations=new(){{"../../hi",new("Invalid","Text")}}})).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest,(await owner.PostAsJsonAsync(Path(business.Id)+"/products",input with{Translations=new(){{"hi",new("<script>bad</script>","Text")}}})).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest,(await owner.PostAsJsonAsync(Path(business.Id)+"/products",input with{Translations=new(){{"hi",new(" ","Text")}}})).StatusCode);
+        var product=await Publish(business,await Create(business,input with{B2BOnly=true,Translations=new(){{"hi",new("निजी थोक उत्पाद","केवल थोक खरीदारों के लिए")}}}));
+        Assert.Equal(HttpStatusCode.NotFound,(await anonymous.GetAsync(Public(business.Id)+"/products/"+product.Slug)).StatusCode);
+        Assert.Empty((await anonymous.GetFromJsonAsync<CatalogPage<ProductView>>(Public(business.Id)+"/products"))!.Items);
+        var member=await owner.GetFromJsonAsync<ProductView>(Path(business.Id)+"/buyer/products/"+product.Slug);
+        Assert.Equal("निजी थोक उत्पाद",member!.Translations!["hi"].Name);
+    }
+
+    [Fact]
     public async Task Bound_fields_cannot_be_archived_and_unbinding_preserves_the_current_publication()
     {
         var business=await fixture.Business();using var owner=business.Client;using var anonymous=fixture.Factory.Client();var category=await Category(business);

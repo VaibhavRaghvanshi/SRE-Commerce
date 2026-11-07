@@ -1,22 +1,23 @@
-<main class="commerce-store" [commerceAppearance]="tenant()" #look="commerceAppearance">
+<main class="commerce-store" [commerceAppearance]="tenant()" #look="commerceAppearance" [attr.lang]="locale.language()">
   <header class="store-heading" [class.sticky]="look.layout()?.header?.sticky">
     <a routerLink="/" class="platform">SRECommerce</a>
-    <button *ngIf="tenant() && (!session.token || session.access()?.selectedTenantId !== tenant()!.tenantId)" type="button" (click)="signIn()">Business buyer sign in</button>
-    <span *ngIf="session.token && session.access()?.selectedTenantId === tenant()?.tenantId">{{session.access()?.tenantRole==='B2BBuyer'?'Wholesale buyer catalog':'Member catalog'}} <button type="button" (click)="session.signOut()">Sign out</button></span>
+    <app-store-language />
+    <button *ngIf="tenant() && (!session.token || session.access()?.selectedTenantId !== tenant()!.tenantId)" type="button" (click)="signIn()">{{locale.text('Business buyer sign in')}}</button>
+    <span *ngIf="session.token && session.access()?.selectedTenantId === tenant()?.tenantId">{{locale.text(session.access()?.tenantRole==='B2BBuyer'?'Wholesale buyer catalog':'Member catalog')}} <button type="button" (click)="session.signOut()">{{locale.text('Sign out')}}</button></span>
     <div><p class="eyebrow">{{ tenant()?.businessType || 'Independent stores' }}</p><h1>{{ tenant()?.displayName || 'Browse the store' }}</h1></div>
     <a class="workspace-link" [routerLink]="['/workspace', tenant()?.tenantId || '', 'catalog']" *ngIf="tenant() && session.token && (session.access()?.isPlatformAdmin || session.access()?.selectedTenantId === tenant()!.tenantId && ['Owner','Manager'].includes(session.access()?.tenantRole || ''))">Manage catalog</a>
-    <a class="workspace-link" [routerLink]="['/stores',tenant()!.slug,'account']" *ngIf="tenant()?.modules?.includes('cart')">Your account</a>
-    <a class="workspace-link" [routerLink]="['/stores',tenant()!.slug,'cart']" *ngIf="tenant()?.modules?.includes('cart') && look.layout()?.header?.showCart !== false">Cart →</a>
-    <a class="workspace-link" [routerLink]="['/stores',tenant()!.slug,'search']" *ngIf="tenant()?.modules?.includes('discovery') && look.layout()?.header?.showSearch !== false">Advanced search</a>
+    <a class="workspace-link" [routerLink]="['/stores',tenant()!.slug,'account']" *ngIf="tenant()?.modules?.includes('cart')">{{locale.text('Your account')}}</a>
+    <a class="workspace-link" [routerLink]="['/stores',tenant()!.slug,'cart']" *ngIf="tenant()?.modules?.includes('cart') && look.layout()?.header?.showCart !== false">{{locale.text('Cart')}} →</a>
+    <a class="workspace-link" [routerLink]="['/stores',tenant()!.slug,'search']" *ngIf="tenant()?.modules?.includes('discovery') && look.layout()?.header?.showSearch !== false">{{locale.text('Advanced search')}}</a>
   </header>
   <app-storefront-blocks *ngIf="look.layout() as layout; else defaultIntro" [layout]="layout" [slug]="tenant()!.slug" [tenant]="tenant()!.tenantId" [mobile]="look.mobile()" [categories]="lookups().categories" />
-  <ng-template #defaultIntro><section class="store-intro"><p class="eyebrow">The collection</p><h2>Discover something for your everyday.</h2><p>Explore products, compare variants and find the details that matter.</p></section></ng-template>
+  <ng-template #defaultIntro><section class="store-intro"><p class="eyebrow">{{locale.text('The collection')}}</p><h2>{{locale.text('Discover something for your everyday.')}}</h2><p>{{locale.text('Explore products, compare variants and find the details that matter.')}}</p></section></ng-template>
   <form class="catalog-filters" (ngSubmit)="reload(1)" *ngIf="tenant()">
-    <label *ngIf="look.layout()?.header?.showSearch !== false">Search<input name="search" [(ngModel)]="search" placeholder="Search products" maxlength="100" /></label>
-    <label *ngIf="look.layout()?.header?.showCategories !== false">Category<select name="category" [(ngModel)]="category" (change)="reload(1)"><option value="">All categories</option><option *ngFor="let item of lookups().categories" [value]="item.id">{{ item.name }}</option></select></label>
-    <label>Brand<select name="brand" [(ngModel)]="brand" (change)="reload(1)"><option value="">All brands</option><option *ngFor="let item of lookups().brands" [value]="item.id">{{ item.name }}</option></select></label>
-    <label>Collection<select name="collection" [(ngModel)]="collection" (change)="reload(1)"><option value="">All collections</option><option *ngFor="let item of lookups().collections" [value]="item.slug">{{ item.name }}</option></select></label>
-    <button type="submit" [disabled]="loading()">Search</button><button type="button" class="secondary" (click)="reset()">Reset</button>
+    <label *ngIf="look.layout()?.header?.showSearch !== false">{{locale.text('Search')}}<input name="search" [(ngModel)]="search" [placeholder]="locale.text('Search products')" maxlength="100" /></label>
+    <label *ngIf="look.layout()?.header?.showCategories !== false">{{locale.text('Category')}}<select name="category" [(ngModel)]="category" (change)="reload(1)"><option value="">{{locale.text('All categories')}}</option><option *ngFor="let item of lookups().categories" [value]="item.id">{{ item.name }}</option></select></label>
+    <label>{{locale.text('Brand')}}<select name="brand" [(ngModel)]="brand" (change)="reload(1)"><option value="">{{locale.text('All brands')}}</option><option *ngFor="let item of lookups().brands" [value]="item.id">{{ item.name }}</option></select></label>
+    <label>{{locale.text('Collection')}}<select name="collection" [(ngModel)]="collection" (change)="reload(1)"><option value="">{{locale.text('All collections')}}</option><option *ngFor="let item of lookups().collections" [value]="item.slug">{{ item.name }}</option></select></label>
+    <button type="submit" [disabled]="loading()">{{locale.text('Search')}}</button><button type="button" class="secondary" (click)="reset()">{{locale.text('Reset')}}</button>
   </form>
   <div role="status" aria-live="polite" *ngIf="loading()"><p class="visually-hidden">Loading products…</p><div class="skeleton-grid" aria-hidden="true"><div *ngFor="let item of [0,1,2,3,4,5,6,7]"><div class="skeleton skeleton-image"></div><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line short"></div></div></div></div>
   <div class="state error" role="alert" *ngIf="error()"><p>{{ error() }}</p><button type="button" (click)="reload(result().page)">Try again</button></div>
@@ -27,10 +28,10 @@
       <a [routerLink]="['/stores', tenant()!.slug, 'products', product.slug]" class="product-image"><img *ngIf="product.media.length && !failedImages().includes(product.id); else noImage" [commerceImage]="product.media[0].url" [imageTenant]="tenant()!.tenantId" [alt]="product.media[0].alt || product.name" (error)="imageFailed(product.id)" (commerceImageError)="imageFailed(product.id)" loading="lazy" /><ng-template #noImage><span class="image-placeholder">{{ product.name.slice(0, 2).toUpperCase() }}</span></ng-template></a>
       <p class="product-kind" *ngIf="product.b2BOnly">Wholesale · members only</p>
       <p class="product-kind">{{ product.kind === 2 ? 'Bundle' : product.variants.length > 1 ? product.variants.length + ' variants' : 'Selected for you' }}</p>
-      <h3><a [routerLink]="['/stores', tenant()!.slug, 'products', product.slug]">{{ product.name }}</a></h3>
-      <p class="description">{{ product.description }}</p><a class="details-link" [routerLink]="['/stores', tenant()!.slug, 'products', product.slug]">View details <span aria-hidden="true">↗</span></a>
+      <h3><a [routerLink]="['/stores', tenant()!.slug, 'products', product.slug]">{{ locale.product(product).name }}</a></h3>
+      <p class="description">{{ locale.product(product).description }}</p><a class="details-link" [routerLink]="['/stores', tenant()!.slug, 'products', product.slug]">{{locale.text('View product')}} <span aria-hidden="true">↗</span></a>
     </article></section>
-    <nav class="pagination" aria-label="Catalog pages"><button type="button" [disabled]="result().page <= 1" (click)="reload(result().page - 1)">Previous</button><span>{{ result().page }} / {{ pages() }}</span><button type="button" [disabled]="result().page >= pages()" (click)="reload(result().page + 1)">Next</button></nav>
+    <nav class="pagination" aria-label="Catalog pages"><button type="button" [disabled]="result().page <= 1" (click)="reload(result().page - 1)">{{locale.text('Previous')}}</button><span>{{ result().page }} / {{ pages() }}</span><button type="button" [disabled]="result().page >= pages()" (click)="reload(result().page + 1)">{{locale.text('Next')}}</button></nav>
   </ng-container>
   <app-storefront-blocks *ngIf="look.layout() as layout" [layout]="layout" [slug]="tenant()!.slug" [tenant]="tenant()!.tenantId" [mobile]="look.mobile()" [footer]="true" />
 </main>

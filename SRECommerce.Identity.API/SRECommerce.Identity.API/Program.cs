@@ -91,6 +91,17 @@ builder.Services.ConfigureApplicationCookie(o =>
 });
 builder.Services.AddAntiforgery(o => o.Cookie.SecurePolicy = builder.Environment.IsDevelopment() ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always);
 builder.Services.AddScoped<IIdentityAccounts, IdentityAccounts>();
+builder.Services.AddScoped<ICustomerEnrollment, CustomerEnrollment>();
+builder.Services.AddScoped<IStoreDirectory, HttpStoreDirectory>();
+builder.Services.AddHttpClient("store-directory", client =>
+{
+    var address = new Uri(builder.Configuration["Tenant:BaseUrl"] ?? (builder.Environment.IsDevelopment() ? "http://localhost:5082/" : "https://localhost:7082/"));
+    if (!address.IsAbsoluteUri || !string.IsNullOrEmpty(address.UserInfo) || !string.IsNullOrEmpty(address.Query)
+        || !address.AbsoluteUri.EndsWith('/') || (!builder.Environment.IsDevelopment() && address.Scheme != "https"))
+        throw new InvalidOperationException("A trusted Tenant service base URL is required.");
+    client.BaseAddress = address;
+    client.Timeout = TimeSpan.FromSeconds(8);
+}).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 builder.Services.AddHostedService<LocalEmailWorker>();
 builder.Services.AddOpenIddict()
     .AddCore(o => o.UseEntityFrameworkCore().UseDbContext<IdentityDbContext>())
@@ -152,8 +163,10 @@ var browserFormAction=IdentityBrowserPolicy.FormAction(app.Configuration,app.Env
 app.UseExceptionHandler();
 app.Use(async (context, next) =>
 {
+    var styleNonce = Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(24));
+    context.Items["IdentityStyleNonce"] = styleNonce;
     context.Response.Headers["X-Content-Type-Options"] = "nosniff";
-    context.Response.Headers["Content-Security-Policy"] = "default-src 'none'; form-action "+browserFormAction+"; frame-ancestors 'none'; base-uri 'none'";
+    context.Response.Headers["Content-Security-Policy"] = "default-src 'none'; style-src 'nonce-"+styleNonce+"'; form-action "+browserFormAction+"; frame-ancestors 'none'; base-uri 'none'";
     context.Response.Headers.CacheControl = "no-store";
     await next();
 });

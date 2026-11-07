@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom, timeout } from 'rxjs';
 import { CommerceSessionService } from '../../../core/services/commerce-session.service';
 
@@ -21,6 +21,7 @@ export class CommerceAccountComponent {
   readonly session = inject(CommerceSessionService);
   private readonly http = inject(HttpClient);
   private readonly destroy = inject(DestroyRef);
+  readonly storeSlug = inject(ActivatedRoute).snapshot.queryParamMap.get('store') || '';
   readonly profile = signal<Profile | null>(null); readonly sessions = signal<Session[]>([]);
   readonly busy = signal(false); readonly error = signal(''); readonly message = signal('');
   readonly sharedKey = signal(''); readonly recoveryCodes = signal<string[]>([]); readonly signInAgain = signal(false);
@@ -31,7 +32,14 @@ export class CommerceAccountComponent {
     if (typeof window !== 'undefined' && this.session.token) void this.reload();
   }
   private clear() { this.password = ''; this.newPassword = ''; this.code = ''; this.mfaCode = ''; this.mfaPassword = ''; this.sharedKey.set(''); this.recoveryCodes.set([]); }
-  async signIn() { try { await this.session.signInPortal('account'); } catch { this.error.set('Sign-in could not be started.'); } }
+  async signIn() {
+    try {
+      if (/^[a-z0-9-]{1,80}$/.test(this.storeSlug)) {
+        const store = await firstValueFrom(this.http.get<{tenantId:string;slug:string}>('/commerce/tenant/public/tenants/' + this.storeSlug).pipe(timeout(12000)));
+        await this.session.signInStore(store.tenantId, store.slug, 'account');
+      } else await this.session.signInPortal('account');
+    } catch { this.error.set('Sign-in could not be started. The store may be temporarily unavailable.'); }
+  }
   private request<T>(method: 'GET' | 'POST' | 'PUT' | 'DELETE', path: string, body?: unknown) {
     return firstValueFrom(this.http.request<T>(method, '/commerce/identity/' + path, { body }).pipe(timeout(12000)));
   }

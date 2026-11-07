@@ -8,7 +8,7 @@ $runDirectory=Join-Path $repository 'artifacts\commerce-development'
 New-Item -ItemType Directory -Force -Path $runDirectory|Out-Null
 if($Build){& $runtime build (Join-Path $repository 'SRECommerce.slnx') -c Release -m:1 -nr:false --nologo;if($LASTEXITCODE -ne 0){throw 'Backend build failed; no services started.'}}
 $specs=@(
-    @{Name='Identity';Port=5181;Extra=@{'Identity__Issuer'='http://localhost:5181/';'Mailpit__Enabled'='true';'Mailpit__Host'='localhost';'Mailpit__Port'='1025';'Cors__Origins__0'='http://localhost:4200';'Cors__Origins__1'='http://localhost:4000'}},
+    @{Name='Identity';Port=5181;Extra=@{'Identity__Issuer'='http://localhost:5181/';'Tenant__BaseUrl'='http://localhost:5182/';'Mailpit__Enabled'='true';'Mailpit__Host'='localhost';'Mailpit__Port'='1025';'Cors__Origins__0'='http://localhost:4200';'Cors__Origins__1'='http://localhost:4000'}},
     @{Name='Tenant';Port=5182;Extra=@{'Identity__BaseUrl'='http://localhost:5181/'}},
     @{Name='Theme';Port=5183;Extra=@{'Identity__BaseUrl'='http://localhost:5181/';'Tenant__BaseUrl'='http://localhost:5182/'}},
     @{Name='Storefront';Port=5184;Extra=@{'Identity__BaseUrl'='http://localhost:5181/';'Tenant__BaseUrl'='http://localhost:5182/'}},

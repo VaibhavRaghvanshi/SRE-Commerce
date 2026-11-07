@@ -4,6 +4,7 @@ public interface ICartRepository
 {
  Task<T> Transaction<T>(Func<CancellationToken,Task<T>> action,CancellationToken ct);
  Task<ShoppingCart?> Cart(Guid id,CancellationToken ct);Task<ShoppingCart?> Customer(Guid user,CancellationToken ct);
+ Task<ShoppingCart?> Recoverable(Guid user,DateTimeOffset earliest,DateTimeOffset now,CancellationToken ct);
  Task<CartSession?> Session(Guid cart,CancellationToken ct);Task<CartOperation?> Operation(Guid cart,Guid id,CancellationToken ct);
  Task<CheckoutPreparation?> Preparation(Guid id,CancellationToken ct);
  Task<CartCheckoutClaim?> Claim(Guid id,CancellationToken ct);Task<CartCheckoutClaim?> ActiveClaim(Guid cart,CancellationToken ct);

@@ -29,9 +29,8 @@ public sealed class AuthorizationController(IdentityDbContext db, UserManager<Ap
     public IActionResult Login(string? returnUrl = null, bool mfa = false, bool error = false)
     {
         var token = antiforgery.GetAndStoreTokens(HttpContext);
-        var content = $"<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width\"><title>SRECommerce sign in</title><h1>SRECommerce sign in</h1><p>{(error ? "Unable to sign in. Verify the account, credentials and authenticator code." : "Use your verified account.")}</p><form method=\"post\" action=\"/account/login\"><input type=\"hidden\" name=\"{token.FormFieldName}\" value=\"{Encode(token.RequestToken!)}\"><input type=\"hidden\" name=\"returnUrl\" value=\"{Encode(SafeReturn(returnUrl))}\"><input type=\"hidden\" name=\"mfa\" value=\"{mfa.ToString().ToLowerInvariant()}\">";
-        content += mfa ? "<label>Authenticator or recovery code <input name=\"code\" autocomplete=\"one-time-code\" required></label><label>Use recovery code <input type=\"checkbox\" name=\"recovery\" value=\"true\"></label>" : "<label>Email <input type=\"email\" name=\"email\" autocomplete=\"username\" required></label><label>Password <input type=\"password\" name=\"password\" autocomplete=\"current-password\" required></label>";
-        return Content(content + "<button type=\"submit\">Sign in</button></form></html>", "text/html");
+        return Content(IdentityLoginPage.Render(token.FormFieldName, token.RequestToken!,
+            (string)HttpContext.Items["IdentityStyleNonce"]!, SafeReturn(returnUrl), mfa, error), "text/html");
     }
 
     [HttpPost("/account/login")]

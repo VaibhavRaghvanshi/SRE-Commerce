@@ -10,12 +10,15 @@ import { StoreAppearanceDirective } from '../presentation/store-appearance.direc
 import { StorefrontBlocksComponent } from '../presentation/storefront-blocks.component';
 import { CommerceSessionService } from '../../../core/services/commerce-session.service';
 import { CommerceImageDirective } from '../../../core/directives/commerce-image.directive';
+import { StoreLanguageService } from '../../../core/services/store-language.service';
+import { StoreLanguageComponent } from '../presentation/store-language.component';
 
 @Component({
-  selector: 'app-commerce-catalog', standalone: true, imports: [CommonModule, FormsModule, RouterLink, StoreAppearanceDirective, StorefrontBlocksComponent, CommerceImageDirective],
+  selector: 'app-commerce-catalog', standalone: true, imports: [CommonModule, FormsModule, RouterLink, StoreAppearanceDirective, StorefrontBlocksComponent, CommerceImageDirective, StoreLanguageComponent],
   templateUrl: './catalog.component.html', styleUrl: './catalog.component.scss'
 })
 export class CommerceCatalogComponent {
+  readonly locale = inject(StoreLanguageService);
   readonly session = inject(CommerceSessionService);
   private readonly api = inject(CommerceCatalogService);
   private readonly route = inject(ActivatedRoute);

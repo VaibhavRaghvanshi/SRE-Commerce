@@ -29,6 +29,7 @@ export interface CommerceProduct {
   media: { id: string; url: string; alt: string; order: number }[];
   bundleItems: { variantId: string; quantity: number }[];
   relationships?: { productId: string; kind: string }[];
+  translations?: Record<string, { name: string; description: string; seoTitle: string; seoDescription: string }> | null;
   publishedRevision: number;
   version: string | null;
 }

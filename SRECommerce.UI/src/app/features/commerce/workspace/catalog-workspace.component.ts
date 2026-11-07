@@ -12,8 +12,9 @@ import { CatalogOrganizationComponent } from './catalog-organization.component';
 import { CatalogRelationsComponent } from './catalog-relations.component';
 import { CatalogFieldsComponent } from './catalog-fields.component';
 import { CatalogTransferComponent } from './catalog-transfer.component';
+import { ProductTranslationsComponent } from './product-translations.component';
 
-@Component({selector:'app-catalog-workspace',standalone:true,imports:[CommonModule,FormsModule,RouterLink,CatalogOrganizationComponent,CatalogRelationsComponent,CatalogFieldsComponent,CatalogTransferComponent],templateUrl:'./catalog-workspace.component.html',styleUrl:'./catalog-workspace.component.scss'})
+@Component({selector:'app-catalog-workspace',standalone:true,imports:[CommonModule,FormsModule,RouterLink,CatalogOrganizationComponent,CatalogRelationsComponent,CatalogFieldsComponent,CatalogTransferComponent,ProductTranslationsComponent],templateUrl:'./catalog-workspace.component.html',styleUrl:'./catalog-workspace.component.scss'})
 export class CatalogWorkspaceComponent {
   readonly session=inject(CommerceSessionService);private readonly api=inject(MerchantCatalogService);private readonly route=inject(ActivatedRoute);private readonly destroy=inject(DestroyRef);
   readonly tenant=this.route.snapshot.paramMap.get('tenant')||'';readonly products=signal<CommerceProduct[]>([]);readonly lookups=signal<MerchantLookups>({categories:[],brands:[],definitions:[],collections:[]});readonly definitions=signal<CatalogDefinition[]>([]);

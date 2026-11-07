@@ -5,13 +5,20 @@ import { CommerceSessionService } from './commerce-session.service';
 import { CommerceCart, CommerceCartPreview, CommercePreparation } from '../models/commerce-cart.models';
 interface GuestCart {id:string;key:string;expiresAt:string;}
 interface PendingWrite {body:Record<string,unknown>;url:string;method:'PUT'|'POST';headers:Record<string,string>;}
+export interface CartRecoveryCandidate { id: string; expiredAt: string; itemCount: number; }
 @Injectable({providedIn:'root'})
 export class CommerceCartService {
  private readonly http=inject(HttpClient);private readonly session=inject(CommerceSessionService);
  private readonly states=signal<Record<string,CommerceCart>>({});private readonly guests=new Map<string,GuestCart>();private readonly writes=new Map<string,PendingWrite>();private readonly merges=new Map<string,PendingWrite>();private queue:Promise<unknown>=Promise.resolve();
  private customer(tenant:string){return !!this.session.token&&this.session.access()?.selectedTenantId===tenant;}
  private stateKey(tenant:string){return tenant+':'+(this.customer(tenant)?this.session.access()!.userId:'guest');}
- private remember(tenant:string,cart:CommerceCart){this.states.update(state=>({...state,[this.stateKey(tenant)]:cart}));const guest=this.guests.get(tenant);if(cart.guest&&guest){guest.expiresAt=cart.expiresAt;this.persist(tenant,guest);}return cart;}
+ private remember(tenant:string,cart:CommerceCart,scope:string){
+  if(this.stateKey(tenant)!==scope)throw new Error('CartCustomerChanged');
+  this.states.update(state=>({...state,[scope]:cart}));
+  const guest=this.guests.get(tenant);
+  if(cart.guest&&guest){guest.expiresAt=cart.expiresAt;this.persist(tenant,guest);}
+  return cart;
+ }
  view(tenant:string){return this.states()[this.stateKey(tenant)]||null;}
  private storage(tenant:string){return 'srecommerce.cart.v1.'+tenant;}
  private persist(tenant:string,value:GuestCart|null){if(value)this.guests.set(tenant,value);else this.guests.delete(tenant);try{if(typeof localStorage!=='undefined'){if(value)localStorage.setItem(this.storage(tenant),JSON.stringify(value));else localStorage.removeItem(this.storage(tenant));}}catch{/* Session memory remains usable if storage is disabled. */}}
@@ -28,6 +35,7 @@ export class CommerceCartService {
  private serial<T>(work:()=>Promise<T>):Promise<T>{const next=this.queue.then(work,work);this.queue=next.catch(()=>undefined);return next;}
  private uncertain(error:unknown){return !(error instanceof HttpErrorResponse)||error.status===0||error.status>=500||error.status===429;}
  private async ensure(tenant:string):Promise<CommerceCart>{
+  const scope=this.stateKey(tenant);
   if(this.customer(tenant)){
    let cart=await this.request<CommerceCart>(this.base(tenant,false),'POST',{id:crypto.randomUUID()});const guest=this.guest(tenant,false);
    if(guest){
@@ -35,17 +43,17 @@ export class CommerceCartService {
     if(!pending){
      let source:CommerceCart;
      try{source=await this.request<CommerceCart>(this.base(tenant,true)+'/'+guest.id,'GET',undefined,{'X-Cart-Key':guest.key});}
-     catch(error){if(error instanceof HttpErrorResponse&&[401,404,409,410].includes(error.status)){this.persist(tenant,null);return this.remember(tenant,cart);}throw error;}
+     catch(error){if(error instanceof HttpErrorResponse&&[401,404,409,410].includes(error.status)){const saved=this.remember(tenant,cart,scope);this.persist(tenant,null);return saved;}throw error;}
      pending={url:this.base(tenant,false)+'/'+cart.id+'/merge',method:'POST',headers:{'X-Cart-Key':guest.key},body:{operationId:crypto.randomUUID(),guestCartId:source.id,guestVersion:source.version,version:cart.version}};this.merges.set(tenant,pending);
     }
     try{cart=await this.request<CommerceCart>(pending.url,pending.method,pending.body,pending.headers);this.merges.delete(tenant);this.persist(tenant,null);}
     catch(error){if(!this.uncertain(error))this.merges.delete(tenant);throw error;}
    }
-   return this.remember(tenant,cart);
+   return this.remember(tenant,cart,scope);
   }
   const guest=this.guest(tenant)!;
-  try{return this.remember(tenant,await this.request<CommerceCart>(this.base(tenant,true),'POST',{id:guest.id},{'X-Cart-Key':guest.key}));}
-  catch(error){if(error instanceof HttpErrorResponse&&[404,409,410].includes(error.status)){this.persist(tenant,null);const fresh=this.guest(tenant)!;return this.remember(tenant,await this.request<CommerceCart>(this.base(tenant,true),'POST',{id:fresh.id},{'X-Cart-Key':fresh.key}));}throw error;}
+  try{return this.remember(tenant,await this.request<CommerceCart>(this.base(tenant,true),'POST',{id:guest.id},{'X-Cart-Key':guest.key}),scope);}
+  catch(error){if(error instanceof HttpErrorResponse&&[404,409,410].includes(error.status)&&this.stateKey(tenant)===scope){this.persist(tenant,null);const fresh=this.guest(tenant)!;return this.remember(tenant,await this.request<CommerceCart>(this.base(tenant,true),'POST',{id:fresh.id},{'X-Cart-Key':fresh.key}),scope);}throw error;}
  }
  load(tenant:string){return this.serial(()=>this.ensure(tenant));}
  checkoutContext(tenant:string,preparation:CommercePreparation):{guest:boolean;cartKey:string|null}{
@@ -54,10 +62,22 @@ export class CommerceCartService {
   if(!this.customer(tenant)||preparation.userId!==this.session.access()?.userId)throw new Error('CartCustomerChanged');return{guest:false,cartKey:null};
  }
  private mutate(tenant:string,label:string,make:(cart:CommerceCart,guest:boolean)=>PendingWrite){return this.serial(async()=>{
-  const key=this.stateKey(tenant)+':'+label;let pending=this.writes.get(key);
+  const scope=this.stateKey(tenant);const key=scope+':'+label;let pending=this.writes.get(key);
   if(!pending){const cart=await this.ensure(tenant);pending=make(cart,cart.guest);this.writes.set(key,pending);}
-  try{const cart=await this.request<CommerceCart>(pending.url,pending.method,pending.body,pending.headers);this.writes.delete(key);return this.remember(tenant,cart);}catch(error){if(!this.uncertain(error))this.writes.delete(key);throw error;}
+  try{const cart=await this.request<CommerceCart>(pending.url,pending.method,pending.body,pending.headers);this.writes.delete(key);return this.remember(tenant,cart,scope);}catch(error){if(!this.uncertain(error))this.writes.delete(key);throw error;}
  });}
+ async recovery(tenant:string):Promise<CartRecoveryCandidate|null>{
+  if(!this.customer(tenant))return null;
+  const scope=this.stateKey(tenant);
+  const candidate=await this.request<CartRecoveryCandidate|null>(this.base(tenant,false)+'/recovery','GET');
+  return this.stateKey(tenant)===scope?candidate:null;
+ }
+ recover(tenant:string,sourceCartId:string){
+  return this.mutate(tenant,'recover:'+sourceCartId,(cart,guest)=>{
+   if(guest)throw new Error('CartCustomerRequired');
+   return {url:this.base(tenant,false)+'/'+cart.id+'/recover',method:'POST',headers:{},body:{operationId:crypto.randomUUID(),sourceCartId,version:cart.version}};
+  });
+ }
  add(tenant:string,variant:string,quantity:number){return this.mutate(tenant,'add:'+variant+':'+quantity,(cart,guest)=>({url:this.base(tenant,guest)+'/'+cart.id+'/items',method:'PUT',headers:this.headers(tenant,guest),body:{operationId:crypto.randomUUID(),variantId:variant,quantity:quantity+(cart.items.find(i=>i.variantId===variant)?.quantity||0),version:cart.version}}));}
  set(tenant:string,variant:string,quantity:number){return this.mutate(tenant,'set:'+variant+':'+quantity,(cart,guest)=>({url:this.base(tenant,guest)+'/'+cart.id+'/items',method:'PUT',headers:this.headers(tenant,guest),body:{operationId:crypto.randomUUID(),variantId:variant,quantity,version:cart.version}}));}
  remove(tenant:string,variant:string){return this.mutate(tenant,'remove:'+variant,(cart,guest)=>({url:this.base(tenant,guest)+'/'+cart.id+'/items/'+variant+'/remove',method:'POST',headers:this.headers(tenant,guest),body:{operationId:crypto.randomUUID(),version:cart.version}}));}

@@ -14,7 +14,7 @@ public sealed class CatalogService(ICatalogRepository repository,ICatalogAccess 
         value.Variants.Where(v=>v.Active).OrderBy(v=>v.Sku).Select(v=>new VariantInput(v.Id,v.Sku,Read<Dictionary<string,string>>(v.Options),v.Barcode)).ToArray(),
         value.Media.Where(m=>m.Active).OrderBy(m=>m.Order).Select(m=>new MediaInput(m.Id,m.Url,m.Alt,m.Order)).ToArray(),
         value.BundleItems.Where(b=>b.Active).OrderBy(b=>b.ComponentVariantId).Select(b=>new BundleInput(b.ComponentVariantId,b.Quantity)).ToArray(),
-        value.Relationships.Where(r=>r.Active).OrderBy(r=>r.RelatedProductId).Select(r=>new RelationshipInput(r.RelatedProductId,r.Kind)).ToArray(),value.PublishedRevision,publicRead?null:Convert.ToBase64String(value.Version));
+        value.Relationships.Where(r=>r.Active).OrderBy(r=>r.RelatedProductId).Select(r=>new RelationshipInput(r.RelatedProductId,r.Kind)).ToArray(),value.PublishedRevision,publicRead?null:Convert.ToBase64String(value.Version),Read<Dictionary<string,ProductTranslation>>(value.Translations));
     private static void Query(CatalogQuery query)
     {if(query.Page is <1 or >10000||query.PageSize is <1 or >100||query.Search?.Length>100)throw new BuildingBlocks.Kernel.DomainFault("InvalidCatalogQuery");}
     public async Task<object> Lookups(Guid tenant,bool publicRead,CancellationToken ct)
@@ -125,7 +125,20 @@ public sealed class CatalogService(ICatalogRepository repository,ICatalogAccess 
         if(request.BrandId is {} brand&&!(await repository.Brands(ct)).Any(b=>b.Id==brand&&!b.Archived))throw new BusinessFault("BrandUnavailable");
         product.Name=CatalogRules.Text(request.Name);product.Slug=CatalogRules.Slug(request.Slug);product.CategoryId=request.CategoryId;product.BrandId=request.BrandId;product.Kind=request.Kind;product.Description=CatalogRules.Text(request.Description,10000,true);
         product.SeoTitle=CatalogRules.Text(request.SeoTitle,160,true);product.SeoDescription=CatalogRules.Text(request.SeoDescription,320,true);product.Visible=request.Visible;product.B2BOnly=request.B2BOnly;product.Attributes=Json(request.Attributes);product.Specifications=Json(request.Specifications);product.UpdatedAt=DateTimeOffset.UtcNow;
-        if(product.Attributes.Length>40000||product.Specifications.Length>65536)throw new BusinessFault("ProductFieldsTooLarge",400);
+        if(request.Translations is not null)
+        {
+            if(request.Translations.Count>8)throw new BusinessFault("TooManyProductLanguages",400);
+            var translations=new Dictionary<string,ProductTranslation>(StringComparer.Ordinal);
+            foreach(var (language,translation) in request.Translations)
+            {
+                if(language is not ("en" or "hi" or "gu" or "mr" or "ta" or "te" or "bn" or "kn")||translation is null)
+                    throw new BusinessFault("UnsupportedProductLanguage",400);
+                translations.Add(language,new(CatalogRules.Text(translation.Name),CatalogRules.Text(translation.Description,10000,true),
+                    CatalogRules.Text(translation.SeoTitle,160,true),CatalogRules.Text(translation.SeoDescription,320,true)));
+            }
+            product.Translations=Json(translations);
+        }
+        if(product.Attributes.Length>40000||product.Specifications.Length>65536||product.Translations.Length>65536)throw new BusinessFault("ProductFieldsTooLarge",400);
         var seenSkus=new HashSet<string>(StringComparer.Ordinal);var seenVariants=new HashSet<Guid>();var seenOptions=new HashSet<string>(StringComparer.Ordinal);
         foreach(var input in request.Variants)
         {

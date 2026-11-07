@@ -1,6 +1,7 @@
 <main>
   <nav><a routerLink="/">SRECommerce</a> · <a routerLink="/businesses">Your businesses</a></nav>
   <h1>Commerce account</h1>
+  <p *ngIf="storeSlug">Create and confirm your account, then sign in to return to your store. Joining grants customer access; wholesale access is assigned by the store owner.</p>
   <p role="alert" *ngIf="error()">{{error()}}</p><p role="status" *ngIf="busy() || message()">{{busy() ? 'Working…' : message()}}</p>
   <button type="button" *ngIf="!session.token || signInAgain()" (click)="signIn()" [disabled]="busy()">Sign in with SRECommerce Identity</button>
   <button type="button" *ngIf="session.token" (click)="signOut()" [disabled]="busy()">Sign out</button>

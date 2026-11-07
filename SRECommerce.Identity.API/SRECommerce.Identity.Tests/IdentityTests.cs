@@ -51,6 +51,87 @@ public sealed class IdentityTests(IdentityFixture fixture) : IClassFixture<Ident
     }
 
     [Fact]
+    public async Task Verified_customer_can_join_a_published_store_once_without_choosing_a_role()
+    {
+        var user = await NewUser();
+        var tenant = Guid.NewGuid();
+        Factory.Stores.Availability[tenant] = StoreAvailability.Available;
+        using var anonymous = Factory.Client();
+        var path = $"/api/v1/me/stores/{tenant}/membership";
+        Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.PostAsJsonAsync(path, new { })).StatusCode);
+        using var client = (await Protocol.SignIn(Factory, user.Email, user.Password)).Client;
+        var first = await client.PostAsJsonAsync(path, new { role = "Owner", userId = Guid.NewGuid() });
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        var membership = await first.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Customer", membership.GetProperty("role").GetString());
+        Assert.True(membership.GetProperty("joined").GetBoolean());
+        var retry = await client.PostAsJsonAsync(path, new { });
+        Assert.Equal(HttpStatusCode.OK, retry.StatusCode);
+        Assert.False((await retry.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("joined").GetBoolean());
+        using var scope = Factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+        Assert.Equal(1, await db.Memberships.IgnoreQueryFilters().CountAsync(m => m.UserId == user.Id && m.TenantId == tenant));
+        Assert.Equal(1, await db.AuditLogs.CountAsync(a => a.UserId == user.Id && a.TenantId == tenant && a.Action == "membership.customer.join"));
+        using var selected = (await Protocol.SignIn(Factory, user.Email, user.Password, tenant)).Client;
+        var access = await selected.GetFromJsonAsync<JsonElement>("/api/v1/me/access");
+        Assert.Equal(tenant, access.GetProperty("selectedTenantId").GetGuid());
+        Assert.Equal("Customer", access.GetProperty("tenantRole").GetString());
+    }
+
+    [Fact]
+    public async Task Customer_enrollment_preserves_assigned_roles_and_cannot_restore_blocked_memberships()
+    {
+        var user = await NewUser();
+        var tenant = await Provision(user.Id, "B2BBuyer");
+        Factory.Stores.Availability[tenant] = StoreAvailability.Available;
+        using var client = (await Protocol.SignIn(Factory, user.Email, user.Password)).Client;
+        var path = $"/api/v1/me/stores/{tenant}/membership";
+        var response = await client.PostAsJsonAsync(path, new { });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("B2BBuyer", (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("role").GetString());
+        using (var scope = Factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+            var membership = await db.Memberships.IgnoreQueryFilters().SingleAsync(m => m.TenantId == tenant && m.UserId == user.Id);
+            membership.IsActive = false;
+            await db.SaveChangesAsync();
+        }
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync(path, new { })).StatusCode);
+        var missing = Guid.NewGuid();
+        Assert.Equal(HttpStatusCode.NotFound, (await client.PostAsJsonAsync($"/api/v1/me/stores/{missing}/membership", new { })).StatusCode);
+        var unavailable = Guid.NewGuid();
+        Factory.Stores.Availability[unavailable] = StoreAvailability.Unavailable;
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, (await client.PostAsJsonAsync($"/api/v1/me/stores/{unavailable}/membership", new { })).StatusCode);
+        using var finalScope = Factory.Services.CreateScope();
+        var finalDb = finalScope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+        Assert.False(await finalDb.Memberships.IgnoreQueryFilters().AnyAsync(m => m.UserId == user.Id && (m.TenantId == missing || m.TenantId == unavailable)));
+        Assert.False((await finalDb.Memberships.IgnoreQueryFilters().SingleAsync(m => m.UserId == user.Id && m.TenantId == tenant)).IsActive);
+    }
+
+    [Fact]
+    public async Task Only_owner_can_manage_managers_and_role_changes_revoke_existing_sessions()
+    {
+        var owner = await NewUser();
+        var tenant = await Provision(owner.Id, "Owner");
+        var manager = await NewUser();
+        await Provision(manager.Id, "Staff", tenant);
+        var second = await NewUser();
+        var unconfirmed = await NewUser(confirm: false);
+        using var stale = (await Protocol.SignIn(Factory, manager.Email, manager.Password, tenant)).Client;
+        using var client = (await Protocol.SignIn(Factory, owner.Email, owner.Password, tenant)).Client;
+        var prefix = $"/api/v1/tenants/{tenant}/memberships/";
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PutAsJsonAsync(prefix + unconfirmed.Id, new { userId = unconfirmed.Id, role = "Manager" })).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PutAsJsonAsync(prefix + manager.Id, new { userId = manager.Id, role = "Manager" })).StatusCode);
+        Assert.NotEqual(HttpStatusCode.OK, (await stale.GetAsync("/api/v1/me")).StatusCode);
+        using var managerClient = (await Protocol.SignIn(Factory, manager.Email, manager.Password, tenant)).Client;
+        Assert.Equal(HttpStatusCode.Forbidden, (await managerClient.PutAsJsonAsync(prefix + second.Id, new { userId = second.Id, role = "Manager" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await managerClient.DeleteAsync(prefix + manager.Id)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.DeleteAsync(prefix + owner.Id)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync(prefix + manager.Id)).StatusCode);
+        Assert.NotEqual(HttpStatusCode.OK, (await managerClient.GetAsync("/api/v1/me")).StatusCode);
+    }
+
+    [Fact]
     public async Task Registration_verification_pkce_profile_and_health_work_on_sql_server()
     {
         var user = await NewUser();

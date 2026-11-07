@@ -10,11 +10,14 @@ import { CommerceSessionService } from '../../../core/services/commerce-session.
 import { CustomerAddress, SavedProduct } from '../../../core/models/commerce-customer.models';
 import { CommerceTenant } from '../../../core/models/commerce.models';
 import { StoreAppearanceDirective } from '../presentation/store-appearance.directive';
+import { StoreLanguageService } from '../../../core/services/store-language.service';
+import { StoreLanguageComponent } from '../presentation/store-language.component';
 
 @Component({ selector: 'app-commerce-customer-account', standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink, StoreAppearanceDirective],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, StoreAppearanceDirective, StoreLanguageComponent],
   templateUrl: './customer-account.component.html', styleUrl: './customer-account.component.scss' })
 export class CommerceCustomerAccountComponent {
+  readonly locale=inject(StoreLanguageService);
   readonly api = inject(CommerceCustomerService);
   private readonly catalog = inject(CommerceCatalogService);
   private readonly session = inject(CommerceSessionService);

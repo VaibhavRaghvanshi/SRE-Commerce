@@ -1,5 +1,19 @@
 # SRECommerce migration progress
 
+## Enrollment, localization and cart recovery — 2026-11-07
+
+Fresh customers can register, confirm their email and select a store through the existing PKCE flow. A published store grants the Customer role through the authenticated enrollment endpoint. The flow preserves existing roles and rejects disabled memberships. Owners can grant Manager access to a confirmed active account and revoke it with its tenant sessions. The Identity sign-in form has responsive styling served under a per-response CSP nonce.
+
+Catalog now saves merchant translations in draft and publication snapshots. The storefront supports English and Hindi controls, localized product content and SEO metadata, and base-text fallback for older publications. The Catalog SQL backup passed checksum verification before the additive migration ran. Applying the migration twice produced one history entry. The five data integrity checks passed, including all 1,000 mapped original products, the historical order totals and the legacy SQLite hash.
+
+The Cart page can offer a signed-in customer items from their recently expired cart. It validates current Catalog visibility, keeps quantities already in the destination, and records the restore and its replay result in one transaction. The source cart stays in history. The isolated SQL test passed with the existing local review profile after the first run hit a dependency timeout during setup.
+
+Identity passed 34 tests and Angular passed 79. The Catalog suite passed 36 of 37 on its first run. The collections case that hit a dependency timeout passed in a focused rerun. Both translation tests passed. The optimized Angular build succeeded with a 500.31 kB initial bundle against the 500 kB warning threshold.
+
+The local website started with 13 APIs and Gateway. All 14 readiness probes passed. Six browser checks covered registration, captured email confirmation, store selection, responsive sign-in and the Manager permission lifecycle. Six localization checks covered publishing a Hindi translation, product text and SEO, mobile preference persistence, older publication fallback and switching back to English. The verification membership was deactivated and the labelled test product was archived through their owning APIs.
+
+Five browser checkout checks passed after the Cart changes. The sandbox COD order used live pricing and stock, consumed one unit and appeared in mobile order history. Cleanup cancelled the labelled order and verified restoration of the original mapped product's stock.
+
 ## Local review acceptance checkpoint — 2026-11-06
 
 The website is available at **http://localhost:4000**, with native local SQL and thirteen APIs plus Gateway. Final browser verification passed **5 checkout checks**, **6 private-buyer checks using the existing Owner membership**, **7 Catalog field/import/export/archive checks**, and **7 desktop/mobile design checks**. Checkout created a real sandbox COD order, reconciled the server snapshot and exactly-one-unit inventory commit, opened guest tracking on mobile, then cancelled only its own labelled order through the business workflow and restored original stock. SQL confirms terminal Cancelled status; the earlier failed proofless attempt also reached terminal Failed. No real money or external email was sent.

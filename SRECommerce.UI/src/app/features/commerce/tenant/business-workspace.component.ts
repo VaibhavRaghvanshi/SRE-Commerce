@@ -57,6 +57,7 @@ export class BusinessWorkspaceComponent {
       a.accountKind === 'BusinessOwner' && a.userId === b.ownerUserId && (b.status === 0 || b.status === 1));
   }
   get canTeam() { const a = this.session.access(); return !!a && a.selectedTenantId === this.current()?.id && ['Owner','Manager'].includes(a.tenantRole || ''); }
+  get canManageManagers() { const a = this.session.access(); return !!a && a.selectedTenantId === this.current()?.id && a.tenantRole === 'Owner'; }
   get canRegister() { return this.session.access()?.accountKind === 'BusinessOwner' && !this.platform; }
   constructor() { if (typeof window !== 'undefined' && this.session.token) void this.reload(); }
   private send<T>(module: 'tenant' | 'identity', method: 'GET' | 'POST' | 'PUT' | 'DELETE', path: string, body?: unknown, headers?: Record<string, string>) {

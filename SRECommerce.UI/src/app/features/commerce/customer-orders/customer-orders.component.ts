@@ -6,13 +6,16 @@ import { firstValueFrom } from 'rxjs';
 import { CommerceCatalogService } from '../../../core/services/commerce-catalog.service';
 import { CommerceCheckoutService } from '../../../core/services/commerce-checkout.service';
 import { CommerceSessionService } from '../../../core/services/commerce-session.service';
+import { StoreLanguageService } from '../../../core/services/store-language.service';
+import { StoreLanguageComponent } from '../presentation/store-language.component';
 import { CommerceTenant } from '../../../core/models/commerce.models';
 import { CommerceOrder, CommerceOrderHistory, ORDER_STATUSES, PAYMENT_STATES } from '../../../core/models/commerce-order.models';
 import { CommerceExchange, CommerceReturn, CommerceTracking, SavedOrderReference } from '../../../core/models/commerce-checkout.models';
 
-@Component({ selector: 'app-commerce-customer-orders', standalone: true, imports: [CommonModule, FormsModule, RouterLink],
+@Component({ selector: 'app-commerce-customer-orders', standalone: true, imports: [CommonModule, FormsModule, RouterLink, StoreLanguageComponent],
   templateUrl: './customer-orders.component.html', styleUrl: './customer-orders.component.scss' })
 export class CommerceCustomerOrdersComponent {
+  readonly locale=inject(StoreLanguageService);
   readonly session = inject(CommerceSessionService); private readonly catalog = inject(CommerceCatalogService); private readonly api = inject(CommerceCheckoutService); private readonly route = inject(ActivatedRoute);
   readonly tenant = signal<CommerceTenant | null>(null); readonly orders = signal<CommerceOrder[]>([]); readonly order = signal<CommerceOrder | null>(null); readonly refs = signal<SavedOrderReference[]>([]);
   readonly events = signal<CommerceOrderHistory[]>([]); readonly tracking = signal<CommerceTracking[]>([]); readonly returns = signal<CommerceReturn[]>([]); readonly exchanges = signal<CommerceExchange[]>([]);

@@ -17,6 +17,7 @@ public sealed class Product : ITenantRecord, IVersionedRecord
     public bool B2BOnly { get; set; }
     public string Attributes { get; set; } = "{}";
     public string Specifications { get; set; } = "{}";
+    public string Translations { get; set; } = "{}";
     public int PublishedRevision { get; set; }
     public byte[] Version { get; set; } = [];
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;

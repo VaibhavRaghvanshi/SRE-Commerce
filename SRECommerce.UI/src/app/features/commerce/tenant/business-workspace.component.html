@@ -73,10 +73,11 @@
       </article>
       <article *ngIf="canTeam"><h2>Team and buyers</h2><button type="button" (click)="loadTeam()" [disabled]="busy()">Load memberships</button>
         <ul><li *ngFor="let m of members()">{{m.displayName}} · {{m.role}} {{m.isActive ? '' : '· Inactive'}}
-          <button type="button" *ngIf="m.userId && m.isActive && !['Owner','Manager'].includes(m.role)" (click)="team(m.userId)" [disabled]="busy()">Deactivate</button></li></ul>
+          <button type="button" *ngIf="m.userId && m.isActive && m.role !== 'Owner' && (m.role !== 'Manager' || canManageManagers)" (click)="team(m.userId)" [disabled]="busy()">Deactivate</button></li></ul>
         <form #member="ngForm" class="fields" (ngSubmit)="team()"><label>Existing account ID <input name="user" [(ngModel)]="userId" maxlength="36" pattern="[a-fA-F0-9-]{36}" required /></label>
-          <label>Role <select name="role" [(ngModel)]="memberRole"><option>Staff</option><option>Customer</option><option>B2BBuyer</option></select></label><button [disabled]="busy() || member.invalid">Assign membership</button>
+          <label>Role <select name="role" [(ngModel)]="memberRole"><option *ngIf="canManageManagers">Manager</option><option>Staff</option><option>Customer</option><option>B2BBuyer</option></select></label><button [disabled]="busy() || member.invalid">Assign membership</button>
         </form>
+        <p>Owners can appoint or deactivate managers. Ownership changes use the platform ownership workflow.</p>
       </article>
       <article *ngIf="canManage"><h2>Activity</h2><button type="button" (click)="loadAudit()" [disabled]="busy()">Load audit history</button>
         <ul><li *ngFor="let a of audit()">{{a.createdAt | date:'short'}} · {{a.action}}</li></ul></article>

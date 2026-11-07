@@ -22,6 +22,8 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options,
     public DbSet<MediaAsset> Assets=>Set<MediaAsset>();
     protected override void OnModelCreating(ModelBuilder model)
     {
+        model.Entity<Product>().Property(x=>x.Translations).HasMaxLength(65536).HasDefaultValue("{}");
+        model.Entity<Product>().ToTable("Products",t=>t.HasCheckConstraint("CK_Products_Translations","ISJSON([Translations])=1"));
         model.ConfigureInfrastructure();model.Entity<OutboxMessage>().TenantEntity(x=>x.TenantId==CurrentTenant);model.Entity<InboxMessage>().TenantEntity(x=>x.TenantId==CurrentTenant);model.Entity<AuditEntry>().TenantEntity(x=>x.TenantId==CurrentTenant);
         model.Entity<MediaAsset>(e=>{e.ToTable("MediaAssets",t=>t.HasCheckConstraint("CK_MediaAssets_Size","[Length] BETWEEN 45 AND 750000 AND [Width] BETWEEN 1 AND 8192 AND [Height] BETWEEN 1 AND 8192"));e.HasKey(x=>new{x.TenantId,x.Id});e.Property(x=>x.ContentType).HasMaxLength(40);e.Property(x=>x.Hash).HasMaxLength(64);e.TenantEntity(x=>x.TenantId==CurrentTenant);});
         model.Entity<Category>(e=>{e.ToTable("Categories");e.HasKey(x=>new{x.TenantId,x.Id});e.Property(x=>x.Name).HasMaxLength(160);e.Property(x=>x.Slug).HasMaxLength(120);e.Property(x=>x.Version).IsRowVersion();e.HasIndex(x=>new{x.TenantId,x.Slug}).IsUnique();e.HasOne<Category>().WithMany().HasForeignKey(x=>new{x.TenantId,x.ParentId}).OnDelete(DeleteBehavior.Restrict);e.TenantEntity(x=>x.TenantId==CurrentTenant);});

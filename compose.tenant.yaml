@@ -6,6 +6,7 @@ services:
     profiles: [identity-api, tenant-api]
     environment:
       AllowedHosts: localhost;127.0.0.1;identity
+      Tenant__BaseUrl: http://tenant:8080/
   tenant:
     image: srecommerce-tenant:dev
     build:

@@ -37,26 +37,49 @@ export class CommerceSessionService {
   async signInStore(tenant: string, slug: string, area:'cart'|'orders'|'notifications'|'account'='cart') {
     if (!/^[a-f0-9-]{36}$/i.test(tenant) || !/^[a-z0-9-]{1,80}$/.test(slug)) throw new Error('Choose a valid store.');
     this.error.set('');
-    await this.client().signinRedirect({ extraQueryParams: { tenant_id: tenant }, state: { returnTo: '/stores/' + slug + '/' + area } });
+    await this.storeSignIn(tenant, slug, '/stores/' + slug + '/' + area);
   }
   async callback() {
     const user = await this.client().signinRedirectCallback(); this.user.set(user);
     window.history.replaceState({}, document.title, '/commerce/callback');
     const access = await firstValueFrom(this.http.get<CommerceAccess>('/commerce/identity/me/access', { headers: { Authorization: 'Bearer ' + user.access_token } }));
     this.access.set(access);
-    const state = user.state as { returnTo?: string } | undefined;
+    const state = user.state as { returnTo?: string; joinStore?: { tenant: string; slug: string } } | undefined;
     const path = state?.returnTo || '';
+    const join = state?.joinStore;
+    if (join) {
+      if (!/^[a-f0-9-]{36}$/i.test(join.tenant) || !/^[a-z0-9-]{1,80}$/.test(join.slug)
+          || !(path === '/stores/' + join.slug || path.startsWith('/stores/' + join.slug + '/')))
+        throw new Error('The store sign-in request is invalid.');
+      try {
+        await firstValueFrom(this.http.post('/commerce/identity/me/stores/' + join.tenant + '/membership', {},
+          { headers: { Authorization: 'Bearer ' + user.access_token } }));
+      } catch {
+        this.error.set('This store could not be joined. It may be unavailable or your membership may require the store owner’s help.');
+        throw new Error(this.error());
+      }
+      // The first verified session has no tenant. Obtain fresh tenant-bound claims
+      // after enrollment; never manufacture a tenant role in browser state.
+      await this.client().signinRedirect({ extraQueryParams: { tenant_id: join.tenant }, state: { returnTo: path } });
+      return null;
+    }
     return ['/commerce/account','/businesses','/platform/workspace'].includes(path) || /^\/workspace\/[a-f0-9-]{36}\/(catalog|inventory|pricing|orders|payments|shipping|notifications|manufacturing|discovery|theme|storefront|settings|reports)$/i.test(path) || /^\/stores\/[a-z0-9-]{1,80}(?:\/(cart|orders|notifications|account|products\/[a-z0-9-]{1,160}))?$/.test(path) ? path : '/';
   }
   async signInProduct(tenant: string, slug: string, product: string) {
     if (!/^[a-f0-9-]{36}$/i.test(tenant) || !/^[a-z0-9-]{1,80}$/.test(slug) || !/^[a-z0-9-]{1,160}$/.test(product)) throw new Error('Choose a valid product.');
     this.error.set('');
-    await this.client().signinRedirect({ extraQueryParams: { tenant_id: tenant }, state: { returnTo: '/stores/' + slug + '/products/' + product } });
+    await this.storeSignIn(tenant, slug, '/stores/' + slug + '/products/' + product);
   }
   async signInShop(tenant: string, slug: string) {
     if (!/^[a-f0-9-]{36}$/i.test(tenant) || !/^[a-z0-9-]{1,80}$/.test(slug)) throw new Error('Choose a valid store.');
     this.error.set('');
-    await this.client().signinRedirect({ extraQueryParams: { tenant_id: tenant }, state: { returnTo: '/stores/' + slug } });
+    await this.storeSignIn(tenant, slug, '/stores/' + slug);
+  }
+  private async storeSignIn(tenant: string, slug: string, returnTo: string) {
+    const selected = this.token && this.access()?.selectedTenantId === tenant;
+    await this.client().signinRedirect(selected
+      ? { extraQueryParams: { tenant_id: tenant }, state: { returnTo } }
+      : { state: { returnTo, joinStore: { tenant, slug } } });
   }
   async signInPortal(area: 'account' | 'businesses' | 'platform') {
     const returnTo = area === 'account' ? '/commerce/account' : area === 'businesses' ? '/businesses' : '/platform/workspace';

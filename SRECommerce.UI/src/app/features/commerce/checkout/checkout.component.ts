@@ -15,10 +15,13 @@ import { CommerceCheckout, CommerceShippingOption } from '../../../core/models/c
 import { OrderContact } from '../../../core/models/commerce-order.models';
 import { CustomerAddress } from '../../../core/models/commerce-customer.models';
 import { CommerceCustomerService } from '../../../core/services/commerce-customer.service';
+import { StoreLanguageService } from '../../../core/services/store-language.service';
+import { StoreLanguageComponent } from '../presentation/store-language.component';
 
-@Component({ selector: 'app-commerce-checkout', standalone: true, imports: [CommonModule, ReactiveFormsModule, RouterLink],
+@Component({ selector: 'app-commerce-checkout', standalone: true, imports: [CommonModule, ReactiveFormsModule, RouterLink, StoreLanguageComponent],
   templateUrl: './checkout.component.html', styleUrl: './checkout.component.scss' })
 export class CommerceCheckoutComponent {
+  readonly locale=inject(StoreLanguageService);
   readonly session = inject(CommerceSessionService); private readonly catalog = inject(CommerceCatalogService); private readonly carts = inject(CommerceCartService);
   private readonly api = inject(CommerceCheckoutService); private readonly route = inject(ActivatedRoute); private readonly router = inject(Router); private readonly destroy = inject(DestroyRef); private readonly fb = inject(FormBuilder).nonNullable;
   readonly tenant = signal<CommerceTenant | null>(null); readonly preparation = signal<CommercePreparation | null>(null); readonly options = signal<CommerceShippingOption[]>([]);

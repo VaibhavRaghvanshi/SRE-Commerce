@@ -4,6 +4,50 @@ using static SRECommerce.Cart.Tests.CartFixture;
 namespace SRECommerce.Cart.Tests;
 public sealed class CartApiTests(CartFixture fixture):IClassFixture<CartFixture>
 {
+ [Fact]
+ public async Task Expired_member_cart_recovery_is_private_and_replays_the_same_saved_result()
+ {
+  var business = await fixture.Business();
+  using var pricingOwner = business.Client;
+  using var catalogOwner = business.Catalog.Client;
+  var member = await fixture.Pricing.Customer(business);
+  var other = await fixture.Pricing.Customer(business);
+  using var memberPricing = member.Client;
+  using var otherPricing = other.Client;
+  using var customer = fixture.Factory.Client(memberPricing.DefaultRequestHeaders.Authorization!.Parameter);
+  using var stranger = fixture.Factory.Client(otherPricing.DefaultRequestHeaders.Authorization!.Parameter);
+  var tenant = business.Catalog.Id;
+  var path = Path(tenant);
+  var old = await Set(customer, tenant, await Create(customer, tenant, false), business.Variant, 2, false);
+
+  var elapsed = TimeSpan.FromDays(31);
+  fixture.Pricing.Factory.Clock.Advance(elapsed);
+  try
+  {
+   var target = await Create(customer, tenant, false);
+   var foreignTarget = await Create(stranger, tenant, false);
+   Assert.NotEqual(old.Id, target.Id);
+   var offer = await customer.GetFromJsonAsync<CartRecoveryCandidate>(path + "/recovery");
+   Assert.Equal(old.Id, offer!.Id);
+   Assert.Equal(1, offer.ItemCount);
+   Assert.Equal(HttpStatusCode.NoContent, (await stranger.GetAsync(path + "/recovery")).StatusCode);
+   var request = new RecoverCartRequest(Guid.NewGuid(), old.Id, target.Version);
+   Assert.Equal(HttpStatusCode.NotFound, (await stranger.PostAsJsonAsync(path + $"/{foreignTarget.Id}/recover", request with { Version = foreignTarget.Version })).StatusCode);
+   var restored = await Read<CartView>(await customer.PostAsJsonAsync(path + $"/{target.Id}/recover", request));
+   Assert.Equal(2m, Assert.Single(restored.Items).Quantity);
+   var replay = await Read<CartView>(await customer.PostAsJsonAsync(path + $"/{target.Id}/recover", request));
+   Assert.Equal(restored.Version, replay.Version);
+   Assert.Equal(2m, Assert.Single(replay.Items).Quantity);
+   Assert.Equal(HttpStatusCode.NoContent, (await customer.GetAsync(path + "/recovery")).StatusCode);
+   using var scope = fixture.Factory.Services.CreateScope();
+   var db = scope.ServiceProvider.GetRequiredService<CartDbContext>();
+   var source = await db.Carts.IgnoreQueryFilters().SingleAsync(row => row.Id == old.Id && row.TenantId == tenant);
+   Assert.Equal(CartStatus.Merged, source.Status);
+   Assert.Equal(target.Id, source.MergedIntoId);
+  }
+  finally { fixture.Pricing.Factory.Clock.Advance(-elapsed); }
+ }
+
  [Fact]public async Task Customer_addresses_wishlist_and_recent_history_are_private_versioned_and_catalog_revalidated()
  {
   var b=await fixture.Business();using var pricingOwner=b.Client;using var catalog=b.Catalog.Client;

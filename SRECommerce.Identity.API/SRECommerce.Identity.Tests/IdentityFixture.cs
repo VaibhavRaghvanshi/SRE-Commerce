@@ -16,6 +16,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using SRECommerce.Identity.API;
 using SRECommerce.Identity.Infrastructure;
+using SRECommerce.Identity.Application;
 using Xunit;
 
 namespace SRECommerce.Identity.Tests;
@@ -28,6 +29,7 @@ public sealed class IdentityFactory : WebApplicationFactory<Program>
     public string Password { get; } = "Valid-" + Guid.NewGuid().ToString("N") + "Aa1!";
     public int PermitLimit { get; init; } = 1000;
     public string EnvironmentName { get; init; } = "Development";
+    public TestStoreDirectory Stores { get; } = new();
     public string Connection => $"Server=localhost,1433;Database={DatabaseName};Integrated Security=true;Encrypt=true;TrustServerCertificate=true";
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -44,10 +46,19 @@ public sealed class IdentityFactory : WebApplicationFactory<Program>
             services.RemoveAll<DbContextOptions<IdentityDbContext>>();
             services.RemoveAll<IdentityDbContext>();
             services.AddDbContext<IdentityDbContext>(o => o.UseSqlServer(Connection).UseOpenIddict());
+            services.RemoveAll<IStoreDirectory>();
+            services.AddSingleton<IStoreDirectory>(Stores);
         });
         builder.ConfigureLogging(o => o.SetMinimumLevel(LogLevel.Error));
     }
     public HttpClient Client() => CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost"), AllowAutoRedirect = false, HandleCookies = true });
+}
+
+public sealed class TestStoreDirectory : IStoreDirectory
+{
+    public System.Collections.Concurrent.ConcurrentDictionary<Guid, StoreAvailability> Availability { get; } = new();
+    public Task<StoreAvailability> CheckAsync(Guid tenantId, CancellationToken ct) =>
+        Task.FromResult(Availability.GetValueOrDefault(tenantId, StoreAvailability.NotFound));
 }
 
 public sealed class IdentityFixture : IDisposable
