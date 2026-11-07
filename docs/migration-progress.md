@@ -1,5 +1,11 @@
 # SRECommerce migration progress
 
+## Storefront quick-add — 2026-11-07
+
+The catalog grid can add one unit of a product with a single published variant when Cart is enabled. Products with multiple variants still link to the selection page. The grid reuses the existing cart mutation and its replay key. A queued write now stops if the shopper's account changes before the request starts.
+
+The optimized build and all 80 Angular tests passed. On the native review website, Chrome verified the Hindi quick-add control, the 390px mobile layout, one saved cart line with quantity one and removal of the verification line. All 14 native readiness checks passed.
+
 ## Saved cart reminders — 2026-11-07
 
 Signed-in shoppers can request one email after 24 hours of cart inactivity or cancel the request. Cart records consent and queues through its SQL outbox. Notification deduplicates the event and checks the live cart, verified email and account preference before delivery. The Cart page includes English and Hindi controls. [Cart API and activation settings](api-contracts/cart-service.md#saved-cart-reminders)

@@ -5,6 +5,8 @@ export const hindi: Record<string, string> = {
   'Your account': 'आपका खाता', 'Cart': 'कार्ट', 'Sign in': 'साइन इन करें', 'Sign out': 'साइन आउट करें',
   'Advanced search': 'विस्तृत खोज', 'View product': 'उत्पाद देखें', 'Product details': 'उत्पाद की जानकारी',
   'Available variants': 'उपलब्ध विकल्प', 'Quantity': 'मात्रा', 'Add to cart': 'कार्ट में जोड़ें', 'View cart': 'कार्ट देखें',
+  'Adding to cart…': 'कार्ट में जोड़ रहे हैं…', 'Added to your saved cart.': 'आपके कार्ट में जोड़ दिया गया।',
+  'The cart change could not be confirmed. Retry this item or view your cart.': 'कार्ट में बदलाव की पुष्टि नहीं हुई। इस उत्पाद को फिर से जोड़ें या अपना कार्ट देखें।',
   'Save to wishlist': 'पसंदीदा सूची में सहेजें', 'Back to store': 'दुकान पर वापस जाएँ', 'Continue shopping': 'खरीदारी जारी रखें',
   'Your cart': 'आपका कार्ट', 'Checkout': 'ऑर्डर करें', 'Remove': 'हटाएँ', 'Empty cart': 'कार्ट खाली है',
   'Subtotal': 'उप-योग', 'Total': 'कुल', 'Shipping': 'डिलीवरी', 'Tax': 'कर', 'Discount': 'छूट',

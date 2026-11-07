@@ -62,11 +62,15 @@ export class CommerceCartService {
   if(cart.guest){const guest=this.guest(tenant,false);if(!guest||guest.id!==cart.id||preparation.userId!==null)throw new Error('CartProofUnavailable');return{guest:true,cartKey:guest.key};}
   if(!this.customer(tenant)||preparation.userId!==this.session.access()?.userId)throw new Error('CartCustomerChanged');return{guest:false,cartKey:null};
  }
- private mutate(tenant:string,label:string,make:(cart:CommerceCart,guest:boolean)=>PendingWrite){return this.serial(async()=>{
-  const scope=this.stateKey(tenant);const key=scope+':'+label;let pending=this.writes.get(key);
-  if(!pending){const cart=await this.ensure(tenant);pending=make(cart,cart.guest);this.writes.set(key,pending);}
-  try{const cart=await this.request<CommerceCart>(pending.url,pending.method,pending.body,pending.headers);this.writes.delete(key);return this.remember(tenant,cart,scope);}catch(error){if(!this.uncertain(error))this.writes.delete(key);throw error;}
- });}
+ private mutate(tenant:string,label:string,make:(cart:CommerceCart,guest:boolean)=>PendingWrite){
+  const scope=this.stateKey(tenant);
+  return this.serial(async()=>{
+   if(this.stateKey(tenant)!==scope)throw new Error('CartCustomerChanged');
+   const key=scope+':'+label;let pending=this.writes.get(key);
+   if(!pending){const cart=await this.ensure(tenant);pending=make(cart,cart.guest);this.writes.set(key,pending);}
+   try{const cart=await this.request<CommerceCart>(pending.url,pending.method,pending.body,pending.headers);this.writes.delete(key);return this.remember(tenant,cart,scope);}catch(error){if(!this.uncertain(error))this.writes.delete(key);throw error;}
+  });
+ }
  async recovery(tenant:string):Promise<CartRecoveryCandidate|null>{
   if(!this.customer(tenant))return null;
   const scope=this.stateKey(tenant);

@@ -19,6 +19,17 @@ describe('CommerceCartService',()=>{
   void service.add(tenant,variant,2).catch(()=>undefined);await settle();const create=http.expectOne('/commerce/cart/public/tenants/'+tenant+'/cart/carts');const id=create.request.body.id;create.flush(cart(id));await settle();const first=http.expectOne('/commerce/cart/public/tenants/'+tenant+'/cart/carts/'+id+'/items');const body=first.request.body;expect(body.quantity).toBe(2);expect(body.price).toBeUndefined();first.flush({},{status:502,statusText:'Bad Gateway'});await settle();
   void service.add(tenant,variant,2);await settle();const retry=http.expectOne('/commerce/cart/public/tenants/'+tenant+'/cart/carts/'+id+'/items');expect(retry.request.body).toEqual(body);retry.flush(cart(id,true,2));await settle();expect(service.view(tenant)?.items[0].quantity).toBe(2);
  });
+ it('rejects a queued add when the shopper changes before the request starts',async()=>{
+  const loading=service.load(tenant).catch(()=>undefined);
+  await settle();
+  const create=http.expectOne('/commerce/cart/public/tenants/'+tenant+'/cart/carts');
+  const rejected=expectAsync(service.add(tenant,variant,1)).toBeRejectedWithError('CartCustomerChanged');
+  session.token='memory-only';session.access=()=>({userId:'customer',selectedTenantId:tenant});
+  create.flush(cart(create.request.body.id));
+  await loading;
+  await rejected;
+  http.expectNone('/commerce/cart/tenants/'+tenant+'/cart/carts');
+ });
  it('merges a saved guest cart into the authenticated customer with its capability',async()=>{
   void service.load(tenant);await settle();const create=http.expectOne('/commerce/cart/public/tenants/'+tenant+'/cart/carts');const guestId=create.request.body.id;const key=create.request.headers.get('X-Cart-Key');create.flush(cart(guestId,true,2));await settle();
   session.token='memory-only';session.access=()=>({userId:'customer',selectedTenantId:tenant});void service.load(tenant);await settle();const customer=http.expectOne('/commerce/cart/tenants/'+tenant+'/cart/carts');expect(customer.request.headers.has('X-Cart-Key')).toBeFalse();customer.flush(cart('customer-cart',false));await settle();http.expectOne('/commerce/cart/public/tenants/'+tenant+'/cart/carts/'+guestId).flush(cart(guestId,true,2));await settle();const merge=http.expectOne('/commerce/cart/tenants/'+tenant+'/cart/carts/customer-cart/merge');expect(merge.request.headers.get('X-Cart-Key')).toBe(key);expect(merge.request.body.guestCartId).toBe(guestId);expect(merge.request.body.userId).toBeUndefined();merge.flush(cart('customer-cart',false,2));await settle();expect(localStorage.getItem('srecommerce.cart.v1.'+tenant)).toBeNull();expect(service.view(tenant)?.guest).toBeFalse();

@@ -23,6 +23,9 @@
   <div class="state error" role="alert" *ngIf="error()"><p>{{ error() }}</p><button type="button" (click)="reload(result().page)">Try again</button></div>
   <ng-container *ngIf="!loading() && !error() && tenant()">
     <div class="results-line"><p>{{ result().total }} products</p><span>Page {{ result().page }} of {{ pages() }}</span></div>
+    <p [class.mb-4]="cartMessage()" role="status">{{locale.text(cartMessage())}}
+      <a *ngIf="cartMessage()" [routerLink]="['/stores',tenant()!.slug,'cart']"> {{locale.text('View cart')}}</a>
+    </p>
     <div class="state" *ngIf="!result().items.length"><h3>No products found</h3><p>Try another search or check back when this store publishes new products.</p><button type="button" (click)="reset()">Clear filters</button></div>
     <section class="product-grid" aria-label="Products"><article *ngFor="let product of result().items">
       <a [routerLink]="['/stores', tenant()!.slug, 'products', product.slug]" class="product-image"><img *ngIf="product.media.length && !failedImages().includes(product.id); else noImage" [commerceImage]="product.media[0].url" [imageTenant]="tenant()!.tenantId" [alt]="product.media[0].alt || product.name" (error)="imageFailed(product.id)" (commerceImageError)="imageFailed(product.id)" loading="lazy" /><ng-template #noImage><span class="image-placeholder">{{ product.name.slice(0, 2).toUpperCase() }}</span></ng-template></a>
@@ -30,6 +33,10 @@
       <p class="product-kind">{{ product.kind === 2 ? 'Bundle' : product.variants.length > 1 ? product.variants.length + ' variants' : 'Selected for you' }}</p>
       <h3><a [routerLink]="['/stores', tenant()!.slug, 'products', product.slug]">{{ locale.product(product).name }}</a></h3>
       <p class="description">{{ locale.product(product).description }}</p><a class="details-link" [routerLink]="['/stores', tenant()!.slug, 'products', product.slug]">{{locale.text('View product')}} <span aria-hidden="true">↗</span></a>
+      <button class="secondary w-100 mt-3" type="button" *ngIf="tenant()!.modules.includes('cart') && product.variants.length === 1 && product.variants[0].id"
+        [disabled]="!!addingProduct()" [attr.aria-label]="locale.text('Add to cart') + ' · ' + locale.product(product).name" (click)="quickAdd(product)">
+        {{locale.text(addingProduct() === product.id ? 'Adding to cart…' : 'Add to cart')}}
+      </button>
     </article></section>
     <nav class="pagination" aria-label="Catalog pages"><button type="button" [disabled]="result().page <= 1" (click)="reload(result().page - 1)">{{locale.text('Previous')}}</button><span>{{ result().page }} / {{ pages() }}</span><button type="button" [disabled]="result().page >= pages()" (click)="reload(result().page + 1)">{{locale.text('Next')}}</button></nav>
   </ng-container>
