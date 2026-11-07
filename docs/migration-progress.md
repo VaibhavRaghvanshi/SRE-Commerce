@@ -1,5 +1,13 @@
 # SRECommerce migration progress
 
+## Saved cart reminders — 2026-11-07
+
+Signed-in shoppers can request one email after 24 hours of cart inactivity or cancel the request. Cart records consent and queues through its SQL outbox. Notification deduplicates the event and checks the live cart, verified email and account preference before delivery. The Cart page includes English and Hindi controls. [Cart API and activation settings](api-contracts/cart-service.md#saved-cart-reminders)
+
+Both focused SQL-backed tests passed. The reminder case verified no early queue, no duplicate queue or delivery, denial across accounts and machine identities, and suppression after opt-out or checkout. It invoked the consumer directly and used an isolated transport. The local Cart backup passed checksum verification before applying the additive migration. Applying it twice produced one history entry, preserved all 13 carts and created zero opt-ins. All five preserved-data checks passed. Angular passed 79 tests and the optimized build with the existing 500.58 kB initial bundle warning.
+
+The reminder remains disabled in the native review environment. The Notification scope and broker configuration are pending under the credential hold, and live reminder delivery has not been exercised.
+
 ## GST preparation worksheet — 2026-11-07
 
 Managers and Owners can open a supported domestic INR order, enter billing and classification details, and preview or download a draft GST worksheet. The Order API uses the saved item and delivery amounts, verifies the order version and reconciles the total before returning the worksheet. The workflow uses the existing Order schema. Formal issuance and applicable IRP registration remain release work. [Order service design](architecture/order-service-design.md) · [GSTN e-invoice overview](https://tutorial.gst.gov.in/downloads/news/e_invoice_overview.pdf)

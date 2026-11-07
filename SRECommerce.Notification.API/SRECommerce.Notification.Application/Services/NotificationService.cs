@@ -22,7 +22,7 @@ public sealed class NotificationService(INotificationStore store, INotificationA
     public async Task<TemplateView> SetTemplate(Guid tenant, NotificationKind kind, NotificationChannel channel, TemplateInput input, CancellationToken ct)
     {
         await access.Human(tenant, ActorPermission.Manager, ct);
-        if (!Enum.IsDefined(kind) || !Enum.IsDefined(channel) || kind == NotificationKind.LowStock && channel != NotificationChannel.Email)
+        if (!Enum.IsDefined(kind) || !Enum.IsDefined(channel) || kind == NotificationKind.CartReminder || kind == NotificationKind.LowStock && channel != NotificationChannel.Email)
             throw new BusinessFault("UnsupportedNotificationTemplate", 400);
         var subject = NotificationTemplateRules.Validate(input.Subject, kind, true);
         var body = NotificationTemplateRules.Validate(input.Body, kind, false);
@@ -127,7 +127,7 @@ public sealed class NotificationService(INotificationStore store, INotificationA
 
     private async Task<JobView[]> QueueOrderCore(Guid tenant, OrderNoticeRequest input, CancellationToken ct)
     {
-        if (input.EventId == Guid.Empty || input.OrderId == Guid.Empty || !Enum.IsDefined(input.Kind) || input.Kind == NotificationKind.LowStock)
+        if (input.EventId == Guid.Empty || input.OrderId == Guid.Empty || (int)input.Kind < 0 || (int)input.Kind >= OrderNoticesContract.Types.Length)
             throw new BusinessFault("InvalidOrderNotice", 400);
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(ContractJson.Write(input))));
         async Task<JobView[]?> Replay(CancellationToken token)

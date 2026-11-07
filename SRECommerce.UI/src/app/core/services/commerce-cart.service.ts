@@ -6,6 +6,7 @@ import { CommerceCart, CommerceCartPreview, CommercePreparation } from '../model
 interface GuestCart {id:string;key:string;expiresAt:string;}
 interface PendingWrite {body:Record<string,unknown>;url:string;method:'PUT'|'POST';headers:Record<string,string>;}
 export interface CartRecoveryCandidate { id: string; expiredAt: string; itemCount: number; }
+export interface CartReminderPreference { available: boolean; enabled: boolean; queued: boolean; }
 @Injectable({providedIn:'root'})
 export class CommerceCartService {
  private readonly http=inject(HttpClient);private readonly session=inject(CommerceSessionService);
@@ -71,6 +72,14 @@ export class CommerceCartService {
   const scope=this.stateKey(tenant);
   const candidate=await this.request<CartRecoveryCandidate|null>(this.base(tenant,false)+'/recovery','GET');
   return this.stateKey(tenant)===scope?candidate:null;
+ }
+ async reminder(tenant: string, cartId: string, enabled?: boolean): Promise<CartReminderPreference | null> {
+  const actor = this.session.access();
+  if (!this.customer(tenant) || !['Customer', 'B2BBuyer'].includes(actor?.tenantRole || '')) return null;
+  const scope = this.stateKey(tenant);
+  const result = await this.request<CartReminderPreference>(this.base(tenant, false) + '/' + encodeURIComponent(cartId) + '/reminder',
+   enabled === undefined ? 'GET' : 'PUT', enabled === undefined ? undefined : { enabled });
+  return this.stateKey(tenant) === scope && this.view(tenant)?.id === cartId ? result : null;
  }
  recover(tenant:string,sourceCartId:string){
   return this.mutate(tenant,'recover:'+sourceCartId,(cart,guest)=>{

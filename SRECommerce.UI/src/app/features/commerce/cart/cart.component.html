@@ -8,6 +8,15 @@
   <button type="button" (click)="restoreCart()" [disabled]="busy()">{{locale.text('Restore available items')}}</button>
  </section>
  <p role="status" *ngIf="recoveryMessage()">{{locale.text(recoveryMessage())}}</p>
+ <section class="empty" *ngIf="reminder() as preference" [hidden]="(!preference.available && !preference.enabled) || (!cart()?.items?.length && !preference.enabled)">
+  <h2>{{locale.text('Saved cart reminder')}}</h2>
+  <p>{{locale.text('Request one email if your cart stays inactive for 24 hours.')}}</p>
+  <p *ngIf="preference.queued" role="status">{{locale.text('This cart reminder has been queued.')}}</p>
+  <p *ngIf="reminderError()" role="alert">{{locale.text(reminderError())}}</p>
+  <button type="button" (click)="setReminder(!preference.enabled)" [disabled]="busy() || reminderBusy() || (!preference.enabled && (!preference.available || preference.queued))">
+   {{locale.text(preference.enabled ? 'Cancel email reminder' : 'Email me a reminder')}}
+  </button>
+ </section>
  <p role="status" *ngIf="busy()">{{locale.text("Updating your cart…")}}</p><div class="error" role="alert" *ngIf="error()"><p>{{locale.text(error())}}</p><button type="button" (click)="reload()" [disabled]="busy()">{{locale.text("Reload cart")}}</button></div>
  <section class="empty" *ngIf="cart() && !cart()!.items.length"><h2>{{locale.text("Your cart is ready for something good.")}}</h2><p>{{locale.text("Browse the collection and add your first item.")}}</p><a [routerLink]="['/stores',tenant()!.slug]">{{locale.text("Explore the store ↗")}}</a></section>
  <div class="cart-layout" *ngIf="cart()?.items?.length">

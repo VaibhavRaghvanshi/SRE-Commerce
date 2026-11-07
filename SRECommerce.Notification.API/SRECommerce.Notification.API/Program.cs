@@ -17,9 +17,17 @@ public partial class NotificationProgram
         services.AddScoped<NotificationService>();
         services.AddScoped<IIntegrationHandler, OrderNotificationHandler>();
         services.AddScoped<IIntegrationHandler, LowStockNotificationHandler>();
+        services.AddScoped<IIntegrationHandler, CartReminderHandler>();
+        services.AddScoped<CartReminderDelivery>();
         services.AddScoped<LowStockNotificationHandler>();
         services.AddSingleton<INotificationTransport, DevelopmentNotificationTransport>();
         services.AddHostedService<NotificationWorker>();
+        services.AddHttpClient("cart", (p, c) =>
+        {
+            var development = p.GetRequiredService<IHostEnvironment>().IsDevelopment();
+            c.BaseAddress = RemoteAccess.BaseUri(p.GetRequiredService<IConfiguration>(), "Cart:BaseUrl", development ? "http://localhost:5088/" : "https://localhost:7088/", development);
+            c.Timeout = TimeSpan.FromSeconds(6);
+        }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false }).WithDependencyResilience();
         services.AddHttpClient("order", (p, c) =>
         {
             c.BaseAddress = RemoteAccess.BaseUri(p.GetRequiredService<IConfiguration>(), "Order:BaseUrl", "http://localhost:5089/", p.GetRequiredService<IHostEnvironment>().IsDevelopment());

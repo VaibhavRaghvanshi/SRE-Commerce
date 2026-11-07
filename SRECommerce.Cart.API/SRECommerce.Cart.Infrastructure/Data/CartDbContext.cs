@@ -9,9 +9,17 @@ public sealed class CartDbContext(DbContextOptions<CartDbContext> options,Module
  public DbSet<CartCheckoutClaim> Claims=>Set<CartCheckoutClaim>();
  public DbSet<CustomerAddress> Addresses=>Set<CustomerAddress>();
  public DbSet<SavedProduct> SavedProducts=>Set<SavedProduct>();
+ public DbSet<CartReminder> Reminders=>Set<CartReminder>();
  protected override void OnModelCreating(ModelBuilder m)
  {
   m.ConfigureInfrastructure();m.Entity<OutboxMessage>().TenantEntity(x=>x.TenantId==CurrentTenant);m.Entity<InboxMessage>().TenantEntity(x=>x.TenantId==CurrentTenant);m.Entity<AuditEntry>().TenantEntity(x=>x.TenantId==CurrentTenant);
+  m.Entity<CartReminder>(e=>{
+   e.ToTable("CartReminders",t=>t.HasCheckConstraint("CK_CartReminders_Queue","([QueuedAt] IS NULL AND [QueuedEventId] IS NULL) OR ([QueuedAt] IS NOT NULL AND [QueuedEventId] IS NOT NULL)"));
+   e.HasKey(x=>new{x.TenantId,x.CartId});e.Property(x=>x.Version).IsRowVersion();
+   e.HasIndex(x=>x.RequestedAt).HasFilter("[Enabled]=1 AND [QueuedAt] IS NULL");
+   e.HasOne(x=>x.Cart).WithOne().HasForeignKey<CartReminder>(x=>new{x.TenantId,x.CartId}).OnDelete(DeleteBehavior.Restrict);
+   e.TenantEntity(x=>x.TenantId==CurrentTenant);
+  });
   m.Entity<CustomerAddress>(e=>{
    e.ToTable("CustomerAddresses");e.HasKey(x=>new{x.TenantId,x.UserId,x.Id});e.Property(x=>x.Version).IsRowVersion();
    e.Property(x=>x.Label).HasMaxLength(40);e.Property(x=>x.FullName).HasMaxLength(160);e.Property(x=>x.Email).HasMaxLength(254);e.Property(x=>x.Phone).HasMaxLength(25);

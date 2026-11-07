@@ -46,7 +46,7 @@ for($attempt=0;$attempt -lt 12 -and !$ready;$attempt++){
 if(!$ready){throw 'RabbitMQ management not ready; no existing credential was reset.'}
 $subscriptions=@{
     Discovery=@('catalog.product.published.v1','catalog.product.archived.v1')
-    Notification=@('order.notice.confirmed.v1','order.notice.paid.v1','order.notice.dispatched.v1','order.notice.delivered.v1','order.notice.cancelled.v1','inventory.low-stock.v1')
+    Notification=@('order.notice.confirmed.v1','order.notice.paid.v1','order.notice.dispatched.v1','order.notice.delivered.v1','order.notice.cancelled.v1','inventory.low-stock.v1','cart.reminder.due.v1')
 }
 function SetBrokerResource([string]$path,[hashtable]$body){
     Invoke-RestMethod "$base/$path" -Headers $headers -Method Put -ContentType 'application/json' -Body ($body|ConvertTo-Json -Depth 8) -TimeoutSec 5|Out-Null

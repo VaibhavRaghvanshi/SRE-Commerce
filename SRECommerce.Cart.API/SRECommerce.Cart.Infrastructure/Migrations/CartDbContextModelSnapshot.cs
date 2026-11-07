@@ -283,6 +283,43 @@ namespace SRECommerce.Cart.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SRECommerce.Cart.Domain.CartReminder", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CartId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTimeOffset?>("QueuedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("QueuedEventId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("RequestedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<byte[]>("Version")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.HasKey("TenantId", "CartId");
+
+                    b.HasIndex("RequestedAt")
+                        .HasFilter("[Enabled]=1 AND [QueuedAt] IS NULL");
+
+                    b.ToTable("CartReminders", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_CartReminders_Queue", "([QueuedAt] IS NULL AND [QueuedEventId] IS NULL) OR ([QueuedAt] IS NOT NULL AND [QueuedEventId] IS NOT NULL)");
+                        });
+                });
+
             modelBuilder.Entity("SRECommerce.Cart.Domain.CartSession", b =>
                 {
                     b.Property<Guid>("TenantId")
@@ -549,6 +586,17 @@ namespace SRECommerce.Cart.Infrastructure.Migrations
                         .HasForeignKey("TenantId", "CartId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("SRECommerce.Cart.Domain.CartReminder", b =>
+                {
+                    b.HasOne("SRECommerce.Cart.Domain.ShoppingCart", "Cart")
+                        .WithOne()
+                        .HasForeignKey("SRECommerce.Cart.Domain.CartReminder", "TenantId", "CartId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Cart");
                 });
 
             modelBuilder.Entity("SRECommerce.Cart.Domain.CartSession", b =>

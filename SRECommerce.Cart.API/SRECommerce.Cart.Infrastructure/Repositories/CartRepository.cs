@@ -10,6 +10,7 @@ public sealed class CartRepository(CartDbContext db,ModuleScope scope,IHttpConte
          && cart.Items.Any(item=>item.Active) && !db.Claims.Any(claim=>claim.CartId==cart.Id && claim.Status==CartClaimStatus.Held))
      .OrderByDescending(cart=>cart.ExpiresAt).ThenByDescending(cart=>cart.Id).FirstOrDefaultAsync(ct);
  public Task<CartSession?> Session(Guid id,CancellationToken ct)=>db.Sessions.SingleOrDefaultAsync(s=>s.CartId==id,ct);
+ public Task<CartReminder?> Reminder(Guid cart,CancellationToken ct)=>db.Reminders.SingleOrDefaultAsync(row=>row.CartId==cart,ct);
  public Task<CartOperation?> Operation(Guid cart,Guid id,CancellationToken ct)=>db.Operations.SingleOrDefaultAsync(o=>o.CartId==cart&&o.Id==id,ct);
  public Task<CheckoutPreparation?> Preparation(Guid id,CancellationToken ct)=>db.Preparations.SingleOrDefaultAsync(p=>p.Id==id,ct);
  public Task<CartCheckoutClaim?> Claim(Guid id,CancellationToken ct)=>db.Claims.SingleOrDefaultAsync(c=>c.Id==id,ct);

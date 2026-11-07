@@ -6,6 +6,8 @@ public interface ICartService
  Task<CartView> Get(Guid tenant,Guid id,bool guest,string? capability,CancellationToken ct);
  Task<CartRecoveryCandidate?> RecoveryCandidate(Guid tenant,CancellationToken ct);
  Task<CartView> Recover(Guid tenant,Guid id,RecoverCartRequest request,CancellationToken ct);
+ Task<CartReminderPreference> Reminder(Guid tenant,Guid id,bool available,CancellationToken ct);
+ Task<CartReminderPreference> SetReminder(Guid tenant,Guid id,CartReminderRequest request,bool available,CancellationToken ct);
  Task<CartView> Item(Guid tenant,Guid id,CartItemRequest request,bool guest,string? capability,CancellationToken ct);
  Task<CartView> Remove(Guid tenant,Guid id,Guid variant,RemoveCartItemRequest request,bool guest,string? capability,CancellationToken ct);
  Task<CartView> Merge(Guid tenant,Guid id,MergeCartRequest request,string? guestCapability,CancellationToken ct);

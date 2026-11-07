@@ -8,6 +8,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SRECommerce.BuildingBlocks.Contracts;
 using SRECommerce.BuildingBlocks.Infrastructure;
+using SRECommerce.Cart.Application;
+using SRECommerce.Cart.Infrastructure;
 using SRECommerce.Notification.API;
 using SRECommerce.Notification.Application;
 using SRECommerce.Notification.Domain;
@@ -22,9 +24,11 @@ namespace SRECommerce.Notification.Tests;
 public sealed class NoticeTestTransport : INotificationTransport
 {
     public bool Available => true;
+    public System.Collections.Concurrent.ConcurrentQueue<string?> Recipients { get; } = new();
     public TaskCompletionSource<(string? Recipient, string Body)> Delivered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public Task<DeliveryResult> Send(NotificationJob job, CancellationToken ct)
     {
+        Recipients.Enqueue(job.Recipient);
         Delivered.TrySetResult((job.Recipient, job.Body));
         return Task.FromResult(new DeliveryResult(DeliveryState.Sent, "IsolatedTransport"));
     }
@@ -40,6 +44,7 @@ public sealed class NoticeFactory(OrderFixture order, NoticeTestTransport transp
         b.UseSetting("Identity:BaseUrl", "https://localhost/");
         b.UseSetting("ServiceAuth:ClientId", ServiceManifest.ClientId("Notification"));
         b.UseSetting("ServiceAuth:ClientSecret", order.ClientSecret("Notification"));
+        b.UseSetting("CartReminders:StorefrontOrigin", "http://localhost:4000/");
         b.ConfigureLogging(log => log.SetMinimumLevel(LogLevel.Error));
         b.ConfigureServices(services =>
         {
@@ -49,6 +54,7 @@ public sealed class NoticeFactory(OrderFixture order, NoticeTestTransport transp
             services.AddHttpClient("service-identity").ConfigurePrimaryHttpMessageHandler(() => tenant.Identity.Factory.Server.CreateHandler());
             services.AddHttpClient("tenant").ConfigurePrimaryHttpMessageHandler(() => tenant.Factory.Server.CreateHandler());
             services.AddHttpClient("order").ConfigurePrimaryHttpMessageHandler(() => order.Factory.Server.CreateHandler());
+            services.AddHttpClient("cart").ConfigurePrimaryHttpMessageHandler(() => order.Cart.Factory.Server.CreateHandler());
         });
     }
     public HttpClient Client(string token)
@@ -61,6 +67,103 @@ public sealed class NoticeFactory(OrderFixture order, NoticeTestTransport transp
 
 public sealed class NotificationApiTests
 {
+    [Fact]
+    public async Task SavedCartReminderWaitsForInactivityAndRechecksOptOutAndCheckout()
+    {
+        using var order = new OrderFixture();
+        var notificationToken = await order.Token("Notification", "internal_cart");
+        var transport = new NoticeTestTransport();
+        using var factory = new NoticeFactory(order, transport);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NotificationDbContext>();
+            Assert.Equal(factory.DatabaseName, db.Database.GetDbConnection().Database);
+            await db.Database.MigrateAsync();
+        }
+        var business = await order.Cart.Business();
+        using var pricing = business.Client;
+        using var catalog = business.Catalog.Client;
+        var tenantId = business.Catalog.Id;
+        using var tenant = order.Cart.Pricing.Catalog.Tenant.Factory.Client(business.Catalog.Token);
+        var tenantPath = $"/api/v1/tenants/{tenantId}";
+        var tenantView = await OrderFixture.Read<TenantView>(await tenant.GetAsync(tenantPath));
+        await OrderFixture.Read<TenantView>(await tenant.PutAsJsonAsync(tenantPath + "/modules/notifications", new ModuleRequest(tenantView.Version, true)));
+
+        var carts = new List<CartView>();
+        var users = new List<HttpClient>();
+        var cartPath = SRECommerce.Cart.Tests.CartFixture.Path(tenantId);
+        try
+        {
+            for (var i = 0; i < 3; i++)
+            {
+                var customer = await order.Cart.Pricing.Customer(business);
+                using var pricingClient = customer.Client;
+                var client = order.Cart.Factory.Client(pricingClient.DefaultRequestHeaders.Authorization!.Parameter);
+                users.Add(client);
+                var cart = await OrderFixture.Read<CartView>(await client.PostAsJsonAsync(cartPath, new CreateCartRequest(Guid.NewGuid())));
+                var path = $"{cartPath}/{cart.Id}/reminder";
+                Assert.Equal(HttpStatusCode.BadRequest, (await client.PutAsJsonAsync(path, new CartReminderRequest(true))).StatusCode);
+                cart = await OrderFixture.Read<CartView>(await client.PutAsJsonAsync($"{cartPath}/{cart.Id}/items",
+                    new CartItemRequest(Guid.NewGuid(), business.Variant, 1, cart.Version)));
+                carts.Add(cart);
+                Assert.True((await OrderFixture.Read<CartReminderPreference>(await client.PutAsJsonAsync(path, new CartReminderRequest(true)))).Enabled);
+                if (i > 0) Assert.Equal(HttpStatusCode.NotFound, (await users[0].GetAsync(path)).StatusCode);
+            }
+            var scheduler = order.Cart.Factory.Services.GetRequiredService<CartReminderQueue>();
+            using var cartScope = order.Cart.Factory.Services.CreateScope();
+            cartScope.ServiceProvider.GetRequiredService<ModuleScope>().BindEvent(tenantId, "Cart");
+            var cartDb = cartScope.ServiceProvider.GetRequiredService<CartDbContext>();
+            await scheduler.QueueDue(default);
+            Assert.False(await cartDb.Outbox.AnyAsync(row => row.Type == MessagingTopology.CartReminderDue));
+            order.Cart.Pricing.Factory.Clock.Advance(TimeSpan.FromHours(24).Add(TimeSpan.FromMinutes(1)));
+            await scheduler.QueueDue(default);
+            await scheduler.QueueDue(default);
+            var envelopes = (await cartDb.Outbox.Where(row => row.Type == MessagingTopology.CartReminderDue)
+                .Select(row => row.Envelope).ToArrayAsync()).Select(ContractJson.Read<EventEnvelope>).ToArray();
+            Assert.Equal(3, envelopes.Length);
+
+            var cancelled = $"{cartPath}/{carts[1].Id}/reminder";
+            Assert.False((await OrderFixture.Read<CartReminderPreference>(await users[1].PutAsJsonAsync(cancelled, new CartReminderRequest(false)))).Enabled);
+            Assert.Equal(HttpStatusCode.Conflict, (await users[1].PutAsJsonAsync(cancelled, new CartReminderRequest(true))).StatusCode);
+            var checkedOut = await cartDb.Carts.SingleAsync(row => row.Id == carts[2].Id);
+            checkedOut.Status = SRECommerce.Cart.Domain.CartStatus.CheckedOut;
+            await cartDb.SaveChangesAsync();
+
+            var first = envelopes.Single(row => row.Data.GetProperty("cartId").GetGuid() == carts[0].Id);
+            var firstUser = first.Data.GetProperty("userId").GetGuid();
+            using var machine = order.Cart.Factory.Client(notificationToken);
+            var proof = $"/internal/v1/tenants/{tenantId}/cart/reminders/{first.Id}/eligibility?cartId={carts[0].Id}&userId={firstUser}";
+            Assert.Equal(HttpStatusCode.NoContent, (await machine.GetAsync(proof)).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await order.Cart.Factory.Client(await order.Token("Order", "internal_cart")).GetAsync(proof)).StatusCode);
+
+            using var work = factory.Services.CreateScope();
+            work.ServiceProvider.GetRequiredService<ModuleScope>().BindEvent(tenantId, "Cart");
+            var handler = work.ServiceProvider.GetServices<IIntegrationHandler>().OfType<CartReminderHandler>().Single();
+            foreach (var envelope in envelopes)
+            {
+                await handler.HandleAsync(envelope, default);
+                await handler.HandleAsync(envelope, default);
+            }
+            var delivered = await transport.Delivered.Task.WaitAsync(TimeSpan.FromSeconds(45));
+            Assert.Contains("http://localhost:4000/stores/", delivered.Body);
+            Assert.EndsWith("/cart", delivered.Body);
+            var notices = work.ServiceProvider.GetRequiredService<NotificationDbContext>();
+            NotificationJob[] jobs = [];
+            for (var attempt = 0; attempt < 30; attempt++)
+            {
+                jobs = await notices.Jobs.AsNoTracking().ToArrayAsync();
+                if (jobs.Length == 3 && jobs.All(row => row.State is DeliveryState.Sent or DeliveryState.Suppressed)) break;
+                await Task.Delay(500);
+            }
+            Assert.Equal(3, jobs.Length);
+            Assert.Equal(DeliveryState.Sent, jobs.Single(row => row.ResourceId == carts[0].Id).State);
+            Assert.All(jobs.Where(row => row.ResourceId != carts[0].Id), row => Assert.Equal(DeliveryState.Suppressed, row.State));
+            Assert.All(jobs, row => Assert.Null(row.Recipient));
+            Assert.Single(transport.Recipients);
+        }
+        finally { foreach (var user in users) user.Dispose(); }
+    }
+
     [Fact]
     public async Task OrderProofTenantScopeAndInboxReplayProtectDeliveryAndRecipient()
     {

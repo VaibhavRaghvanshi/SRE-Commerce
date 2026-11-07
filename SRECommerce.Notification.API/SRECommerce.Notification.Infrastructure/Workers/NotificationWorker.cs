@@ -46,7 +46,17 @@ public sealed class NotificationWorker(IServiceScopeFactory scopes, INotificatio
                 continue;
             }
             if (row.State != DeliveryState.Pending || row.NextAttemptAt > clock.GetUtcNow()) continue;
-            var preference = row.UserId is {} user ? await db.Preferences.SingleOrDefaultAsync(x => x.UserId == user, ct) : null;
+            string? reminderRecipient = null;
+            if (row.Kind == NotificationKind.CartReminder)
+            {
+                try { reminderRecipient = await services.GetRequiredService<CartReminderDelivery>().EligibleRecipient(row, ct); }
+                catch (Exception ex) when (ex is SRECommerce.BuildingBlocks.Contracts.DependencyFault or System.Text.Json.JsonException)
+                {
+                    row.Attempts++;
+                    await Finish(db, scope, contexts, row, new(DeliveryState.Pending, "CartReminderCheckUnavailable", true), ct);
+                    continue;
+                }
+            }
             var stockPermitted = true;
             if (row.Kind == NotificationKind.LowStock && row.UserId is {} manager)
             {
@@ -57,13 +67,16 @@ public sealed class NotificationWorker(IServiceScopeFactory scopes, INotificatio
                 row.Recipient = contact?.Email;
             }
             row.Attempts++;
-            if (!stockPermitted || preference is not null && !preference.Permits(row.Channel))
+            var preference = row.UserId is {} user ? await db.Preferences.SingleOrDefaultAsync(x => x.UserId == user, ct) : null;
+            if (!stockPermitted || preference is not null && !preference.Permits(row.Channel) ||
+                row.Kind == NotificationKind.CartReminder && reminderRecipient is null)
             {
                 await Finish(db, scope, contexts, row, new(DeliveryState.Suppressed, "OptedOut"), ct);
                 continue;
             }
             row.State = DeliveryState.Sending; row.LeaseId = Guid.NewGuid(); row.LeaseUntil = clock.GetUtcNow().AddSeconds(45);
             await db.SaveChangesAsync(ct);
+            if (row.Kind == NotificationKind.CartReminder) row.Recipient = reminderRecipient;
             var result = await transport.Send(row, ct);
             // If shutdown interrupts the final write, the persisted lease prevents blind duplicate sends.
             await Finish(db, scope, contexts, row, result, ct);
@@ -76,7 +89,7 @@ public sealed class NotificationWorker(IServiceScopeFactory scopes, INotificatio
         row.LeaseId = null; row.LeaseUntil = null;
         var now = clock.GetUtcNow();
         if (row.State == DeliveryState.Pending) row.NextAttemptAt = now.AddSeconds(10 * (1 << row.Attempts));
-        else row.Recipient = null;
+        if (row.State != DeliveryState.Pending || row.Kind == NotificationKind.CartReminder) row.Recipient = null;
         db.Deliveries.Add(new() { TenantId = row.TenantId, EventId = row.EventId, Channel = row.Channel, Attempt = row.Attempts, Code = result.Code, State = row.State, RecordedAt = now });
         db.Record(scope, contexts, "notification.delivery.recorded", row.EventId.ToString());
         await db.SaveChangesAsync(ct);

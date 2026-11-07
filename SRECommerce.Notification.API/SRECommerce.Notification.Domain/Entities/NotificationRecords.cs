@@ -4,7 +4,7 @@ namespace SRECommerce.Notification.Domain;
 
 public enum NotificationChannel { Email, Sms, WhatsApp }
 public enum DeliveryState { Pending, Sending, Sent, Suppressed, Failed, NeedsReview }
-public enum NotificationKind { OrderConfirmed, PaymentCaptured, OrderDispatched, OrderDelivered, OrderCancelled, LowStock }
+public enum NotificationKind { OrderConfirmed, PaymentCaptured, OrderDispatched, OrderDelivered, OrderCancelled, LowStock, CartReminder }
 
 public sealed class NotificationTemplate : ITenantRecord, IVersionedRecord
 {

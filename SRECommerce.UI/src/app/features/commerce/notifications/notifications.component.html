@@ -45,7 +45,7 @@
         <h2>Delivery history</h2>
         <p *ngIf="!jobs().length">There are no messages on this page.</p>
         <div class="table-wrap" *ngIf="jobs().length"><table><thead><tr><th>Event</th><th>Channel</th><th>Status</th><th>Queued</th><th>Attempts</th></tr></thead>
-        <tbody><tr *ngFor="let job of jobs()"><td>{{kinds[job.kind]}}</td><td>{{channels[job.channel]}}</td><td>{{states[job.state]}}</td><td>{{job.createdAt | date:'short'}}</td><td><button type="button" (click)="history(job)" [disabled]="busy()">{{job.attempts}} · View</button></td></tr></tbody></table></div>
+        <tbody><tr *ngFor="let job of jobs()"><td>{{job.kind === 6 ? 'Saved cart reminder' : kinds[job.kind]}}</td><td>{{channels[job.channel]}}</td><td>{{states[job.state]}}</td><td>{{job.createdAt | date:'short'}}</td><td><button type="button" (click)="history(job)" [disabled]="busy()">{{job.attempts}} · View</button></td></tr></tbody></table></div>
         <button type="button" (click)="page = page - 1; reload()" [disabled]="busy() || page === 1">Previous</button>
         <button type="button" (click)="page = page + 1; reload()" [disabled]="busy() || jobs().length < 50">Next</button>
         <div *ngIf="attempts() as list"><h3>Delivery attempts</h3><p *ngIf="!list.length">No delivery attempt has been made.</p>

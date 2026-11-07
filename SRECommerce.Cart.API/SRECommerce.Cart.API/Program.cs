@@ -6,6 +6,7 @@ public partial class CartProgram
  {
   services.AddSingleton(TimeProvider.System);services.AddScoped<ICartRepository,CartRepository>();services.AddScoped<ICartAccess,CartAccess>();services.AddScoped<ICartService,CartService>();
   services.AddScoped<ICustomerAccountRepository,CustomerAccountRepository>();services.AddScoped<CustomerAccountService>();
+  services.AddSingleton<CartReminderQueue>();services.AddHostedService<CartReminderWorker>();
   foreach(var name in new[]{"Catalog","Inventory","Pricing"})services.AddHttpClient(name.ToLowerInvariant(),(p,c)=>{var config=p.GetRequiredService<IConfiguration>();c.BaseAddress=RemoteAccess.BaseUri(config,name+":BaseUrl",$"http://localhost:{ServiceManifest.Get(name).Port}/",p.GetRequiredService<IHostEnvironment>().IsDevelopment());c.Timeout=TimeSpan.FromSeconds(6);}).ConfigurePrimaryHttpMessageHandler(()=>new HttpClientHandler{AllowAutoRedirect=false}).WithDependencyResilience();
  });
 }

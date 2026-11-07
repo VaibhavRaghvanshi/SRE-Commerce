@@ -168,5 +168,11 @@ export const hindi: Record<string, string> = {
   "Your previous cart expired on": "आपके पिछले कार्ट की समय सीमा समाप्त हुई",
   "Available items can be added to this cart. Quantities already here stay as you set them.": "उपलब्ध उत्पाद इस कार्ट में जोड़े जा सकते हैं। यहाँ की मौजूदा मात्रा वैसी ही रहेगी।",
   "Restore available items": "उपलब्ध उत्पाद वापस जोड़ें",
-  "Available items restored. Review your current price and stock.": "उपलब्ध उत्पाद वापस जोड़ दिए गए हैं। मौजूदा मूल्य और स्टॉक जाँचें।"
+  "Available items restored. Review your current price and stock.": "उपलब्ध उत्पाद वापस जोड़ दिए गए हैं। मौजूदा मूल्य और स्टॉक जाँचें।",
+  "Saved cart reminder": "सहेजे गए कार्ट का रिमाइंडर",
+  "Request one email if your cart stays inactive for 24 hours.": "अगर आपका कार्ट 24 घंटे तक निष्क्रिय रहे, तो एक ईमेल रिमाइंडर पाएँ।",
+  "This cart reminder has been queued.": "कार्ट रिमाइंडर कतार में है।",
+  "We could not update your cart reminder. Please try again.": "कार्ट रिमाइंडर अपडेट नहीं हुआ। कृपया दोबारा कोशिश करें।",
+  "Cancel email reminder": "ईमेल रिमाइंडर रद्द करें",
+  "Email me a reminder": "मुझे ईमेल रिमाइंडर भेजें"
 };

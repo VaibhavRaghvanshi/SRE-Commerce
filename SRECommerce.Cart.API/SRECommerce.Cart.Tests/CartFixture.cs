@@ -9,6 +9,7 @@ public sealed class CartFactory(PricingFixture pricing,InventoryFactory inventor
  protected override void ConfigureWebHost(IWebHostBuilder builder)
  {
   builder.UseEnvironment("Development");builder.UseSetting("ConnectionStrings:Cart",$"Server=localhost,1433;Database={DatabaseName};Integrated Security=true;Encrypt=true;TrustServerCertificate=true");builder.UseSetting("RateLimiting:PermitLimit","1000");
+  builder.UseSetting("CartReminders:Enabled","true");
   builder.ConfigureServices(services=>{
    services.AddSingleton<TimeProvider>(pricing.Factory.Clock);
    services.AddHttpClient("identity").ConfigurePrimaryHttpMessageHandler(()=>new DependencyTestHandler(pricing.Catalog.Tenant.Identity.Factory.Server.CreateHandler(),()=>IdentityOffline));
