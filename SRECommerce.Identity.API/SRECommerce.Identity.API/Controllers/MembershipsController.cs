@@ -53,7 +53,7 @@ public sealed class MembershipsController(IdentityDbContext db, IIdentityAccount
     [HttpPut("{userId:guid}")]
     public async Task<IActionResult> Assign(Guid tenantId, Guid userId, MembershipRequest request, CancellationToken ct)
     {
-        if (!Selected(tenantId)) return Forbid();
+        if (!await Permitted(tenantId, "members.write", ct)) return Forbid();
         await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
         await capacity.LockAsync(tenantId, ct);
         if (!await Permitted(tenantId, "members.write", ct)) return Forbid();
@@ -84,7 +84,7 @@ public sealed class MembershipsController(IdentityDbContext db, IIdentityAccount
     [HttpDelete("{userId:guid}")]
     public async Task<IActionResult> Deactivate(Guid tenantId, Guid userId, [FromQuery] string? version, CancellationToken ct)
     {
-        if (!Selected(tenantId)) return Forbid();
+        if (!await Permitted(tenantId, "members.write", ct)) return Forbid();
         await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
         await capacity.LockAsync(tenantId, ct);
         if (!await Permitted(tenantId, "members.write", ct)) return Forbid();

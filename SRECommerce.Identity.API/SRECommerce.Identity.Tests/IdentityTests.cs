@@ -74,6 +74,17 @@ public sealed class IdentityTests(IdentityFixture fixture) : IClassFixture<Ident
         var memberId = row.GetProperty("userId").GetGuid();
         var version = row.GetProperty("version").GetString()!;
         Assert.Equal(HttpStatusCode.Forbidden, (await merchant.GetAsync($"/api/v1/tenants/{Guid.NewGuid()}/memberships/directory")).StatusCode);
+        var winner = memberId == first.Id ? first : second;
+        using var customer = (await Protocol.SignIn(Factory, winner.Email, winner.Password, tenant)).Client;
+        using (var scope = Factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+            await using var transaction = await db.Database.BeginTransactionAsync();
+            await scope.ServiceProvider.GetRequiredService<MembershipCapacity>().LockAsync(tenant, CancellationToken.None);
+            Assert.Equal(HttpStatusCode.Forbidden, (await customer.PutAsJsonAsync(roster + $"/{memberId}",
+                new { userId = memberId, role = "Staff" })).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await customer.DeleteAsync(roster + $"/{memberId}")).StatusCode);
+        }
         Assert.Equal(HttpStatusCode.Conflict, (await merchant.DeleteAsync(roster + $"/{memberId}?version=stale")).StatusCode);
         using var admin = (await Protocol.SignIn(Factory, Factory.AdminEmail, Factory.Password)).Client;
         var otherId = memberId == first.Id ? second.Id : first.Id;
