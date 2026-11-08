@@ -1,0 +1,61 @@
+<main>
+  <header><div><p class="eyebrow">Business workspace</p><h1>Point of sale</h1><p>Scan products, choose a pickup branch and record counter cash.</p></div>
+    <nav aria-label="Business workspace"><a [routerLink]="['/workspace',tenant,'orders']">Orders</a><a [routerLink]="['/workspace',tenant,'payments']">Payments</a><a [routerLink]="['/workspace',tenant,'shipping']">Shipping</a></nav></header>
+  <p class="error" role="alert" *ngIf="error()">{{error()}}</p>
+  <p role="status" *ngIf="message()">{{message()}}</p>
+  <section class="panel" *ngIf="!canOperate"><h2>Counter staff sign-in</h2><p>An active Owner, Manager or Staff membership is required.</p><button type="button" (click)="signIn()">Sign in</button></section>
+  <ng-container *ngIf="canOperate">
+    <section class="panel" *ngIf="reference()">
+      <p class="eyebrow">Checkout reference</p><p class="reference">{{reference()}}</p>
+      <ng-container *ngIf="progress() as status">
+        <h2>{{status.state===2 ? 'Sale confirmed' : status.state===4 || status.state===6 ? 'Sale stopped' : status.state===5 ? 'Needs manager review' : 'Verifying sale'}}</h2>
+        <p *ngIf="status.state===4 || status.state===6">If you took physical cash, reconcile and return it before starting another sale.</p>
+        <ng-container *ngIf="status.order as order">
+          <p><strong>{{order.number}}</strong> · {{order.total | currency:order.currency}}</p>
+          <ul><li *ngFor="let line of order.items">{{line.name}} × {{line.quantity}}</li></ul>
+          <button type="button" *ngIf="status.state===2 && order.status===1 && order.paymentMethod==='CounterCash'" (click)="handover(order)" [disabled]="busy()">Confirm items handed over</button>
+          <p *ngIf="order.status===5 && order.paymentMethod==='CounterCash'">Counter handover recorded.</p>
+          <button class="secondary" type="button" *ngIf="order.status===5 && order.paymentMethod==='CounterCash'" (click)="printReceipt()">Print counter receipt</button>
+          <a [routerLink]="['/workspace',tenant,'orders',order.id,'workflow']">Open order record</a>
+        </ng-container>
+        <button class="secondary" type="button" *ngIf="status.state===4 || status.state===6 || status.state===2 && status.order?.status===5" (click)="nextSale()" [disabled]="busy()">Start next sale</button>
+      </ng-container>
+      <button type="button" class="secondary" (click)="check()" [disabled]="busy()">Check status</button>
+    </section>
+    <div class="layout" *ngIf="!reference()">
+      <section class="panel">
+        <p class="eyebrow">01 · Basket</p><h2>Scan a barcode or SKU</h2>
+        <form (ngSubmit)="scan()" class="toolbar"><label>Barcode or exact SKU<input #scanField name="scan" [(ngModel)]="scanCode" maxlength="64" autocomplete="off" /></label>
+          <button [disabled]="busy() || !scanCode.trim()">Add item</button></form>
+        <p>This counter uses your staff account’s current store basket. Review all items before taking cash.</p>
+        <ul class="basket"><li *ngFor="let line of cartLines()">
+          <div><strong>{{line.name}}</strong><small>{{line.sku}}</small></div><span>× {{line.quantity}}</span>
+          <button type="button" class="secondary" (click)="remove(line.variantId)" [disabled]="busy()">Remove</button>
+        </li></ul>
+        <p *ngIf="!cartLines().length">Your basket is empty.</p>
+      </section>
+      <form class="panel" (ngSubmit)="sale()" #form="ngForm">
+        <p class="eyebrow">02 · Pickup and cash</p><h2>Complete counter sale</h2>
+        <div class="fields">
+          <label>Buyer name or walk-in label<input name="buyer" [(ngModel)]="buyer" maxlength="160" required /></label>
+          <label>Buyer email (optional)<input name="email" [(ngModel)]="email" type="email" email maxlength="254" /></label>
+          <label>Branch street address<input name="address" [(ngModel)]="address" maxlength="200" required /></label>
+          <label>Branch city<input name="city" [(ngModel)]="city" maxlength="100" required /></label>
+          <label>Branch country<select name="country" [(ngModel)]="country" (ngModelChange)="clearQuote()" required><option value="">Choose country</option><option *ngFor="let value of countries()" [value]="value">{{value}}</option></select></label>
+          <label>Branch postal code<input name="postal" [(ngModel)]="postal" (ngModelChange)="clearQuote()" minlength="2" maxlength="16" required /></label>
+        </div>
+        <button type="button" class="secondary" (click)="quote()" [disabled]="busy() || !country || !postal.trim() || !cartLines().length">Check pickup branches</button>
+        <label *ngIf="choices().length">Pickup branch<select name="pickup" [ngModel]="selected()" (ngModelChange)="selected.set($event); cash=null" required>
+          <option value="">Choose a branch</option><option *ngFor="let option of choices()" [value]="option.id">{{option.methodName}}</option>
+        </select></label>
+        <ng-container *ngIf="pickup() as branch">
+          <p class="total"><span>Total to collect</span><strong>{{total() | currency:branch.currency}}</strong></p>
+          <label>Cash retained after change<input name="cash" type="number" min="0" step="any" [(ngModel)]="cash" required /></label>
+          <p>Enter cash only after receiving it. Hand over the items after the sale is confirmed.</p>
+          <button [disabled]="busy() || form.invalid || cash!==total()">Record cash sale</button>
+        </ng-container>
+      </form>
+    </div>
+    <button class="secondary" type="button" *ngIf="!reference() && !countries().length && !busy()" (click)="initialize()">Reload counter setup</button>
+  </ng-container>
+</main>

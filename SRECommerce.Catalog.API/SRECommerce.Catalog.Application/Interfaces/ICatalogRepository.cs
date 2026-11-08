@@ -18,6 +18,7 @@ public interface ICatalogRepository
     Task<ProductView?> PublishedVariant(Guid id,CancellationToken ct);
     Task<SRECommerce.BuildingBlocks.Contracts.PublishedSku[]> PublishedSkus(Guid[] ids,CancellationToken ct);
     Task<ProductView[]> ShoppingProducts(Guid[] ids,bool includeB2B,CancellationToken ct);
+    Task<CounterItem[]> CounterItems(Guid tenant, string code, CancellationToken ct);
     Task<ProductView[]> PublicProductsById(Guid[] productIds,CancellationToken ct,bool includeB2B=false);
     Task<Guid[]> VisibleVariantIds(Guid[] ids,bool includeB2B,CancellationToken ct);
     Task<IReadOnlyCollection<ProductCollection>> Collections(CancellationToken ct);

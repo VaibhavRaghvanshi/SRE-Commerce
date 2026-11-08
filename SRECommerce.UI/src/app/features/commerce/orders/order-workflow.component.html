@@ -6,10 +6,15 @@
   <ng-container *ngIf="allowed">
     <label *ngIf="support">Support reason <input [(ngModel)]="supportReason" maxlength="300" /></label>
     <button type="button" (click)="reload()" [disabled]="busy() || support && !supportReason.trim()">Refresh order workflow</button>
-    <button *ngIf="pendingCount() && canManage" type="button" (click)="retryUnconfirmed()" [disabled]="busy()">Retry exact unconfirmed request</button>
+    <button *ngIf="pendingCount() && (canManage || !support && order()?.paymentMethod==='CounterCash')" type="button" (click)="retryUnconfirmed()" [disabled]="busy()">Retry exact unconfirmed request</button>
     <ng-container *ngIf="order() as o">
       <h2>{{o.number}}</h2><p *ngIf="o.historical">Imported history has no current fulfillment or return actions.</p>
-      <article><h3>Parcels</h3>
+      <article *ngIf="o.paymentMethod==='CounterCash'"><h3>Counter pickup</h3>
+        <button *ngIf="canHandover" type="button" (click)="handover()" [disabled]="busy() || pendingCount()>0">Confirm items handed over</button>
+        <p *ngIf="o.deliveredAt">Handed over {{o.deliveredAt | date:'short'}}.</p>
+        <p>Cash refunds are recorded for reconciliation. Return physical cash separately.</p>
+      </article>
+      <article *ngIf="o.paymentMethod!=='CounterCash'"><h3>Parcels</h3>
         <p *ngIf="!fulfillments().length">No parcels requested.</p>
         <ul><li *ngFor="let f of fulfillments()">{{parcelStates[f.status]}} · {{warehouseName(f.warehouseId)}} <span *ngIf="f.courierReference">· {{f.courierReference}}</span>
           <ul><li *ngFor="let line of f.items">{{sku(line.variantId)}} × {{line.quantity}}</li></ul></li></ul>

@@ -6,6 +6,7 @@ public sealed class PaymentTransaction : ITenantRecord, IVersionedRecord
     public Guid Id { get; set; }
     public Guid OrderId { get; set; }
     public Guid? UserId { get; set; }
+    public Guid? GiftCardId { get; set; }
     public string Currency { get; set; } = "";
     public int DecimalPlaces { get; set; } = 2;
     public decimal Amount { get; set; }

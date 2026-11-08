@@ -18,6 +18,7 @@ public sealed class PaymentDbContext(DbContextOptions<PaymentDbContext> options,
     public DbSet<RefundTransaction> Refunds => Set<RefundTransaction>();
     public DbSet<PaymentWebhook> Webhooks => Set<PaymentWebhook>();
     public DbSet<PaymentProviderConfiguration> Configurations => Set<PaymentProviderConfiguration>();
+    public DbSet<GiftCard> GiftCards => Set<GiftCard>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -39,14 +40,29 @@ public sealed class PaymentDbContext(DbContextOptions<PaymentDbContext> options,
             e.HasIndex(x => new { x.TenantId, x.ProviderReference }).IsUnique();
             e.HasIndex(x => new { x.TenantId, x.Status, x.CreatedAt });
             e.HasIndex(x => new { x.TenantId, x.UserId, x.CreatedAt });
+            e.HasOne<GiftCard>().WithMany().HasForeignKey(x => new { x.TenantId, Id = x.GiftCardId }).OnDelete(DeleteBehavior.Restrict);
             e.ToTable(t =>
             {
                 t.HasCheckConstraint("CK_Payments_Amounts", "[Amount]>=0 AND [Refunded]>=0 AND [Refunded]<=[Amount]");
                 t.HasCheckConstraint("CK_Payments_Status", "[Status] BETWEEN 0 AND 7 AND ([Status] IN (5,6) OR [Refunded]=0) AND ([Status]<>6 OR [Refunded]=[Amount]) AND ([Status]<>5 OR ([Refunded]>0 AND [Refunded]<[Amount]))");
                 t.HasCheckConstraint("CK_Payments_Proof", "ISJSON([OrderProof])=1");
-                t.HasCheckConstraint("CK_Payments_Sandbox", "[Provider]=N'Sandbox'");
+                t.HasCheckConstraint("CK_Payments_Tender", "([Provider]=N'Sandbox' AND [Method] NOT IN (N'GiftCard',N'CounterCash') AND [GiftCardId] IS NULL) OR ([Provider]=N'GiftCard' AND [Method]=N'GiftCard' AND ([Status] IN (3,4) OR [GiftCardId] IS NOT NULL)) OR ([Provider]=N'Counter' AND [Method]=N'CounterCash' AND [GiftCardId] IS NULL)");
                 t.HasCheckConstraint("CK_Payments_Revision", "[Revision]>0");
                 t.HasCheckConstraint("CK_Payments_Precision", "[DecimalPlaces] BETWEEN 0 AND 3");
+            });
+        });
+        Tenant<GiftCard>("GiftCards", e =>
+        {
+            e.Property(x => x.CodeHash).HasMaxLength(64).IsUnicode(false);
+            e.Property(x => x.Currency).HasMaxLength(3);
+            e.Property(x => x.Reference).HasMaxLength(300);
+            e.Property(x => x.Version).IsRowVersion();
+            e.HasIndex(x => new { x.TenantId, x.CodeHash }).IsUnique();
+            e.HasIndex(x => new { x.TenantId, x.ClaimedBy, x.IssuedAt });
+            e.ToTable(t =>
+            {
+                t.HasCheckConstraint("CK_GiftCards_Balance", "[Value]>0 AND [Balance]>=0 AND [Balance]<=[Value]");
+                t.HasCheckConstraint("CK_GiftCards_State", "(([ClaimedBy] IS NULL AND [ClaimedAt] IS NULL) OR ([ClaimedBy] IS NOT NULL AND [ClaimedAt] IS NOT NULL)) AND ([VoidedAt] IS NULL OR ([ClaimedBy] IS NULL AND [Balance]=0))");
             });
         });
         Tenant<PaymentProviderConfiguration>("PaymentProviderConfigurations", e =>

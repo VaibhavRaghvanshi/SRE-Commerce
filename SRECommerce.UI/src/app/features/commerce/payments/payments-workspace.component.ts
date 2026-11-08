@@ -6,8 +6,9 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommerceSessionService } from '../../../core/services/commerce-session.service';
 import { MerchantPaymentService, MerchantPayment, PaymentConfiguration, PaymentHistory, PaymentReconciliation } from '../../../core/services/merchant-payment.service';
+import { GiftCardsComponent } from './gift-cards.component';
 
-@Component({ selector: 'app-payments-workspace', standalone: true, imports: [CommonModule, FormsModule, RouterLink],
+@Component({ selector: 'app-payments-workspace', standalone: true, imports: [CommonModule, FormsModule, RouterLink, GiftCardsComponent],
   templateUrl: './payments-workspace.component.html', styleUrl: './payments-workspace.component.scss' })
 export class PaymentsWorkspaceComponent {
   readonly session = inject(CommerceSessionService); private readonly api = inject(MerchantPaymentService); private readonly destroy = inject(DestroyRef);

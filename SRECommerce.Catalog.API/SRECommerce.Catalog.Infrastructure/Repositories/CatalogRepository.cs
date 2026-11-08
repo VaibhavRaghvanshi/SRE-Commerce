@@ -26,10 +26,26 @@ public sealed class CatalogRepository(CatalogDbContext db,ModuleScope scope,IHtt
         if(!string.IsNullOrWhiteSpace(query.Search))all=all.Where(p=>p.Name.Contains(query.Search)||p.Slug.Contains(query.Search));
         var total=await all.CountAsync(ct);return new(await all.OrderBy(p=>p.Name).ThenBy(p=>p.Id).Skip((query.Page-1)*query.PageSize).Take(query.PageSize).ToListAsync(ct),total,query.Page,query.PageSize);
     }
-    private IQueryable<ProductPublication> Active(bool b2b=false)=>from snapshot in db.Publications.AsNoTracking()
+    private IQueryable<ProductPublication> Active(bool b2b=false,IQueryable<ProductPublication>? publications=null)=>from snapshot in (publications??db.Publications).AsNoTracking()
         join product in db.Products.AsNoTracking() on new{snapshot.TenantId,Id=snapshot.ProductId,Revision=snapshot.Revision} equals new{product.TenantId,product.Id,Revision=product.PublishedRevision}
         where product.Status!=ProductStatus.Archived&&snapshot.Visible&&(b2b||!snapshot.B2BOnly)&&db.Categories.Any(c=>c.Id==snapshot.CategoryId&&!c.Archived)&&(snapshot.BrandId==null||db.Brands.Any(b=>b.Id==snapshot.BrandId&&!b.Archived))
         select snapshot;
+    public async Task<CounterItem[]> CounterItems(Guid tenant, string code, CancellationToken ct)
+    {
+        // Scan the immutable publication, since a draft can change its barcode before it goes live.
+        var matching = db.Publications.FromSql($"""
+            SELECT p.* FROM dbo.ProductPublications AS p
+            WHERE p.TenantId = {tenant} AND EXISTS (
+                SELECT 1 FROM OPENJSON(p.Document, '$.variants')
+                WITH (Sku nvarchar(64) '$.sku', Barcode nvarchar(64) '$.barcode', Active bit '$.active') AS v
+                WHERE v.Active = 1 AND (v.Sku COLLATE Latin1_General_100_BIN2 = {code} OR v.Barcode COLLATE Latin1_General_100_BIN2 = {code})
+            )
+            """);
+        var rows = await Active(publications: matching).OrderBy(p => p.ProductId).Select(p => p.Document).Take(2).ToArrayAsync(ct);
+        return rows.Select(ContractJson.Read<ProductView>).SelectMany(product => product.Variants
+            .Where(v => v.Active && v.Id is not null && (v.Sku == code || v.Barcode == code))
+            .Select(v => new CounterItem(v.Id!.Value, product.Name, v.Sku))).Take(2).ToArray();
+    }
     public async Task<CatalogPage<ProductView>> Published(CatalogQuery query,CancellationToken ct,bool includeB2B=false)
     {
         var all=Active(includeB2B);if(query.CategoryId is {} category)all=all.Where(p=>p.CategoryId==category);if(query.BrandId is {} brand)all=all.Where(p=>p.BrandId==brand);

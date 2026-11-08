@@ -13,7 +13,7 @@ public sealed class PaymentService(IPaymentRepository repository, IPaymentAccess
     private DateTimeOffset Now => clock.GetUtcNow();
     private static string Version(byte[] value) => Convert.ToBase64String(value);
     private static PaymentView View(PaymentTransaction p) => new(p.Id, p.OrderId, p.Currency, p.Amount, p.Method,
-        p.Status, p.Refunded, Version(p.Version), p.Provider, p.ProviderReference, true, p.DecimalPlaces);
+        p.Status, p.Refunded, Version(p.Version), p.Provider, p.ProviderReference, p.Provider == "Sandbox", p.DecimalPlaces);
     private static PaymentConfigView View(PaymentProviderConfiguration c) => new("Sandbox", c.Active, c.AllowCard,
         c.AllowUPI, c.AllowNetBanking, c.AllowCOD, c.Outcome, Version(c.Version));
     private Task<PaymentTransaction> Required(Guid order, CancellationToken ct) => Find(order, ct);
@@ -32,11 +32,28 @@ public sealed class PaymentService(IPaymentRepository repository, IPaymentAccess
         if (proof.TenantId != tenant || proof.Id != order || proof.Historical) throw new BusinessFault("OrderPaymentProofRejected");
         PaymentRules.OrderAmount(proof.Total); PaymentRules.Currency(proof.Currency);
         if (proof.DecimalPlaces is < 0 or > 3 || decimal.Round(proof.Total, proof.DecimalPlaces) != proof.Total) throw new BusinessFault("OrderPaymentPrecisionRejected");
-        if (proof.PaymentMethod is not ("Card" or "UPI" or "NetBanking" or "COD")) throw new BusinessFault("UnsupportedPaymentMethod", 400);
+        if (proof.PaymentMethod is not ("Card" or "UPI" or "NetBanking" or "COD" or "GiftCard" or "CounterCash"))
+            throw new BusinessFault("UnsupportedPaymentMethod", 400);
+        if (proof.PaymentMethod == "GiftCard" && (proof.GiftCardId is null || proof.GiftCardId == Guid.Empty || proof.UserId is null))
+            throw new BusinessFault("GiftCardPaymentProofRejected");
+        if (proof.PaymentMethod == "CounterCash" && proof.UserId is null) throw new BusinessFault("CounterPaymentProofRejected");
     }
     private PaymentTransaction New(OrderPaymentProof proof) => new() { TenantId = proof.TenantId, Id = proof.Id,
         OrderId = proof.Id, UserId = proof.UserId, Currency = proof.Currency, DecimalPlaces = proof.DecimalPlaces, Amount = proof.Total,
-        Method = proof.PaymentMethod, Provider = provider.Name, OrderProof = ContractJson.Write(proof), CreatedAt = Now, UpdatedAt = Now };
+        Method = proof.PaymentMethod, Provider = proof.PaymentMethod switch { "GiftCard" => "GiftCard", "CounterCash" => "Counter", _ => provider.Name },
+        OrderProof = ContractJson.Write(proof), CreatedAt = Now, UpdatedAt = Now };
+
+    private static string LocalReference(string provider, Guid operation) => provider + "-" + operation.ToString("N");
+
+    private async Task<GiftCard> DebitGiftCard(OrderPaymentProof proof, CancellationToken ct)
+    {
+        var card = await repository.GiftCard(proof.GiftCardId!.Value, ct);
+        if (card is null || card.ClaimedBy != proof.UserId || card.VoidedAt is not null || card.Currency != proof.Currency)
+            throw new BusinessFault("GiftCardUnavailable", 404);
+        if (card.Balance < proof.Total) throw new BusinessFault("GiftCardInsufficientBalance");
+        card.Balance -= proof.Total;
+        return card;
+    }
 
     public async Task<PaymentView> Start(Guid tenant, Guid order, CancellationToken ct)
     {
@@ -48,6 +65,17 @@ public sealed class PaymentService(IPaymentRepository repository, IPaymentAccess
         return await repository.Transaction(async token =>
         {
             if (await repository.Payment(order, token) is { } replay) return View(replay);
+            if (proof.PaymentMethod is "GiftCard" or "CounterCash")
+            {
+                var local = New(proof);
+                if (proof.PaymentMethod == "GiftCard") local.GiftCardId = (await DebitGiftCard(proof, token)).Id;
+                local.Status = PaymentStatus.Captured;
+                local.ProviderReference = LocalReference(local.Provider, local.Id);
+                repository.Add(local);
+                Attempt(local, local.Provider == "GiftCard" ? "giftcard.debited" : "counter.cash.recorded", null);
+                await repository.Save("payment.captured", local.Id, local, token);
+                return View(local);
+            }
             var config = await repository.Configuration(token) ?? throw new BusinessFault("PaymentsNotConfigured");
             PaymentRules.Enabled(config, proof.PaymentMethod);
             var payment = New(proof); var receipt = provider.Begin(payment.Id, payment.Method, config.Outcome);
@@ -75,7 +103,7 @@ public sealed class PaymentService(IPaymentRepository repository, IPaymentAccess
             var payment = await Required(order, token);
             if (payment.Amount != proof.Total || payment.Currency != proof.Currency || payment.DecimalPlaces != proof.DecimalPlaces || payment.Method != proof.PaymentMethod) throw new BusinessFault("OrderPaymentFactsChanged");
             if (payment.Status is PaymentStatus.Captured or PaymentStatus.PartiallyRefunded or PaymentStatus.Refunded) return View(payment);
-            if (payment.CancellationRequested || payment.Status is not (PaymentStatus.Authorized or PaymentStatus.CashOnDelivery)) throw new BusinessFault("PaymentNotCapturable");
+            if (payment.Provider != provider.Name || payment.CancellationRequested || payment.Status is not (PaymentStatus.Authorized or PaymentStatus.CashOnDelivery)) throw new BusinessFault("PaymentNotCapturable");
             if (payment.Method == "COD" ? proof.Status is not (5 or 6) : proof.Status != 0) throw new BusinessFault("CaptureRequiresAuthoritativeOrderState");
             repository.Version(payment, version); var previous = payment.Status;
             var receipt = provider.Capture(payment.Id); payment.Status = receipt.Status; payment.ProviderReference = receipt.Reference;
@@ -95,7 +123,13 @@ public sealed class PaymentService(IPaymentRepository repository, IPaymentAccess
             var payment = await repository.Payment(order, token);
             if (payment?.CancellationRequested == true) return View(payment);
             PaymentStatus? previous = payment?.Status;
-            if (payment is null) { payment = New(proof!); payment.ProviderReference = provider.Begin(payment.Id, payment.Method, SandboxOutcome.Pending).Reference; repository.Add(payment); }
+            if (payment is null)
+            {
+                payment = New(proof!);
+                payment.ProviderReference = payment.Provider == provider.Name
+                    ? provider.Begin(payment.Id, payment.Method, SandboxOutcome.Pending).Reference : LocalReference(payment.Provider, payment.Id);
+                repository.Add(payment);
+            }
             payment.CancellationRequested = true;
             if (payment.Status is PaymentStatus.Pending or PaymentStatus.Authorized or PaymentStatus.CashOnDelivery) payment.Status = PaymentStatus.Cancelled;
             Attempt(payment, "cancellation.requested", previous);
@@ -116,12 +150,18 @@ public sealed class PaymentService(IPaymentRepository repository, IPaymentAccess
                 return View(payment);
             }
             PaymentRules.Refund(payment, request.Amount); var previous = payment.Status;
-            var reference = provider.Refund(request.Id);
+            var reference = payment.Provider == provider.Name ? provider.Refund(request.Id) : LocalReference(payment.Provider, request.Id);
+            if (payment.Provider == "GiftCard")
+            {
+                var card = await repository.GiftCard(payment.GiftCardId!.Value, token) ?? throw new BusinessFault("GiftCardLedgerMissing", 500);
+                card.Balance += request.Amount;
+            }
             repository.Add(new RefundTransaction { TenantId = tenant, Id = request.Id, PaymentId = payment.Id,
                 Amount = request.Amount, Reason = reason, ProviderReference = reference, CreatedAt = Now });
             payment.Refunded += request.Amount;
             payment.Status = payment.Refunded == payment.Amount ? PaymentStatus.Refunded : PaymentStatus.PartiallyRefunded;
-            Attempt(payment, "refunded", previous); await repository.Save("payment.refunded", payment.Id, payment, token);
+            var action = payment.Provider switch { "GiftCard" => "giftcard.credited", "Counter" => "counter.cash.refund.recorded", _ => "refunded" };
+            Attempt(payment, action, previous); await repository.Save("payment.refunded", payment.Id, payment, token);
             return View(payment);
         }, ct);
     }
@@ -167,10 +207,13 @@ public sealed class PaymentService(IPaymentRepository repository, IPaymentAccess
     {
         await access.Human(tenant, ActorPermission.Manager, ct); var payment = await Required(order, ct);
         var refunds = await repository.Refunds(payment.Id, ct); var attempts = await repository.Attempts(payment.Id, ct);
-        var consistent = provider.VerifyReference(payment.Id, payment.ProviderReference) && refunds.Sum(r => r.Amount) == payment.Refunded
+        var sandbox = payment.Provider == provider.Name;
+        var referenceMatches = sandbox ? provider.VerifyReference(payment.Id, payment.ProviderReference)
+            : payment.ProviderReference == LocalReference(payment.Provider, payment.Id);
+        var consistent = referenceMatches && refunds.Sum(r => r.Amount) == payment.Refunded
             && attempts.LastOrDefault()?.Current == payment.Status && payment.Refunded <= payment.Amount;
         await repository.Save("payment.reconciled", payment.Id, null, ct);
-        return new { PaymentId = payment.Id, Provider = provider.Name, Sandbox = true, Consistent = consistent,
+        return new { PaymentId = payment.Id, payment.Provider, Sandbox = sandbox, Consistent = consistent,
             Captured = payment.Status is PaymentStatus.Captured or PaymentStatus.PartiallyRefunded or PaymentStatus.Refunded ? payment.Amount : 0,
             payment.Refunded, RefundCount = refunds.Length, AttemptCount = attempts.Length };
     }
@@ -195,6 +238,7 @@ public sealed class PaymentService(IPaymentRepository repository, IPaymentAccess
                 return new { Accepted = true, prior.Applied };
             }
             var payment = await Required(webhook.PaymentId, token);
+            if (payment.Provider != provider.Name) throw new BusinessFault("SandboxPaymentRequired", 400);
             if (payment.Amount != webhook.Amount || payment.Currency != webhook.Currency) throw new BusinessFault("WebhookAmountMismatch");
             var applied = payment.Status == PaymentStatus.Pending && !payment.CancellationRequested;
             if (applied)
@@ -215,6 +259,7 @@ public sealed class PaymentService(IPaymentRepository repository, IPaymentAccess
     {
         await access.Human(tenant, ActorPermission.Manager, ct); PaymentRules.Id(request.Id);
         var payment = await Required(order, ct);
+        if (payment.Provider != provider.Name) throw new BusinessFault("SandboxPaymentRequired", 400);
         // A completed operation can be replayed even though its original version is now stale.
         if (await repository.Webhook(request.Id, ct) is null) repository.Version(payment, request.Version);
         var timestamp = Now.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture);

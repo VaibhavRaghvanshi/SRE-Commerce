@@ -45,7 +45,11 @@ export class OrderWorkflowComponent {
   get role() { const a = this.session.access(); return this.session.token && a?.selectedTenantId === this.tenant ? a.tenantRole : null; }
   get allowed() { return this.support || ['Owner','Manager','Staff'].includes(this.role || ''); }
   get canManage() { return this.support || ['Owner','Manager'].includes(this.role || ''); }
-  get canFulfill() { const order = this.order(); return this.canManage && !!order && !order.historical && [1,2,3].includes(order.status); }
+  get canFulfill() { const order = this.order(); return this.canManage && !!order && !order.historical && order.paymentMethod !== 'CounterCash' && [1,2,3].includes(order.status); }
+  get canHandover() {
+    const order = this.order();
+    return this.allowed && !this.support && order?.paymentMethod === 'CounterCash' && order.status === 1 && order.paymentState === 2;
+  }
   constructor() { if (typeof window !== 'undefined' && this.allowed && !this.support) void this.reload(); }
   private orderPath() { return 'orders/' + encodeURIComponent(this.orderId); }
   private request<T>(method: 'GET' | 'POST', path: string, body?: unknown) {
@@ -86,9 +90,16 @@ export class OrderWorkflowComponent {
     finally { this.pendingCount.set(this.writes.size); }
   }
   retryUnconfirmed() { return this.run(async () => {
-    if (!this.canManage) return;
-    for (const [path, prior] of this.writes) await this.sendPending(path, prior);
+    for (const [path, prior] of this.writes) {
+      if (this.canManage || this.allowed && !this.support && path.endsWith('/counter-handover')) await this.sendPending(path, prior);
+    }
     await this.load(); this.message.set('Previously submitted operations checked.');
+  }); }
+  handover() { return this.run(async () => {
+    const order = this.order();
+    if (!order || !this.canHandover) return;
+    await this.write(this.orderPath() + '/counter-handover', 'operationId', { version: order.version });
+    await this.load(); this.message.set('Counter handover recorded.');
   }); }
   fulfill() { return this.run(async () => {
     const order = this.order(); if (!order || !this.canFulfill || !this.warehouse) return;

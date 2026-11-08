@@ -1,0 +1,24 @@
+:host { display: block; min-height: 100vh; background: #f3f6f2; color: #203428; }
+main { max-width: 1120px; margin: auto; padding: 32px clamp(16px, 4vw, 46px) 56px; }
+header, nav, .toolbar, .basket li, .total { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+header, .total { justify-content: space-between; }
+header { margin-bottom: 24px; }
+h1, h2 { margin: 0 0 10px; }
+.eyebrow { text-transform: uppercase; letter-spacing: .13em; color: #466653; font-size: 12px; font-weight: 750; }
+.layout { display: grid; grid-template-columns: 1fr 1fr; align-items: start; gap: 18px; }
+.panel { min-width: 0; background: white; border: 1px solid #d7e2d8; border-radius: 14px; padding: clamp(16px, 3vw, 26px); }
+.fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+label { display: grid; gap: 6px; margin-bottom: 12px; font-size: 14px; font-weight: 650; }
+input, select { min-width: 0; width: 100%; }
+button { padding: 10px 15px; min-height: 44px; margin: 4px 6px 4px 0; border-radius: 8px; border: 1px solid #28543c; background: #28543c; color: white; font-weight: 650; }
+button.secondary { background: white; color: #28543c; }
+.basket { padding: 0; }
+.basket li { border-bottom: 1px solid #d7e2d8; padding: 8px 0; }
+.basket li div { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.basket small { display: block; }
+.total { border-top: 1px solid #d7e2d8; padding-top: 12px; font-size: 17px; }
+.error { color: #842c24; }
+.reference { overflow-wrap: anywhere; }
+@media (max-width: 760px) { .layout { grid-template-columns: 1fr; } }
+@media (max-width: 430px) { .fields { grid-template-columns: 1fr; } }
+@media print { nav, a, button { display: none; } main { padding: 0; } .panel { border: 0; } }

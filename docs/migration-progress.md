@@ -1,5 +1,15 @@
 # SRECommerce migration progress
 
+## Gift cards and counter POS — 2026-11-08
+
+The Payments workspace lets an Owner issue or void an unclaimed gift card. Signed-in shoppers can claim a code and use one card that covers the full checkout total. Payment owns the balance, stores only the code hash and credits refunds to the original card. The Order workspace links to the POS register, where staff can scan a published SKU or barcode, quote a pickup branch, record cash, confirm handover and print the receipt. [Payment and POS contracts](api-contracts/payment-service.md#gift-cards)
+
+Three focused backend tests passed on the sequential rerun. They covered gift-card claim isolation, checkout and refund replay, a counter sale using committed branch stock, handover replay and the existing COD workflow. Shipping quote proof was supplied by the isolated test fixture. The first run hit dependency timeouts during test-store setup.
+
+The local Payment backup passed checksum verification. The migration was applied twice and recorded once. All four existing payment records and the ledger fingerprint matched before and after. The review database had zero issued gift cards after migration. [Reviewed SQL migration](database-migrations/payment-gift-cards-counter.sql)
+
+The native review has a zero-fee **Local demo counter pickup** option linked to the existing Legacy Demo warehouse. Chrome verified the Owner Gift Cards screen, mobile counter layout, a published item scan and a real Shipping pickup quote for postal code `411001`. The verification cart line was removed. Gift-card issuance, cash recording and final handover were exercised in isolated tests. All 80 Angular tests, 14 readiness probes and five preserved-data checks passed. The optimized initial bundle is 502.71 kB against the 500 kB warning threshold.
+
 ## Storefront quick-add — 2026-11-07
 
 The catalog grid can add one unit of a product with a single published variant when Cart is enabled. Products with multiple variants still link to the selection page. The grid reuses the existing cart mutation and its replay key. A queued write now stops if the shopper's account changes before the request starts.

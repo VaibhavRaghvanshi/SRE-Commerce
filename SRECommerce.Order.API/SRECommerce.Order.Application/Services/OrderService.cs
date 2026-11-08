@@ -5,13 +5,13 @@ public sealed partial class OrderService(IOrderRepository repository,IOrderAcces
  private DateTimeOffset Now=>clock.GetUtcNow();private static string Version(byte[] version)=>Convert.ToBase64String(version);
  private static void Id(Guid id){if(id==Guid.Empty)throw new BusinessFault("InvalidOrderId",400);}
  private static string Hash<T>(T value)=>Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(ContractJson.Write(value))));
- private static OrderContact Contact(OrderContact value)
+ private static OrderContact Contact(OrderContact value,bool allowMissingEmail=false)
  {
   OrderRules.Text(value.FullName);OrderRules.Text(value.AddressLine1,200);if(!string.IsNullOrWhiteSpace(value.AddressLine2))OrderRules.Text(value.AddressLine2,200);OrderRules.Text(value.City,100);
-  if(value.Email.Length>254||!System.Net.Mail.MailAddress.TryCreate(value.Email,out var email)||email.Address!=value.Email)throw new BusinessFault("InvalidContactEmail",400);
+  if((!allowMissingEmail||value.Email.Length>0)&&(value.Email.Length>254||!System.Net.Mail.MailAddress.TryCreate(value.Email,out var email)||email.Address!=value.Email))throw new BusinessFault("InvalidContactEmail",400);
   if(value.Phone is not null&&(value.Phone.Length is <7 or >25||value.Phone.Any(c=>!char.IsAsciiDigit(c)&&c!='+'&&c!='-'&&c!=' ')))throw new BusinessFault("InvalidContactPhone",400);
   if(value.CountryCode.Length!=2||value.CountryCode.Any(c=>c is <'A' or >'Z')||value.PostalCode.Length is <2 or >16||value.PostalCode.Any(c=>!char.IsAsciiLetterOrDigit(c)&&c!=' '&&c!='-'))throw new BusinessFault("InvalidShippingRegion",400);
-  return value with{FullName=value.FullName.Trim(),Email=email.Address,AddressLine1=value.AddressLine1.Trim(),AddressLine2=value.AddressLine2?.Trim(),City=value.City.Trim(),PostalCode=value.PostalCode.Trim().ToUpperInvariant()};
+  return value with{FullName=value.FullName.Trim(),AddressLine1=value.AddressLine1.Trim(),AddressLine2=value.AddressLine2?.Trim(),City=value.City.Trim(),PostalCode=value.PostalCode.Trim().ToUpperInvariant()};
  }
  private static bool TaxRecorded(SalesOrder order)
  {
@@ -43,9 +43,18 @@ public sealed partial class OrderService(IOrderRepository repository,IOrderAcces
  }
  public async Task<CheckoutView> Checkout(Guid tenant,CheckoutRequest request,bool guest,string? cartCapability,string? orderCapability,CancellationToken ct)
  {
-  await access.Authorize(tenant,guest,ActorPermission.Customer,ct);await access.RequireOrdering(tenant,ct);Id(request.Id);Id(request.PreparationId);Id(request.ShippingQuoteId);OrderRules.Payment(request.PaymentMethod);
+  var counter=request.PaymentMethod=="CounterCash";var giftCard=request.PaymentMethod=="GiftCard";
+  if(guest&&(counter||giftCard))throw new BusinessFault("AccountTenderRequiresSignIn",403);
+  await access.Authorize(tenant,guest,counter?ActorPermission.Staff:ActorPermission.Customer,ct);await access.RequireOrdering(tenant,ct);
+  Id(request.Id);Id(request.PreparationId);Id(request.ShippingQuoteId);
+  if(!counter&&!giftCard)OrderRules.Payment(request.PaymentMethod);
+  if(giftCard&&(access.Actor is not {IsPlatformAdmin:false,TenantRole:"Customer" or "B2BBuyer"}))throw new BusinessFault("GiftCardCustomerRequired",403);
+  if(counter&&(access.Actor is not {IsPlatformAdmin:false,TenantRole:"Owner" or "Manager" or "Staff"}))throw new BusinessFault("CounterStaffRequired",403);
+  if(giftCard!=(request.GiftCardId is {} cardId&&cardId!=Guid.Empty)||!giftCard&&request.GiftCardId is not null||counter!=(request.CounterCashReceived is not null))
+   throw new BusinessFault("InvalidTenderDetails",400);
+  if(request.CounterCashReceived is {} received)OrderRules.Money(received);
   var policy=await Config(ct);if(guest&&!policy.AllowGuest||request.PaymentMethod=="COD"&&!policy.AllowCOD)throw new BusinessFault("CheckoutPolicyDenied",403);
-  request=request with{Contact=Contact(request.Contact)};var user=guest?null:access.Actor?.UserId;var role=guest?null:access.Actor is {IsPlatformAdmin:true}?"PlatformAdmin":access.Actor?.TenantRole;var digest=guest?OrderRules.Capability(orderCapability):null;
+  request=request with{Contact=Contact(request.Contact,counter)};var user=guest?null:access.Actor?.UserId;var role=guest?null:access.Actor is {IsPlatformAdmin:true}?"PlatformAdmin":access.Actor?.TenantRole;var digest=guest?OrderRules.Capability(orderCapability):null;
   if(guest)OrderRules.Capability(cartCapability);var hash=Hash(new{request,UserId=user,Role=role});
   await repository.Transaction(async token=>
   {
@@ -82,6 +91,7 @@ public sealed partial class OrderService(IOrderRepository repository,IOrderAcces
   return await repository.Transaction(async token=>
   {
    var order=await Owned(id,guest,capability,admin,token);var prior=await Replay(request.OperationId,id,"order.cancel.requested",hash,token);if(prior is not null)return prior;repository.Version(order,request.Version);
+   if(order.PaymentMethod=="CounterCash"&&!admin)throw new BusinessFault("CounterCancellationRequiresManager",403);
    if(order.Historical||order.Items.Any(i=>i.ShipmentRequested>0)||order.Status is OrderStatus.Completed or OrderStatus.Delivered or OrderStatus.Cancelled or OrderStatus.Failed)throw new BusinessFault("OrderCannotBeCancelled");
    var intent=await repository.Intent(id,token)??throw new BusinessFault("CheckoutNotFound",404);
    if(intent.State!=Domain.CheckoutState.Accepted)throw new BusinessFault("OrderCheckoutNotConfirmed");
@@ -95,7 +105,7 @@ public sealed partial class OrderService(IOrderRepository repository,IOrderAcces
   return await repository.Transaction(async token=>
   {
    var order=await Owned(id,false,null,true,token);var prior=await Replay(request.OperationId,id,"order.status.changed",hash,token);if(prior is not null)return prior;repository.Version(order,request.Version);
-   if(order.Historical||request.Status is not(OrderStatus.Processing or OrderStatus.Completed))throw new BusinessFault("UseAuthoritativeOrderWorkflow");Transition(order,request.Status,request.Reason);return await Record(order,request.OperationId,"order.status.changed",hash,token);
+   if(order.Historical||request.Status is not(OrderStatus.Processing or OrderStatus.Completed)||order.PaymentMethod=="CounterCash"&&request.Status==OrderStatus.Processing)throw new BusinessFault("UseAuthoritativeOrderWorkflow");Transition(order,request.Status,request.Reason);return await Record(order,request.OperationId,"order.status.changed",hash,token);
   },ct);
  }
  public async Task<OrderView> Invoice(Guid tenant,Guid id,InvoiceRequest request,CancellationToken ct)
@@ -105,7 +115,17 @@ public sealed partial class OrderService(IOrderRepository repository,IOrderAcces
   {var order=await Owned(id,false,null,true,token);var prior=await Replay(request.OperationId,id,"order.invoice.referenced",hash,token);if(prior is not null)return prior;repository.Version(order,request.Version);if(order.InvoiceReference is not null&&order.InvoiceReference!=reference)throw new BusinessFault("InvoiceReferenceImmutable");order.InvoiceReference=reference;return await Record(order,request.OperationId,"order.invoice.referenced",hash,token);},ct);
  }
  public async Task<MachineOrderContext> Context(Guid tenant,Guid id,CancellationToken ct)
- {access.Recovery(tenant,["Payment","Shipping"]);var value=await repository.Order(id,ct)??throw new BusinessFault("OrderNotFound",404);return new(value.Id,tenant,value.UserId,value.Currency,value.Total,value.PaymentMethod,value.Status,value.PaymentState,value.Historical,View(value).Items,value.DecimalPlaces);}
+ {
+  access.Recovery(tenant,["Payment","Shipping"]);
+  var value=await repository.Order(id,ct)??throw new BusinessFault("OrderNotFound",404);
+  Guid? giftCard=null;
+  if(value.PaymentMethod=="GiftCard")
+  {
+   var intent=await repository.Intent(id,ct)??throw new BusinessFault("CheckoutNotFound",404);
+   giftCard=ContractJson.Read<CheckoutRequest>(intent.RequestDocument).GiftCardId;
+  }
+  return new(value.Id,tenant,value.UserId,value.Currency,value.Total,value.PaymentMethod,value.Status,value.PaymentState,value.Historical,View(value).Items,value.DecimalPlaces,giftCard);
+ }
  public async Task<object> NotificationContext(Guid tenant,Guid id,Guid eventId,int kind,CancellationToken ct)
  {
   access.Recovery(tenant,["Notification"]);

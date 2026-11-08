@@ -26,11 +26,33 @@ Base: `/api/v1/tenants/{tenantId}/payments` (gateway prefix `/commerce/payment/t
 | GET `/orders/{orderId}` | Staff | Payment record |
 | GET `/mine/orders/{orderId}` | Customer | Only the current user's payment |
 | GET `/orders/{orderId}/history` | Staff | Immutable attempts/refunds |
-| POST `/orders/{orderId}/reconcile` | Manager | Compare local sandbox receipt, attempt status and refund balances |
+| POST `/orders/{orderId}/reconcile` | Manager | Compare the payment reference, attempt status and refund balances |
 | GET/PUT `/configuration` | Owner | Active methods and new-payment simulation outcome; optimistic version required on update |
 | POST `/orders/{orderId}/sandbox-decision` | Manager | `{id,version,outcome}`; explicitly simulate Authorized/Declined through the same signature verifier |
 
 Configuration input is `{active,allowCard,allowUPI,allowNetBanking,allowCOD,outcome,version}`. Sandbox outcome is Authorized 0, Pending 1 or Declined 2. Configuration cannot select a live provider. Human callers cannot directly capture/refund through internal paths.
+
+## Gift cards
+
+The Payments workspace lets the tenant Owner issue whole units of store currency against a recorded receipt or promotion. Issuance does not collect a payment. The browser generates a 128-bit random code and reuses the same ID and code if the response is uncertain. Payment stores the code hash and returns card metadata. A lost code can be replaced by voiding the unclaimed card before issuing another.
+
+All paths below are relative to the protected Payment base and use `/gift-cards`.
+
+| Method/path | Permission | Behavior |
+| --- | --- | --- |
+| GET `?page=1` | Tenant Owner | View issued cards, references, balances and claim/void status |
+| POST | Tenant Owner | Issue once with `{id,code,value,reference}` |
+| POST `/{id}/void` | Tenant Owner | Void an unclaimed card |
+| GET `/mine?page=1` | Customer or B2BBuyer | View the signed-in shopper's claimed cards |
+| POST `/claim` | Customer or B2BBuyer | Claim `{code}` once in the current tenant |
+
+Checkout accepts one claimed gift card covering the full authoritative total. Order stores the card ID, and Payment checks the account, currency and remaining balance before capturing. The debit and captured payment commit together. Refunds credit the same card under the existing refund operation ID and amount limits. Sandbox webhooks and manual sandbox decisions cannot modify gift-card or counter-cash transactions.
+
+## Counter cash
+
+In **Orders → Open point of sale**, the cashier scans an exact published SKU or barcode, checks the basket, selects an active Shipping pickup method tied to a warehouse, and records the cash retained after change. The cashier must sign in with an Owner, Manager or Staff membership. Checkout validates the exact total and commits stock from the pickup warehouse before confirming the sale. The POS screen or Order workflow records handover separately, and the POS screen can print the store receipt.
+
+The ledger records cash collected or refunded outside the application. Cashiers reconcile physical cash separately from the system entries. The POS flow shares the signed-in staff account's active store basket. Electronic payment terminals and offline registers require separate integration.
 
 ## Public sandbox boundary
 

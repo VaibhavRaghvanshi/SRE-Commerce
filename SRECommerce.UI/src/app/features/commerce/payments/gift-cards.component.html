@@ -1,0 +1,29 @@
+<section class="panel" aria-labelledby="gift-cards-title">
+  <h2 id="gift-cards-title">Gift cards</h2>
+  <p>Issue store credit in the store currency. Record the external receipt or promotion reference. This action records credit without collecting a payment.</p>
+  <form (ngSubmit)="issue()">
+    <label>Value in whole currency units<input name="giftValue" type="number" min="1" step="1" max="1000000000000" [(ngModel)]="value" required [disabled]="!!pending()" /></label>
+    <label>Receipt or promotion reference<input name="giftReference" [(ngModel)]="reference" maxlength="300" required [disabled]="!!pending()" /></label>
+    <button [disabled]="busy() || (!pending() && (!value || !reference.trim()))">{{pending() ? 'Retry issuance' : 'Issue gift card'}}</button>
+  </form>
+  <p class="error" role="alert" *ngIf="error()">{{error()}}</p>
+  <p class="notice reference" role="status" *ngIf="issuedCode() as code">Share this code with the recipient. Save it before leaving this page. <strong><code>{{code}}</code></strong></p>
+  <button type="button" class="secondary" (click)="load()" [disabled]="busy()">Load issued gift cards</button>
+  <div class="table-wrap" *ngIf="rows().length">
+    <table><thead><tr><th>Reference</th><th>Value</th><th>Balance</th><th>Status</th><th>Action</th></tr></thead>
+      <tbody><tr *ngFor="let card of rows()">
+        <td>{{card.reference}}</td><td>{{card.value | currency:card.currency}}</td><td>{{card.balance | currency:card.currency}}</td>
+        <td>{{card.voidedAt ? 'Voided' : card.claimedAt ? 'Claimed' : 'Unclaimed'}}</td>
+        <td *ngIf="!card.voidedAt && !card.claimedAt">
+          <button type="button" class="secondary" (click)="voidTarget.set(card)" *ngIf="voidTarget()?.id !== card.id" [disabled]="busy()">Void</button>
+          <ng-container *ngIf="voidTarget()?.id === card.id">
+            <button type="button" (click)="voidCard(card)" [disabled]="busy()">Confirm void</button>
+            <button type="button" class="secondary" (click)="voidTarget.set(null)" [disabled]="busy()">Keep card</button>
+          </ng-container>
+        </td><td *ngIf="card.voidedAt || card.claimedAt">—</td>
+      </tr></tbody>
+    </table>
+  </div>
+  <p *ngIf="loaded() && !rows().length">No gift cards on this page.</p>
+  <div class="toolbar" *ngIf="loaded()"><button type="button" class="secondary" (click)="load(page()-1)" [disabled]="busy() || page()===1">Previous</button><button type="button" class="secondary" (click)="load(page()+1)" [disabled]="busy() || rows().length<50">Next</button></div>
+</section>

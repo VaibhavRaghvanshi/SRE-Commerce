@@ -14,6 +14,7 @@ Base `/api/v1/tenants/{tenantId}/catalog`; gateway `/commerce/catalog/tenants/{t
 | `brands`, `attributes` | POST and PUT `/{id}`; typed definitions and immutable field code/type |
 | `products` / `products/{id}` | POST/GET/PUT drafts; paged/search/category/brand filters |
 | `variants/{id}` | GET the published variant's product for authorized Staff; new unpublished draft variants remain absent |
+| `counter/lookup?code=...` | GET a single active, publicly sellable published variant for authorized staff. Matches an exact SKU or barcode in the publication and rejects ambiguous codes |
 | `products/{id}/publish` | POST `{version}` creates immutable publication and outbox atomically |
 | `products/{id}/archive` | POST `{version}` retires visibility/sellability while preserving data/history |
 | `collections` / `collections/{id}` | POST/PUT with ordered product IDs, archival and rowversion |

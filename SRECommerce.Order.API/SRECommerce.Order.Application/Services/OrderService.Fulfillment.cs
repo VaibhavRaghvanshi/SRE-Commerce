@@ -17,7 +17,7 @@ public sealed partial class OrderService
   return await repository.Transaction(async token=>
   {
    var order=await Owned(id,false,null,true,token);var previous=await ReplayResource<FulfillmentView>(request.Id,id,"order.fulfillment.requested",hash,token);if(previous is not null)return previous;repository.Version(order,request.Version);
-   if(order.Historical||order.Status is not(OrderStatus.Confirmed or OrderStatus.Processing or OrderStatus.PartiallyFulfilled))throw new BusinessFault("OrderNotFulfillable");
+   if(order.Historical||order.PaymentMethod=="CounterCash"||order.Status is not(OrderStatus.Confirmed or OrderStatus.Processing or OrderStatus.PartiallyFulfilled))throw new BusinessFault("OrderNotFulfillable");
    var allocations=(await repository.Reservations(id,token)).Where(r=>r.WarehouseId==request.WarehouseId&&r.Status==ReservationStep.Committed).SelectMany(r=>ContractJson.Read<OrderQuantity[]>(r.Items)).ToArray();
    var requested=(await repository.Fulfillments(id,token)).Where(f=>f.WarehouseId==request.WarehouseId&&f.Status is not(FulfillmentStatus.Cancelled or FulfillmentStatus.Failed)).SelectMany(f=>ContractJson.Read<OrderQuantity[]>(f.Items)).ToArray();
    foreach(var item in request.Items)

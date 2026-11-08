@@ -15,6 +15,7 @@ public interface ICatalogService
     Task<Guid[]> PublishBatch(Guid tenant,PublishBatchRequest request,CancellationToken ct);
     Task<SRECommerce.BuildingBlocks.Contracts.PublishedSku[]> PublishedSkus(Guid tenant,Guid[] ids,CancellationToken ct);
     Task<ProductView[]> ShoppingProducts(Guid tenant,Guid[] ids,bool publicRead,CancellationToken ct);
+    Task<CounterItem> CounterLookup(Guid tenant, string code, CancellationToken ct);
     Task<ProductView[]> PublicProductsById(Guid tenant,Guid[] productIds,CancellationToken ct);
     Task Archive(Guid tenant,Guid id,string version,CancellationToken ct);
     Task<ProductView> PublicProduct(Guid tenant,string slug,CancellationToken ct);

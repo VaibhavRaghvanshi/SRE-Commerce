@@ -12,8 +12,11 @@ public sealed class OrderSaga(IOrderRepository repository,IOrderAccess access,IO
    var action=next==SagaPhase.Done?(intent.State==CheckoutState.Accepted?"order.confirmed":intent.State==CheckoutState.Cancelled?"order.cancelled":"order.checkout.failed"):"order.checkout.progressed";
    if(next==SagaPhase.Done&&await repository.Order(id,token) is {Historical:false} order)
    {
-    if(intent.State==CheckoutState.Accepted){repository.EmitNotice(0,id);if(order.PaymentState==PaymentState.Captured&&order.Total>0)repository.EmitNotice(1,id);}
-    if(intent.State==CheckoutState.Cancelled)repository.EmitNotice(4,id);
+    if(order.PaymentMethod!="CounterCash")
+    {
+     if(intent.State==CheckoutState.Accepted){repository.EmitNotice(0,id);if(order.PaymentState==PaymentState.Captured&&order.Total>0)repository.EmitNotice(1,id);}
+     if(intent.State==CheckoutState.Cancelled)repository.EmitNotice(4,id);
+    }
    }
    await repository.Commit(action,id,next==SagaPhase.Done?new{OrderId=id}:null,token);return true;
   },ct);
@@ -77,6 +80,8 @@ public sealed class OrderSaga(IOrderRepository repository,IOrderAccess access,IO
     var calculation=quote.Calculation;foreach(var amount in new[]{calculation.Subtotal,calculation.Discount,calculation.Net,calculation.Tax,calculation.Total,shipping.Net,shipping.Tax,shipping.Total})OrderRules.Money(amount);
     if(calculation.Subtotal-calculation.Discount!=calculation.Total||calculation.Net+calculation.Tax!=calculation.Total||calculation.Lines.Sum(l=>l.Subtotal)!=calculation.Subtotal||calculation.Lines.Sum(l=>l.Discount)!=calculation.Discount||calculation.Lines.Sum(l=>l.Net)!=calculation.Net||calculation.Lines.Sum(l=>l.Tax)!=calculation.Tax||calculation.Lines.Sum(l=>l.Total)!=calculation.Total)throw new BusinessFault("QuoteTotalsMismatch");
     var policy=await repository.Policy(ct)??throw new BusinessFault("OrderingNotConfigured");var total=calculation.Total+shipping.Total;OrderRules.Money(total);if(total>policy.MaximumTotal)throw new BusinessFault("OrderMaximumExceeded");
+    if(request.PaymentMethod=="CounterCash"&&(shipping.PickupWarehouseId is null||shipping.PickupWarehouseId==Guid.Empty||request.CounterCashReceived!=total))
+     throw new BusinessFault("CounterPickupAndExactCashRequired");
     var order=new SalesOrder{TenantId=tenant,Id=id,UserId=intent.UserId,CartId=preparation.CartId,CartRevision=preparation.CartRevision,PreparationId=preparation.Id,QuoteId=quote.Id,ShippingQuoteId=shipping.Id,Number="SRE-"+id.ToString("N").ToUpperInvariant(),PaymentMethod=request.PaymentMethod,Currency=quote.Currency,DecimalPlaces=quote.DecimalPlaces,Subtotal=calculation.Subtotal,Discount=calculation.Discount,Net=calculation.Net,Tax=calculation.Tax,ItemsTotal=calculation.Total,ShippingTotal=shipping.Total,Total=total,ContactDocument=ContractJson.Write(request.Contact),PriceSnapshot=ContractJson.Write(quote),ShippingSnapshot=ContractJson.Write(shipping),CreatedAt=Now,UpdatedAt=Now};
     foreach(var line in calculation.Lines){var item=preparation.Items.Single(i=>i.VariantId==line.VariantId);order.Items.Add(new OrderItem{TenantId=tenant,OrderId=id,ProductId=item.ProductId,VariantId=item.VariantId,Sku=item.Sku,Name=item.Name,Quantity=line.Quantity,UnitPrice=line.UnitPrice,Subtotal=line.Subtotal,Discount=line.Discount,Net=line.Net,Tax=line.Tax,Total=line.Total});}OrderRules.Lines(order);
     await Save(id,lease,phase,SagaPhase.ClaimPrice,_=>{repository.Add(order);repository.Add(new OrderStatusHistory{TenantId=tenant,OrderId=id,Current=order.Status,Reason="Server snapshots validated",CreatedAt=Now});},ct);return;
@@ -165,6 +170,6 @@ public sealed class OrderSaga(IOrderRepository repository,IOrderAccess access,IO
   }
  }
  private async Task<SalesOrder> Order(Guid id,CancellationToken ct)=>await repository.Order(id,ct)??throw new BusinessFault("OrderNotFound",404);
- private static void PaymentMatches(SalesOrder order,RemotePayment payment){if(payment.OrderId!=order.Id||payment.Currency!=order.Currency||payment.Amount!=order.Total||payment.Refunded<0||payment.Refunded>payment.Amount)throw new BusinessFault("PaymentSnapshotMismatch");}
+ private static void PaymentMatches(SalesOrder order,RemotePayment payment){if(payment.OrderId!=order.Id||payment.Currency!=order.Currency||payment.Amount!=order.Total||payment.Method!=order.PaymentMethod||payment.Refunded<0||payment.Refunded>payment.Amount)throw new BusinessFault("PaymentSnapshotMismatch");}
  private static PaymentState PaymentStatus(RemotePayment payment)=>payment.Status switch{0=>PaymentState.Pending,1=>PaymentState.Authorized,2=>PaymentState.Captured,5=>PaymentState.PartiallyRefunded,6=>PaymentState.Refunded,7=>PaymentState.CashOnDelivery,_=>PaymentState.Failed};
 }

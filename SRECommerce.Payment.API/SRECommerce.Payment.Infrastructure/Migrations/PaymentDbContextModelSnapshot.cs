@@ -156,6 +156,74 @@ namespace SRECommerce.Payment.Infrastructure.Migrations
                     b.ToTable("IntegrationOutbox", (string)null);
                 });
 
+            modelBuilder.Entity("SRECommerce.Payment.Domain.GiftCard", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Balance")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<DateTimeOffset?>("ClaimedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("ClaimedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CodeHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
+                    b.Property<DateTimeOffset>("IssuedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("IssuedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Reference")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<decimal>("Value")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<byte[]>("Version")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTimeOffset?>("VoidedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("TenantId", "Id");
+
+                    b.HasIndex("TenantId", "CodeHash")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "ClaimedBy", "IssuedAt");
+
+                    b.ToTable("GiftCards", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_GiftCards_Balance", "[Value]>0 AND [Balance]>=0 AND [Balance]<=[Value]");
+
+                            t.HasCheckConstraint("CK_GiftCards_State", "(([ClaimedBy] IS NULL AND [ClaimedAt] IS NULL) OR ([ClaimedBy] IS NOT NULL AND [ClaimedAt] IS NOT NULL)) AND ([VoidedAt] IS NULL OR ([ClaimedBy] IS NULL AND [Balance]=0))");
+                        });
+                });
+
             modelBuilder.Entity("SRECommerce.Payment.Domain.PaymentAttempt", b =>
                 {
                     b.Property<Guid>("TenantId")
@@ -269,6 +337,9 @@ namespace SRECommerce.Payment.Infrastructure.Migrations
                     b.Property<int>("DecimalPlaces")
                         .HasColumnType("int");
 
+                    b.Property<Guid?>("GiftCardId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Method")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -316,6 +387,8 @@ namespace SRECommerce.Payment.Infrastructure.Migrations
 
                     b.HasKey("TenantId", "Id");
 
+                    b.HasIndex("TenantId", "GiftCardId");
+
                     b.HasIndex("TenantId", "OrderId")
                         .IsUnique();
 
@@ -336,9 +409,9 @@ namespace SRECommerce.Payment.Infrastructure.Migrations
 
                             t.HasCheckConstraint("CK_Payments_Revision", "[Revision]>0");
 
-                            t.HasCheckConstraint("CK_Payments_Sandbox", "[Provider]=N'Sandbox'");
-
                             t.HasCheckConstraint("CK_Payments_Status", "[Status] BETWEEN 0 AND 7 AND ([Status] IN (5,6) OR [Refunded]=0) AND ([Status]<>6 OR [Refunded]=[Amount]) AND ([Status]<>5 OR ([Refunded]>0 AND [Refunded]<[Amount]))");
+
+                            t.HasCheckConstraint("CK_Payments_Tender", "([Provider]=N'Sandbox' AND [Method] NOT IN (N'GiftCard',N'CounterCash') AND [GiftCardId] IS NULL) OR ([Provider]=N'GiftCard' AND [Method]=N'GiftCard' AND ([Status] IN (3,4) OR [GiftCardId] IS NOT NULL)) OR ([Provider]=N'Counter' AND [Method]=N'CounterCash' AND [GiftCardId] IS NULL)");
                         });
                 });
 
@@ -427,6 +500,14 @@ namespace SRECommerce.Payment.Infrastructure.Migrations
                         .HasForeignKey("TenantId", "PaymentId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("SRECommerce.Payment.Domain.PaymentTransaction", b =>
+                {
+                    b.HasOne("SRECommerce.Payment.Domain.GiftCard", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "GiftCardId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("SRECommerce.Payment.Domain.PaymentWebhook", b =>

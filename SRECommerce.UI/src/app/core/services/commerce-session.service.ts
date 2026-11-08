@@ -29,7 +29,7 @@ export class CommerceSessionService {
     }
     return this.manager;
   }
-  async signIn(tenant: string, area:'catalog'|'inventory'|'pricing'|'orders'|'payments'|'shipping'|'notifications'|'manufacturing'|'discovery'|'theme'|'storefront'|'settings'|'reports'='catalog') {
+  async signIn(tenant: string, area:'catalog'|'inventory'|'pricing'|'orders'|'payments'|'shipping'|'notifications'|'manufacturing'|'discovery'|'theme'|'storefront'|'settings'|'reports'|'pos'='catalog') {
     if (!/^[a-f0-9-]{36}$/i.test(tenant)) throw new Error('Choose a valid business.');
     this.error.set('');
     await this.client().signinRedirect({ extraQueryParams: { tenant_id: tenant }, state: { returnTo: `/workspace/${tenant}/${area}` } });
@@ -63,7 +63,7 @@ export class CommerceSessionService {
       await this.client().signinRedirect({ extraQueryParams: { tenant_id: join.tenant }, state: { returnTo: path } });
       return null;
     }
-    return ['/commerce/account','/businesses','/platform/workspace'].includes(path) || /^\/workspace\/[a-f0-9-]{36}\/(catalog|inventory|pricing|orders|payments|shipping|notifications|manufacturing|discovery|theme|storefront|settings|reports)$/i.test(path) || /^\/stores\/[a-z0-9-]{1,80}(?:\/(cart|orders|notifications|account|products\/[a-z0-9-]{1,160}))?$/.test(path) ? path : '/';
+    return ['/commerce/account','/businesses','/platform/workspace'].includes(path) || /^\/workspace\/[a-f0-9-]{36}\/(catalog|inventory|pricing|orders|payments|shipping|notifications|manufacturing|discovery|theme|storefront|settings|reports|pos)$/i.test(path) || /^\/stores\/[a-z0-9-]{1,80}(?:\/(cart|orders|notifications|account|products\/[a-z0-9-]{1,160}))?$/.test(path) ? path : '/';
   }
   async signInProduct(tenant: string, slug: string, product: string) {
     if (!/^[a-f0-9-]{36}$/i.test(tenant) || !/^[a-z0-9-]{1,80}$/.test(slug) || !/^[a-z0-9-]{1,160}$/.test(product)) throw new Error('Choose a valid product.');

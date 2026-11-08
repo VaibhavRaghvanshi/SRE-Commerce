@@ -16,6 +16,14 @@ public sealed class PaymentRepository(PaymentDbContext db, ModuleScope scope, IH
     public Task<PaymentProviderConfiguration?> Configuration(CancellationToken ct) => db.Configurations.SingleOrDefaultAsync(ct);
     public Task<RefundTransaction?> Refund(Guid id, CancellationToken ct) => db.Refunds.SingleOrDefaultAsync(r => r.Id == id, ct);
     public Task<PaymentWebhook?> Webhook(Guid id, CancellationToken ct) => db.Webhooks.SingleOrDefaultAsync(w => w.Id == id, ct);
+    public Task<GiftCard?> GiftCard(Guid id, CancellationToken ct) => db.GiftCards.SingleOrDefaultAsync(c => c.Id == id, ct);
+    public Task<GiftCard?> GiftCardByCode(string hash, CancellationToken ct) => db.GiftCards.SingleOrDefaultAsync(c => c.CodeHash == hash, ct);
+    public Task<GiftCard[]> GiftCards(Guid? customer, int page, CancellationToken ct)
+    {
+        var query = db.GiftCards.AsNoTracking();
+        if (customer is {} user) query = query.Where(c => c.ClaimedBy == user);
+        return query.OrderByDescending(c => c.IssuedAt).ThenBy(c => c.Id).Skip((page - 1) * 50).Take(50).ToArrayAsync(ct);
+    }
     public Task<PaymentAttempt[]> Attempts(Guid payment, CancellationToken ct) => db.Attempts.AsNoTracking().Where(a => a.PaymentId == payment).OrderBy(a => a.Sequence).ToArrayAsync(ct);
     public Task<RefundTransaction[]> Refunds(Guid payment, CancellationToken ct) => db.Refunds.AsNoTracking().Where(a => a.PaymentId == payment).OrderBy(a => a.CreatedAt).ThenBy(a => a.Id).ToArrayAsync(ct);
     public async Task<(PaymentTransaction[] Items, int Total)> List(int page, PaymentStatus? status, CancellationToken ct)

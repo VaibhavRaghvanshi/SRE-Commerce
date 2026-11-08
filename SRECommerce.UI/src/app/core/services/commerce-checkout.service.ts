@@ -5,7 +5,7 @@ import { CommerceCartService } from './commerce-cart.service';
 import { CommerceSessionService } from './commerce-session.service';
 import { CommercePreparation } from '../models/commerce-cart.models';
 import { CommerceOrder, CommerceOrderHistory, OrderContact } from '../models/commerce-order.models';
-import { CommerceCheckout, CommerceCheckoutRequest, CommerceExchange, CommercePaymentMethods, CommerceReturn, CommerceShippingOption, CommerceTracking, SavedOrderReference } from '../models/commerce-checkout.models';
+import { CommerceCheckout, CommerceCheckoutRequest, CommerceExchange, CommercePaymentMethods, CommerceReturn, CommerceShippingOption, CommerceTenderDetails, CommerceTracking, SavedOrderReference } from '../models/commerce-checkout.models';
 interface StoredOrder extends SavedOrderReference { key: string | null; }
 interface PendingCheckout { signature: string; body: CommerceCheckoutRequest; reference: StoredOrder; headers: Record<string, string>; }
 export interface CommerceOrderPolicy { allowGuest: boolean; allowCOD: boolean; allowExchanges: boolean; returnWindowDays: number; maximumTotal: number; }
@@ -53,9 +53,9 @@ export class CommerceCheckoutService {
     return this.request<CommerceShippingOption[]>('/commerce/shipping/' + (context.guest ? 'public/' : '') + 'tenants/' + encodeURIComponent(tenant) + '/shipping/quotes/options', 'POST',
       { id, preparationId: preparation.id, countryCode: country, postalCode: postal }, context.cartKey ? { 'X-Cart-Key': context.cartKey } : {});
   }
-  async submit(tenant: string, preparation: CommercePreparation, shipping: CommerceShippingOption, method: string, contact: OrderContact) {
+  async submit(tenant: string, preparation: CommercePreparation, shipping: CommerceShippingOption, method: string, contact: OrderContact, tender: CommerceTenderDetails = {}) {
     const attemptKey = this.attemptKey(tenant, preparation.userId);
-    const signature = JSON.stringify({ preparationId: preparation.id, shippingQuoteId: shipping.id, paymentMethod: method, contact }); let pending = this.pending.get(attemptKey);
+    const signature = JSON.stringify({ preparationId: preparation.id, shippingQuoteId: shipping.id, paymentMethod: method, contact, ...tender }); let pending = this.pending.get(attemptKey);
     if (pending && !this.available(pending.reference, tenant)) throw new Error('CheckoutCustomerChanged');
     if (pending && signature !== pending.signature) throw new Error('CheckExistingOrderBeforeChangingCheckout');
     if (!pending) {
@@ -65,7 +65,7 @@ export class CommerceCheckoutService {
       const bytes = context.guest ? crypto.getRandomValues(new Uint8Array(32)) : null;
       const key = bytes ? btoa(String.fromCharCode(...bytes)).replace(/=+$/, '').split('+').join('-').split('/').join('_') : null;
       const reference: StoredOrder = { id, guest: context.guest, userId: context.guest ? null : this.session.access()!.userId, key, createdAt: new Date().toISOString(), state: 0 };
-      pending = { signature, reference, body: { id, preparationId: preparation.id, shippingQuoteId: shipping.id, paymentMethod: method, contact: { ...contact } }, headers: { ...this.headers(reference), ...(context.cartKey ? { 'X-Cart-Key': context.cartKey } : {}) } };
+      pending = { signature, reference, body: { id, preparationId: preparation.id, shippingQuoteId: shipping.id, paymentMethod: method, contact: { ...contact }, ...tender }, headers: { ...this.headers(reference), ...(context.cartKey ? { 'X-Cart-Key': context.cartKey } : {}) } };
       this.pending.set(attemptKey, pending); this.save(tenant, reference);
     }
     try {

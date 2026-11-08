@@ -212,6 +212,17 @@ public sealed class CatalogService(ICatalogRepository repository,ICatalogAccess 
         if(ids.Length is <1 or >50||ids.Any(id=>id==Guid.Empty)||ids.Distinct().Count()!=ids.Length)throw new BusinessFault("InvalidShoppingProductsQuery",400);
         return await repository.ShoppingProducts(ids,!publicRead&&access.CanViewB2B,ct);
     }
+
+    public async Task<CounterItem> CounterLookup(Guid tenant, string code, CancellationToken ct)
+    {
+        await access.Authorize(tenant, ActorPermission.Staff, ct);
+        var scanned = code.Trim();
+        if (scanned.Length is < 1 or > 64 || scanned.Any(char.IsControl)) throw new BusinessFault("InvalidCounterCode", 400);
+        var matches = await repository.CounterItems(tenant, scanned, ct);
+        if (matches.Length == 0) throw new BusinessFault("CounterItemNotFound", 404);
+        if (matches.Length != 1) throw new BusinessFault("CounterCodeAmbiguous");
+        return matches[0];
+    }
     public async Task<ProductView[]> PublicProductsById(Guid tenant,Guid[] productIds,CancellationToken ct)
     {
         await access.Public(tenant,ct);

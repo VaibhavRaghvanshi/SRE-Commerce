@@ -24,6 +24,7 @@ export const routes: Routes = [
   { path: 'stores/:slug/orders', loadComponent: () => import('./features/commerce/customer-orders/customer-orders.component').then(m => m.CommerceCustomerOrdersComponent) },
   { path: 'workspace/:tenant/shipping', loadComponent: () => import('./features/commerce/shipping/shipping-workspace.component').then(m => m.ShippingWorkspaceComponent) },
   { path: 'workspace/:tenant/payments', loadComponent: () => import('./features/commerce/payments/payments-workspace.component').then(m => m.PaymentsWorkspaceComponent) },
+  { path: 'workspace/:tenant/pos', loadComponent: () => import('./features/commerce/pos/pos.component').then(m => m.PosComponent) },
   { path: 'workspace/:tenant/orders/:order/workflow', loadComponent: () => import('./features/commerce/orders/order-workflow.component').then(m => m.OrderWorkflowComponent) },
   { path: 'workspace/:tenant/orders', loadComponent: () => import('./features/commerce/orders/orders-workspace.component').then(m => m.OrdersWorkspaceComponent) },
   { path: 'workspace/:tenant/pricing', loadComponent: () => import('./features/commerce/pricing/pricing-workspace.component').then(m => m.PricingWorkspaceComponent) },

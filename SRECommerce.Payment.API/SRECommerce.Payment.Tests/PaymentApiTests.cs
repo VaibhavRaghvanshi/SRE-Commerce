@@ -7,6 +7,7 @@ using SRECommerce.BuildingBlocks.Contracts;
 using SRECommerce.BuildingBlocks.Infrastructure;
 using SRECommerce.Order.Application;
 using SRECommerce.Order.Domain;
+using SRECommerce.Order.Tests;
 using SRECommerce.Payment.Application;
 using SRECommerce.Payment.Domain;
 using SRECommerce.Payment.Infrastructure;
@@ -18,6 +19,85 @@ namespace SRECommerce.Payment.Tests;
 
 public sealed class PaymentApiTests(PaymentFixture fixture) : IClassFixture<PaymentFixture>
 {
+    [Fact]
+    public async Task Gift_card_claim_checkout_and_refund_preserve_one_tenant_balance()
+    {
+        using var prepared = await fixture.Business(method: "GiftCard", customer: true);
+        var path = Path(prepared.Tenant) + "/gift-cards";
+        using var owner = fixture.Factory.Client(prepared.Pricing.Catalog.Token);
+        using var buyer = fixture.Factory.Client(prepared.Client.DefaultRequestHeaders.Authorization!.Parameter);
+        var outsider = await fixture.Order.Cart.Pricing.Customer(prepared.Pricing);
+        using var outsiderPricing = outsider.Client;
+        using var other = fixture.Factory.Client(outsiderPricing.DefaultRequestHeaders.Authorization!.Parameter);
+        var issue = new IssueGiftCardRequest(Guid.NewGuid(), Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(16)), 500, "Test receipt");
+        Assert.Equal(HttpStatusCode.Forbidden, (await buyer.PostAsJsonAsync(path, issue)).StatusCode);
+        var issued = await Read<GiftCardView>(await owner.PostAsJsonAsync(path, issue));
+        Assert.Equal(issued, await Read<GiftCardView>(await owner.PostAsJsonAsync(path, issue)));
+        Assert.Equal(HttpStatusCode.Conflict, (await owner.PostAsJsonAsync(path, issue with { Value = 501 })).StatusCode);
+        var claimed = await Read<GiftCardView>(await buyer.PostAsJsonAsync(path + "/claim", new ClaimGiftCardRequest(issue.Code)));
+        Assert.Null(claimed.Reference);
+        Assert.Equal(issued.Id, claimed.Id);
+        Assert.Equal(HttpStatusCode.NotFound, (await other.PostAsJsonAsync(path + "/claim", new ClaimGiftCardRequest(issue.Code))).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await owner.PostAsJsonAsync(path + $"/{claimed.Id}/void", new { })).StatusCode);
+
+        var sale = prepared with { Request = prepared.Request with { GiftCardId = claimed.Id } };
+        await fixture.Order.Start(sale);
+        await fixture.Order.Start(sale);
+        var accepted = await fixture.Order.Drain(sale);
+        Assert.Equal(CheckoutState.Accepted, accepted.State);
+        var total = accepted.Order!.Total;
+        var afterSale = Assert.Single(await Read<GiftCardView[]>(await buyer.GetAsync(path + "/mine")));
+        Assert.Equal(500 - total, afterSale.Balance);
+        Assert.Empty(await Read<GiftCardView[]>(await other.GetAsync(path + "/mine")));
+
+        using var machine = await fixture.Machine();
+        var paymentPath = MachinePath(sale.Tenant) + $"/orders/{accepted.Id}";
+        var payment = await Read<PaymentView>(await machine.GetAsync(paymentPath));
+        Assert.False(payment.Sandbox);
+        Assert.Equal("GiftCard", payment.Provider);
+        var refund = new RefundRequest(Guid.NewGuid(), total, "Gift-card test refund");
+        Assert.Equal(PaymentStatus.Refunded, (await Read<PaymentView>(await machine.PostAsJsonAsync(paymentPath + "/refunds", refund))).Status);
+        await Read<PaymentView>(await machine.PostAsJsonAsync(paymentPath + "/refunds", refund));
+        Assert.Equal(500, Assert.Single(await Read<GiftCardView[]>(await buyer.GetAsync(path + "/mine"))).Balance);
+    }
+
+    [Fact]
+    public async Task Counter_sale_scans_published_sku_and_hands_over_reserved_branch_stock_once()
+    {
+        using var prepared = await fixture.Business(method: "CounterCash");
+        var quoteTotal = fixture.Order.CounterPickupQuote(prepared.Request.ShippingQuoteId, prepared.Warehouse);
+        var amount = prepared.Preparation.Quote.Calculation.Total + quoteTotal;
+        var sale = prepared with { Request = prepared.Request with { CounterCashReceived = amount, Contact = prepared.Request.Contact with { Email = "" } } };
+        using var catalog = fixture.Order.Cart.Pricing.Catalog.Factory.Client(prepared.Pricing.Catalog.Token);
+        var code = Uri.EscapeDataString(prepared.Cart.Items[0].Sku);
+        var scan = await Read<SRECommerce.Catalog.Application.CounterItem>(await catalog.GetAsync($"/api/v1/tenants/{sale.Tenant}/catalog/counter/lookup?code={code}"));
+        Assert.Equal(sale.Variant, scan.VariantId);
+        using var guest = fixture.Order.Factory.Client();
+        Assert.Equal(HttpStatusCode.Forbidden, (await guest.PostAsJsonAsync(OrderFixture.Path(sale.Tenant, true) + "/checkout", sale.Request)).StatusCode);
+        await fixture.Order.Start(sale);
+        var accepted = await fixture.Order.Drain(sale);
+        Assert.Equal(CheckoutState.Accepted, accepted.State);
+        Assert.Equal(PaymentState.Captured, accepted.Order!.PaymentState);
+        Assert.Equal(amount, accepted.Order.Total);
+        using var machine = await fixture.Machine();
+        var payment = await Read<PaymentView>(await machine.GetAsync(MachinePath(sale.Tenant) + $"/orders/{accepted.Id}"));
+        Assert.Equal("Counter", payment.Provider);
+        Assert.False(payment.Sandbox);
+
+        using var scope = fixture.Order.Factory.Services.CreateScope();
+        scope.ServiceProvider.GetRequiredService<ModuleScope>().BindEvent(sale.Tenant, "Order");
+        var db = scope.ServiceProvider.GetRequiredService<SRECommerce.Order.Infrastructure.OrderDbContext>();
+        var reservation = await db.Set<OrderReservation>().SingleAsync(row => row.OrderId == accepted.Id);
+        Assert.Equal(sale.Warehouse, reservation.WarehouseId);
+        Assert.Equal(ReservationStep.Committed, reservation.Status);
+        var path = OrderFixture.Manage(sale.Tenant) + $"/orders/{accepted.Id}/counter-handover";
+        var handover = new CounterHandoverRequest(Guid.NewGuid(), accepted.Order.Version);
+        var delivered = await Read<OrderView>(await sale.Owner.PostAsJsonAsync(path, handover));
+        Assert.Equal(OrderStatus.Delivered, delivered.Status);
+        Assert.Equal(delivered.Items[0].Quantity, delivered.Items[0].Delivered);
+        Assert.Equal(delivered.Version, (await Read<OrderView>(await sale.Owner.PostAsJsonAsync(path, handover))).Version);
+    }
+
     [Fact]
     public async Task COD_cannot_settle_before_delivery_and_settles_once_after_the_authoritative_callback()
     {

@@ -11,6 +11,7 @@ public partial class PaymentProgram
         services.AddScoped<IPaymentRepository, PaymentRepository>(); services.AddScoped<IPaymentAccess, PaymentAccess>();
         services.AddScoped<IOrderPaymentProofs, OrderPaymentProofs>(); services.AddSingleton<IPaymentProvider, SandboxPaymentProvider>();
         services.AddSingleton<IPaymentSignatures, PaymentSignatures>(); services.AddScoped<IPaymentService, PaymentService>();
+        services.AddScoped<GiftCardService>();
         services.AddHttpClient("order", (p, client) => { client.BaseAddress = RemoteAccess.BaseUri(p.GetRequiredService<IConfiguration>(), "Order:BaseUrl", "http://localhost:5089/", p.GetRequiredService<IHostEnvironment>().IsDevelopment()); client.Timeout = TimeSpan.FromSeconds(6); })
             .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false }).WithDependencyResilience();
     });

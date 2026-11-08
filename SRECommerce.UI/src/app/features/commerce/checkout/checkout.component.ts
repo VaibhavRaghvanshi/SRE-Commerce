@@ -17,6 +17,7 @@ import { CustomerAddress } from '../../../core/models/commerce-customer.models';
 import { CommerceCustomerService } from '../../../core/services/commerce-customer.service';
 import { StoreLanguageService } from '../../../core/services/store-language.service';
 import { StoreLanguageComponent } from '../presentation/store-language.component';
+import { GiftCard, GiftCardService } from '../../../core/services/gift-card.service';
 
 @Component({ selector: 'app-commerce-checkout', standalone: true, imports: [CommonModule, ReactiveFormsModule, RouterLink, StoreLanguageComponent],
   templateUrl: './checkout.component.html', styleUrl: './checkout.component.scss' })
@@ -30,6 +31,12 @@ export class CommerceCheckoutComponent {
   readonly requiresAccount = signal(false);
   readonly reference = signal<string | null>(null);
   private readonly customer = inject(CommerceCustomerService);
+  private readonly giftCards = inject(GiftCardService);
+  readonly wallet = signal<GiftCard[]>([]);
+  readonly giftPage = signal(1);
+  readonly giftError = signal('');
+  readonly giftBusy = signal(false);
+  readonly giftCode = this.fb.control('');
   readonly addresses = signal<CustomerAddress[]>([]);
   readonly addressError = signal('');
   readonly shipping = computed(() => this.options().find(o => o.id === this.selected()) || null);
@@ -38,7 +45,7 @@ export class CommerceCheckoutComponent {
     email: ['', [Validators.required, Validators.email, Validators.maxLength(254)]], phone: ['', [Validators.maxLength(25), Validators.pattern(/^[0-9+ -]*$/)]],
     addressLine1: ['', [Validators.required, Validators.maxLength(200), Validators.pattern(/^[^<>\x00-\x1f]+$/)]], addressLine2: ['', [Validators.maxLength(200), Validators.pattern(/^[^<>\x00-\x1f]*$/)]],
     city: ['', [Validators.required, Validators.maxLength(100), Validators.pattern(/^[^<>\x00-\x1f]+$/)]], countryCode: ['', Validators.required],
-    postalCode: ['', [Validators.required, Validators.minLength(2), Validators.maxLength(16), Validators.pattern(/^[A-Za-z0-9 -]+$/)]], paymentMethod: ['', Validators.required] });
+    postalCode: ['', [Validators.required, Validators.minLength(2), Validators.maxLength(16), Validators.pattern(/^[A-Za-z0-9 -]+$/)]], paymentMethod: ['', Validators.required], giftCardId: [''] });
   private timer: ReturnType<typeof setTimeout> | null = null; private destroyed = false; private polls = 0; private statusRead = 0;
   constructor() {
     effect(() => { const tenant = this.tenant(); if (!tenant || !this.customer.signedIn(tenant.tenantId)) this.addresses.set([]); });
@@ -56,6 +63,7 @@ export class CommerceCheckoutComponent {
       const [regions, methods, policy] = await Promise.all([this.api.regions(tenant.tenantId), this.api.methods(tenant.tenantId), this.api.policy(tenant.tenantId)]);
       if (!policy.allowGuest && !this.customer.signedIn(tenant.tenantId)) { this.requiresAccount.set(true); this.error.set('Sign in to this store before checking out. Your saved cart is safe.'); return; }
       const allowedMethods = methods.methods.filter(method => method !== 'COD' || policy.allowCOD);
+      if (this.giftShopper(tenant.tenantId)) { allowedMethods.push('GiftCard'); void this.loadWallet(1); }
       this.countries.set(regions.countries); this.methods.set(allowedMethods); this.sandbox.set(methods.sandbox);
       this.form.patchValue({ countryCode: regions.countries.length === 1 ? regions.countries[0] : '', paymentMethod: allowedMethods[0] || '', email: this.session.user()?.profile.email || '' });
       if (this.customer.signedIn(tenant.tenantId)) {
@@ -65,6 +73,42 @@ export class CommerceCheckoutComponent {
       }
       await this.refreshPreparation();
     } catch (error) { this.error.set(error instanceof HttpErrorResponse && error.error?.title === 'OrderingNotConfigured' ? 'This store has not finished checkout setup. Your saved cart is safe. Please contact the store.' : 'Checkout is temporarily unavailable. Your saved cart is safe. Please try again.'); } finally { this.busy.set(false); }
+  }
+  private giftShopper(tenant: string) {
+    const actor = this.session.access();
+    return this.session.token && actor?.selectedTenantId === tenant && ['Customer', 'B2BBuyer'].includes(actor.tenantRole || '') ? actor.userId : null;
+  }
+  async loadWallet(page: number) {
+    const tenant = this.tenant()?.tenantId, user = tenant && this.giftShopper(tenant);
+    if (!tenant || !user || this.giftBusy() || page < 1) return;
+    this.giftBusy.set(true); this.giftError.set('');
+    try {
+      const rows = await this.giftCards.list(tenant, page);
+      if (this.giftShopper(tenant) === user) { this.wallet.set(rows); this.giftPage.set(page); }
+    } catch { this.giftError.set('Gift cards could not be loaded. Please retry.'); }
+    finally { this.giftBusy.set(false); }
+  }
+  async claimGiftCard() {
+    const tenant = this.tenant()?.tenantId, user = tenant && this.giftShopper(tenant);
+    const code = this.giftCode.value.trim();
+    if (!tenant || !user || this.giftBusy() || !/^[a-f0-9]{32}$/i.test(code)) return;
+    this.giftBusy.set(true); this.giftError.set('');
+    try {
+      const card = await this.giftCards.claim(tenant, code);
+      if (this.giftShopper(tenant) !== user) return;
+      this.wallet.update(rows => [card, ...rows.filter(row => row.id !== card.id)]);
+      this.giftCode.reset();
+      if (this.coversCheckout(card)) this.form.controls.giftCardId.setValue(card.id);
+    } catch { this.giftError.set('This gift card could not be claimed. Check the code and try again.'); }
+    finally { this.giftBusy.set(false); }
+  }
+  coversCheckout(card: GiftCard) {
+    return card.currency === this.preparation()?.quote.currency && card.balance >= this.total();
+  }
+  get giftTenderReady() {
+    if (this.form.controls.paymentMethod.value !== 'GiftCard') return true;
+    const card = this.wallet().find(row => row.id === this.form.controls.giftCardId.value);
+    return !!card && this.coversCheckout(card);
   }
   private async refreshPreparation() {
     const tenant = this.tenant(); if (!tenant) return;
@@ -91,12 +135,13 @@ export class CommerceCheckoutComponent {
   }
   async submit() {
     const tenant = this.tenant(), preparation = this.preparation(), shipping = this.shipping(); this.form.markAllAsTouched();
-    if (!tenant || !preparation || !shipping || this.busy() || this.form.invalid || this.status()) return;
+    if (!tenant || !preparation || !shipping || this.busy() || this.form.invalid || !this.giftTenderReady || this.status()) return;
     this.busy.set(true); this.error.set(''); const value = this.form.getRawValue();
     const contact: OrderContact = { fullName: value.fullName.trim(), email: value.email.trim(), phone: value.phone.trim() || null, addressLine1: value.addressLine1.trim(), addressLine2: value.addressLine2.trim() || null,
       city: value.city.trim(), countryCode: value.countryCode.toUpperCase(), postalCode: value.postalCode.trim().toUpperCase() };
     try {
-      const result = await this.api.submit(tenant.tenantId, preparation, shipping, value.paymentMethod, contact); this.status.set(result);
+      const tender = value.paymentMethod === 'GiftCard' ? { giftCardId: value.giftCardId } : {};
+      const result = await this.api.submit(tenant.tenantId, preparation, shipping, value.paymentMethod, contact, tender); this.status.set(result);
       void this.router.navigate([], { relativeTo: this.route, queryParams: { order: result.id }, queryParamsHandling: 'merge', replaceUrl: true }); this.polls = 0; this.schedule(result);
     } catch {
       const pending = this.api.active(tenant.tenantId); if (pending) { this.error.set('The response was not confirmed. Check this checkout before submitting another order.'); await this.check(pending.id); }

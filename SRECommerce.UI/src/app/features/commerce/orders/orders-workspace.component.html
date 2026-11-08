@@ -4,6 +4,7 @@
   <p role="alert" class="error" *ngIf="error()">{{error()}}</p><p role="status" class="notice" *ngIf="message()">{{message()}}</p>
   <section class="panel" *ngIf="!session.token || !canRead"><h2>Sign in to your business</h2><p>An owner, manager or staff membership is required to view orders.</p><button type="button" (click)="signIn()">Sign in</button></section>
   <ng-container *ngIf="session.token && canRead">
+    <p *ngIf="!session.access()?.isPlatformAdmin"><a [routerLink]="['/workspace',tenant,'pos']">Open point of sale</a></p>
     <label *ngIf="session.access()?.isPlatformAdmin">Business support reason<input maxlength="300" [(ngModel)]="supportReason" /></label>
     <form class="toolbar" (ngSubmit)="filter()"><label>Order state<select name="state" [(ngModel)]="status"><option [ngValue]="null">All orders</option><option *ngFor="let label of statuses;let i=index" [ngValue]="i">{{label}}</option></select></label><button [disabled]="busy()">Refresh orders</button><button type="button" class="secondary" *ngIf="canConfigure" (click)="loadPolicy()" [disabled]="busy()">Order policy</button></form>
     <p *ngIf="busy()" role="status">Loading…</p>

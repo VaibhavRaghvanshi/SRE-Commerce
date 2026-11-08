@@ -15,6 +15,8 @@ public sealed class OrderManagementController(IOrderService service):ControllerB
  [HttpPost("orders/{id:guid}/invoice-reference")]public async Task<IActionResult> Invoice(Guid tenant,Guid id,InvoiceRequest request,CancellationToken ct)=>Ok(await service.Invoice(tenant,id,request,ct));
  [HttpPost("orders/{id:guid}/gst-worksheet"),RequestSizeLimit(32768)]
  public async Task<IActionResult> GstWorksheet(Guid tenant,Guid id,GstWorksheetRequest request,CancellationToken ct)=>Ok(await service.PreviewGstWorksheet(tenant,id,request,ct));
+ [HttpPost("orders/{id:guid}/counter-handover")]
+ public Task<OrderView> CounterHandover(Guid tenant,Guid id,CounterHandoverRequest request,CancellationToken ct)=>service.CounterHandover(tenant,id,request,ct);
  [HttpPost("orders/{id:guid}/fulfillments")]public async Task<IActionResult> Fulfill(Guid tenant,Guid id,FulfillOrderRequest request,CancellationToken ct)=>Ok(await service.Fulfill(tenant,id,request,ct));
  [HttpGet("orders/{id:guid}/fulfillments")]public async Task<IActionResult> Fulfillments(Guid tenant,Guid id,CancellationToken ct)=>Ok(await service.Fulfillments(tenant,id,false,null,true,ct));
  [HttpGet("orders/{id:guid}/returns")]public async Task<IActionResult> Returns(Guid tenant,Guid id,CancellationToken ct)=>Ok(await service.Returns(tenant,id,false,null,true,ct));

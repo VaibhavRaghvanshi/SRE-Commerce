@@ -9,6 +9,7 @@ import { CommerceCartService } from '../../../core/services/commerce-cart.servic
 import { CommerceCheckoutService } from '../../../core/services/commerce-checkout.service';
 import { CommerceSessionService } from '../../../core/services/commerce-session.service';
 import { CommerceCustomerService } from '../../../core/services/commerce-customer.service';
+import { GiftCardService } from '../../../core/services/gift-card.service';
 
 describe('Checkout policy before contact entry', () => {
   let api: jasmine.SpyObj<CommerceCheckoutService>, carts: jasmine.SpyObj<CommerceCartService>;
@@ -23,6 +24,7 @@ describe('Checkout policy before contact entry', () => {
       { provide: CommerceCheckoutService, useValue: api }, { provide: CommerceCartService, useValue: carts },
       { provide: CommerceSessionService, useValue: { user: signal(null), access: signal(null) } },
       { provide: CommerceCustomerService, useValue: { signedIn: () => false } },
+      { provide: GiftCardService, useValue: { list: async () => [] } },
     ] });
   });
   it('keeps an unconfigured store out of the order form and explains that the saved cart is safe', async () => {
