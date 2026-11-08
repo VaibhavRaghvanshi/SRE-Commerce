@@ -1,5 +1,8 @@
-<app-header *ngIf="!isAdminRoute"></app-header>
 <a class="commerce-skip" *ngIf="isCommerceRoute" href="#commerce-content" (click)="focusContent($event)">Skip to content</a>
+@defer (when isCustomerPage) {
+  @if (isCustomerPage) { <app-festival-banner /> }
+}
+<app-header *ngIf="!isAdminRoute"></app-header>
 @defer (when !!workspaceTenant) {
   <app-workspace-nav *ngIf="workspaceTenant" [tenant]="workspaceTenant" />
 }

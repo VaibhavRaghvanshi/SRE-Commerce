@@ -4,11 +4,12 @@ import { CommonModule, DOCUMENT } from '@angular/common';
 import { HeaderComponent } from './shared/header/header.component';
 import { ShopChatComponent } from './shared/shop-chat/shop-chat.component';
 import { WorkspaceNavComponent } from './features/commerce/workspace/workspace-nav.component';
+import { FestivalBannerComponent } from './shared/festival-banner/festival-banner.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, HeaderComponent, ShopChatComponent, WorkspaceNavComponent],
+  imports: [CommonModule, RouterOutlet, HeaderComponent, ShopChatComponent, WorkspaceNavComponent, FestivalBannerComponent],
   host: { '[class.commerce-app]': 'isCommerceRoute', '[class.commerce-workspace]': '!!workspaceTenant' },
   templateUrl: './app.component.html'
 })
@@ -18,5 +19,6 @@ export class AppComponent {
   get isCommerceRoute() { return this.router.url.split(/[?#]/)[0] === '/' || /^\/(stores|workspace|commerce|businesses|platform)(\/|\?|$)/.test(this.router.url); }
   get workspaceTenant() { return /^\/workspace\/([a-f0-9-]{36})(?:\/|$)/i.exec(this.router.url)?.[1] || ''; }
   get isAdminRoute() { return this.isCommerceRoute || /^\/admin(\/|\?|$)/.test(this.router.url); }
+  get isCustomerPage() { return !/^\/(admin|workspace|platform|businesses)(?:[/?#]|$)/.test(this.router.url); }
   constructor(private router: Router) {}
 }
