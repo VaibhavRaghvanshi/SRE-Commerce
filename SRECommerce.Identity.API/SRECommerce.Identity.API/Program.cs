@@ -10,6 +10,7 @@ using SRECommerce.Identity.API;
 using SRECommerce.Identity.Application;
 using SRECommerce.Identity.Infrastructure;
 using SRECommerce.BuildingBlocks.Contracts;
+using SRECommerce.BuildingBlocks.Infrastructure;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 
 if (args.Contains("--healthcheck"))
@@ -93,7 +94,12 @@ builder.Services.AddAntiforgery(o => o.Cookie.SecurePolicy = builder.Environment
 builder.Services.AddScoped<IIdentityAccounts, IdentityAccounts>();
 builder.Services.AddScoped<ICustomerEnrollment, CustomerEnrollment>();
 builder.Services.AddScoped<IStoreDirectory, HttpStoreDirectory>();
-builder.Services.AddHttpClient("store-directory", client =>
+builder.Services.AddSingleton(ServiceManifest.Get("Identity"));
+builder.Services.AddServiceIdentity();
+builder.Services.AddScoped<RemoteAccess>();
+builder.Services.AddScoped<IMembershipPlans, HttpMembershipPlans>();
+builder.Services.AddScoped<MembershipCapacity>();
+builder.Services.AddHttpClient("tenant", client =>
 {
     var address = new Uri(builder.Configuration["Tenant:BaseUrl"] ?? (builder.Environment.IsDevelopment() ? "http://localhost:5082/" : "https://localhost:7082/"));
     if (!address.IsAbsoluteUri || !string.IsNullOrEmpty(address.UserInfo) || !string.IsNullOrEmpty(address.Query)

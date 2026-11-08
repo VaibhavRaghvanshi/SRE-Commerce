@@ -1,5 +1,13 @@
 # SRECommerce migration progress
 
+## Subscription seats and Team directory — 2026-11-08
+
+Identity enforces the tenant plan's active seat limit for customer enrollment, merchant grants and platform provisioning. Membership writes use a transaction-owned SQL Server lock per tenant so simultaneous joins cannot overbook the last seat. Identity reads the effective limit through Tenant's private endpoint using the existing service grant. The Angular Team and buyers workspace shows seat usage, paged name, role and status search, role editing, reactivation and confirmed deactivation. [Identity contract](api-contracts/identity-service.md#tenant-and-privileged-apis), [SQL Server application locks](https://learn.microsoft.com/en-us/sql/relational-databases/system-stored-procedures/sp-getapplock-transact-sql?view=sql-server-ver17)
+
+The Identity copy-only backup passed checksum verification. Running the additive migration twice created one index and one migration history record. The count, active count and fingerprint of all five existing memberships matched before and after migration. [Reviewed SQL migration](database-migrations/identity-membership-directory.sql)
+
+All 35 Identity tests, two focused Tenant integration tests and 80 Angular tests passed. The optimized Angular build completed at 503.40 kB against a 500 kB warning threshold. Native Chrome verified real registration and email confirmation, customer enrollment, role changes and session revocation, then deactivated the labelled test membership. The Owner Team page passed the role and status filters, empty search results, seat count and 390px layout checks. All 14 native readiness and five preserved-data checks passed. Compose configuration passed static validation.
+
 ## GST invoice records, order status localization and Docker coverage — 2026-11-08
 
 The GST worksheet can allocate the saved tax into draft CGST, SGST, UTGST or IGST components. An Owner or Manager can reconcile and store an already issued invoice with its number, Indian issue date, evidence reference, actual component amounts and IRN when applicable. Exact replays return the saved record. The workflow preserves the externally issued amounts separately from the draft allocation. [GST workflow](architecture/order-service-design.md#gst-preparation-worksheet)

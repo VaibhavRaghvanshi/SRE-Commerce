@@ -21,6 +21,7 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
     protected override void OnModelCreating(ModelBuilder model)
     {
         base.OnModelCreating(model);
+        model.Entity<TenantMembership>().HasIndex(x => new { x.TenantId, x.IsActive, x.Role, x.UserId });
         model.UseOpenIddict();
         // Subjects are GUID user IDs or bounded svc:<service> identifiers. Bound
         // these indexed columns to keep SQL Server composite keys below 1700 bytes.

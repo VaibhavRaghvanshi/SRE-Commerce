@@ -1,13 +1,14 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [ValidateSet('Catalog','Inventory','Pricing','Cart','Order','Payment','Shipping','Notification','Manufacturing','Discovery')]
+    [ValidateSet('Identity','Catalog','Inventory','Pricing','Cart','Order','Payment','Shipping','Notification','Manufacturing','Discovery')]
     [string]$Service,
     [switch]$BackupOnly
 )
 $ErrorActionPreference='Stop'
 $repository=Split-Path $PSScriptRoot -Parent
 $database='SRECommerce_'+$Service+'DB'
+$auditTable=if($Service -eq 'Identity'){'SecurityAuditLogs'}else{'AuditEntries'}
 $stamp=[DateTime]::UtcNow.ToString('yyyyMMddHHmmssfff')+'_'+[Guid]::NewGuid().ToString('N').Substring(0,8)
 $restore='SRECommerce_'+$Service+'Tests_Restore_'+$stamp
 if($database -notmatch '^SRECommerce_[A-Za-z]+DB$' -or $restore -notmatch '^SRECommerce_[A-Za-z]+Tests_Restore_[0-9]{17}_[a-f0-9]{8}$'){throw 'Unexpected database namespace'}
@@ -31,7 +32,7 @@ RESTORE DATABASE [$restore] FROM DISK=$(SqlLiteral $backup)
 WITH MOVE $(SqlLiteral $metadata.dataLogical) TO $(SqlLiteral $dataFile), MOVE $(SqlLiteral $metadata.logLogical) TO $(SqlLiteral $logFile),CHECKSUM;
 DBCC CHECKDB ([$restore]) WITH NO_INFOMSGS;
 ALTER DATABASE [$restore] SET READ_ONLY;
-SELECT COUNT(*) AS RestoredAuditRows FROM [$restore].dbo.AuditEntries;
+SELECT COUNT(*) AS RestoredAuditRows FROM [$restore].dbo.[$auditTable];
 SELECT MigrationId FROM [$restore].dbo.__EFMigrationsHistory ORDER BY MigrationId;
 "@
 if($BackupOnly){

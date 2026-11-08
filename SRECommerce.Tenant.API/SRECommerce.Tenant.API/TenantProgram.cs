@@ -41,7 +41,9 @@ public partial class TenantProgram
         builder.Services.AddScoped<IPlatformOverview,PlatformOverviewService>();
         builder.Services.AddHttpClient("platform-health",http=>http.Timeout=TimeSpan.FromSeconds(2))
             .ConfigurePrimaryHttpMessageHandler(()=>new HttpClientHandler{AllowAutoRedirect=false,UseCookies=false,UseProxy=false});
-        builder.Services.AddAuthentication("IdentityContext").AddScheme<AuthenticationSchemeOptions,IdentityContextHandler>("IdentityContext",_=>{});
+        builder.Services.AddAuthentication("IdentityContext")
+            .AddScheme<AuthenticationSchemeOptions,IdentityContextHandler>("IdentityContext",_=>{})
+            .AddScheme<AuthenticationSchemeOptions,IdentityMachineHandler>("IdentityMachine",_=>{});
         builder.Services.AddAuthorization();builder.Services.AddControllers();builder.Services.AddOpenApi();builder.Services.AddProblemDetails();builder.Services.AddExceptionHandler<TenantExceptionHandler>();
         builder.Services.AddRateLimiter(o=>{o.RejectionStatusCode=429;o.AddPolicy("tenant",context=>RateLimitPartition.GetFixedWindowLimiter(context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value??context.Connection.RemoteIpAddress?.ToString()??"local",_=>new FixedWindowRateLimiterOptions{PermitLimit=120,Window=TimeSpan.FromMinutes(1),QueueLimit=0}));});
         builder.Services.AddRateLimiter(o=>o.AddPolicy("platform-health",context=>RateLimitPartition.GetFixedWindowLimiter(context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value??context.Connection.RemoteIpAddress?.ToString()??"local",_=>new FixedWindowRateLimiterOptions{PermitLimit=6,Window=TimeSpan.FromMinutes(1),QueueLimit=0})));

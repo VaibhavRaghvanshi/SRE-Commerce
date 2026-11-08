@@ -544,6 +544,8 @@ namespace SRECommerce.Identity.Infrastructure.Migrations
                     b.HasIndex("TenantId", "UserId")
                         .IsUnique();
 
+                    b.HasIndex("TenantId", "IsActive", "Role", "UserId");
+
                     b.ToTable("TenantMemberships", (string)null);
                 });
 

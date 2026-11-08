@@ -1,8 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Security.Cryptography;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using OpenIddict.Abstractions;
+using SRECommerce.BuildingBlocks.Contracts;
 using SRECommerce.Identity.Domain;
 using SRECommerce.Identity.Tests;
 using SRECommerce.Tenant.Application;
@@ -32,6 +35,47 @@ public sealed class TenantTests(TenantFixture fixture) : IClassFixture<TenantFix
         return(tenant,Factory.Client(selected.Access),admin);
     }
     private static SettingsRequest Settings(string version,string name="Updated business")=>new(version,"INR","en-IN","Asia/Kolkata",name,"https://example.test/logo.png");
+    [Fact]
+    public async Task Membership_limits_are_available_to_the_identity_machine_client_only()
+    {
+        var (tenant, owner, admin) = await Active();
+        using var selectedOwner = owner;
+        using var administrator = admin;
+        var path = $"/internal/v1/tenants/{tenant.Id}/membership-limits";
+        using var anonymous = Factory.Client();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.GetAsync(path)).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await selectedOwner.GetAsync(path)).StatusCode);
+        using var order = Factory.Client(await MachineToken("Order"));
+        Assert.Equal(HttpStatusCode.Unauthorized, (await order.GetAsync(path)).StatusCode);
+        using var identity = Factory.Client(await MachineToken("Identity"));
+        var result = await Read<ProvisioningLimits>(await identity.GetAsync(path));
+        Assert.Equal(tenant.Id, result.TenantId);
+        Assert.True(result.Allowed);
+        Assert.Equal(5, result.MaxUsers);
+        Assert.Equal(HttpStatusCode.NotFound, (await identity.GetAsync($"/internal/v1/tenants/{Guid.NewGuid()}/membership-limits")).StatusCode);
+
+        async Task<string> MachineToken(string source)
+        {
+            var id = ServiceManifest.ClientId(source);
+            var secret = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
+            using var scope = fixture.Identity.Factory.Services.CreateScope();
+            var manager = scope.ServiceProvider.GetRequiredService<IOpenIddictApplicationManager>();
+            var client = new OpenIddictApplicationDescriptor { ClientId = id, ClientSecret = secret,
+                ClientType = OpenIddictConstants.ClientTypes.Confidential };
+            client.Permissions.UnionWith([OpenIddictConstants.Permissions.Endpoints.Token,
+                OpenIddictConstants.Permissions.GrantTypes.ClientCredentials,
+                OpenIddictConstants.Permissions.Prefixes.Scope + "internal_tenant"]);
+            await manager.CreateAsync(client);
+            using var issuer = fixture.Identity.Factory.Client();
+            var token = await Read<JsonElement>(await issuer.PostAsync("/connect/token",
+                new FormUrlEncodedContent(new Dictionary<string, string>
+                {
+                    ["grant_type"] = "client_credentials", ["client_id"] = id,
+                    ["client_secret"] = secret, ["scope"] = "internal_tenant"
+                })));
+            return token.GetProperty("access_token").GetString()!;
+        }
+    }
     [Fact]
     public async Task Real_identity_pkce_onboarding_activation_settings_and_entitlements_work()
     {

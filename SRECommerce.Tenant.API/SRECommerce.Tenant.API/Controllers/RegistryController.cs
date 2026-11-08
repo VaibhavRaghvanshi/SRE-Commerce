@@ -13,4 +13,8 @@ public sealed class RegistryController(ITenantRegistry registry,ITenantOperation
     [Authorize,HttpGet("/api/v1/access/tenants/{id:guid}/entitlements")]
     public async Task<IActionResult> Access(Guid id,CancellationToken ct)
     {var value=await operations.MemberEntitlements(id,ct);return Ok(new{value.TenantId,value.Active,Modules=value.Modules.Select(m=>new{m.Module,m.Enabled})});}
+
+    [Authorize(AuthenticationSchemes = "IdentityMachine"), HttpGet("/internal/v1/tenants/{id:guid}/membership-limits")]
+    public async Task<IActionResult> MembershipLimits(Guid id, CancellationToken ct) =>
+        await registry.Limits(id, ct) is { } limits ? Ok(limits) : NotFound();
 }

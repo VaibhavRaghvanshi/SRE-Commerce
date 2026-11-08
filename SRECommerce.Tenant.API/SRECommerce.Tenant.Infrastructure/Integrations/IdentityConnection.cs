@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using DnsClient;
 using Microsoft.AspNetCore.Http;
+using SRECommerce.BuildingBlocks.Contracts;
 using SRECommerce.Tenant.Application;
 using SRECommerce.Tenant.Domain;
 
@@ -18,6 +19,16 @@ public sealed class IdentityConnection(HttpClient http,IHttpContextAccessor cont
         if(!response.IsSuccessStatusCode) throw new IdentityUnavailableException();
         try { return await response.Content.ReadFromJsonAsync<IdentityAccess>(ct) ?? throw new IdentityUnavailableException(); }
         catch(JsonException) { throw new IdentityUnavailableException(); }
+    }
+    public async Task<MachineAccess?> MachineAsync(string token, CancellationToken ct)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "internal/v1/access");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        using var response = await Send(request, ct);
+        if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden) return null;
+        if (!response.IsSuccessStatusCode) throw new IdentityUnavailableException();
+        try { return await response.Content.ReadFromJsonAsync<MachineAccess>(ct) ?? throw new IdentityUnavailableException(); }
+        catch (JsonException) { throw new IdentityUnavailableException(); }
     }
     public async Task ProvisionOwnerAsync(Guid tenantId,Guid userId,CancellationToken ct)
     {

@@ -19,6 +19,8 @@ public sealed class CustomerEnrollmentController(ICustomerEnrollment enrollment)
             EnrollmentStatus.Joined or EnrollmentStatus.AlreadyMember => Ok(new { tenantId, role = result.Role, joined = result.Status == EnrollmentStatus.Joined }),
             EnrollmentStatus.Blocked => StatusCode(403, new { error = "MembershipUnavailable" }),
             EnrollmentStatus.StoreNotFound => NotFound(new { error = "StoreNotFound" }),
+            EnrollmentStatus.LimitReached => Conflict(new { error = "MembershipLimitReached" }),
+            EnrollmentStatus.PlanInactive => StatusCode(403, new { error = "MembershipPlanInactive" }),
             _ => StatusCode(503, new { error = "StoreDirectoryUnavailable" })
         };
     }

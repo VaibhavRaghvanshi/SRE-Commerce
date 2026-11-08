@@ -15,6 +15,8 @@ interface Location { id: string; name: string; address: string; countryCode: str
 interface Domain { id: string; host: string; verifiedAt: string | null; isPrimary: boolean; isActive: boolean; }
 interface Challenge { id: string; recordName: string; token: string; expiresAt: string; version: string; }
 interface Membership { tenantId?: string; userId?: string; role: string; isActive: boolean; displayName?: string; }
+interface DirectoryMember { userId: string; role: string; isActive: boolean; displayName: string; version: string; }
+interface MembershipDirectory { items: DirectoryMember[]; total: number; page: number; pageSize: number; activeCount: number; }
 interface Audit { action: string; createdAt: string; platformOperation: boolean; }
 interface Plan { code: string; name: string; maxLocations: number; maxDomains: number; maxUsers: number; modules: string[]; }
 
@@ -40,7 +42,9 @@ export class BusinessWorkspaceComponent {
   readonly locations = signal<Location[]>([]);
   readonly domains = signal<Domain[]>([]);
   readonly audit = signal<Audit[] | null>(null);
-  readonly members = signal<Membership[] | null>(null);
+  readonly directory = signal<MembershipDirectory | null>(null);
+  readonly deactivation = signal<DirectoryMember | null>(null);
+  readonly teamRoles = ['Owner', 'Manager', 'Staff', 'Customer', 'B2BBuyer'];
   readonly myMemberships = signal<Membership[]>([]);
   readonly types = signal<{ code: string; name: string }[]>([]);
   readonly plans = signal<Plan[]>([]);
@@ -50,6 +54,8 @@ export class BusinessWorkspaceComponent {
   registration = { name: '', slug: '', businessTypeCode: 'general-store', customBusinessType: '' };
   location = { name: '', address: '', countryCode: 'IN' };
   host = ''; makePrimary = false; userId = ''; memberRole = 'Staff'; suspendReason = ''; planCode = ''; planDays = 30; page = 1;
+  teamSearch = ''; teamRole = ''; teamState = '';
+  editedMember: DirectoryMember | null = null;
   private registrationAttempt: { id: string; body: string } | null = null;
   get canManage() {
     const a = this.session.access(), b = this.current();
@@ -68,7 +74,11 @@ export class BusinessWorkspaceComponent {
     this.busy.set(true); this.error.set(''); this.message.set('');
     try { await action(); } catch (e) {
       const code = e instanceof HttpErrorResponse ? e.error?.title || e.error?.error : null;
-      this.error.set(typeof code === 'string' && /^[A-Za-z][A-Za-z0-9]{2,60}$/.test(code) ? 'The request was rejected: ' + code :
+      this.error.set(code === 'MembershipLimitReached' ? 'All membership seats are used. Deactivate an unused membership or increase the plan limit.' :
+        code === 'MembershipPlanInactive' ? 'An active subscription is required to add or reactivate a membership.' :
+        code === 'MembershipPlanUnavailable' ? 'The subscription limit could not be checked. Try again shortly.' :
+        code === 'MembershipVersionConflict' ? 'This membership changed. Load the directory again before editing.' :
+        typeof code === 'string' && /^[A-Za-z][A-Za-z0-9]{2,60}$/.test(code) ? 'The request was rejected: ' + code :
         e instanceof HttpErrorResponse && e.status === 409 ? 'The business changed or the plan limit was reached. Reload and try again.' : 'The business request failed. Check the details and your access.');
     } finally { this.busy.set(false); }
   }
@@ -81,7 +91,7 @@ export class BusinessWorkspaceComponent {
   }
   private async details(id: string, preserveChallenge = false) {
     if (!preserveChallenge && this.current()?.id !== id) this.challenge.set(null);
-    this.members.set(null); this.audit.set(null);
+    this.directory.set(null); this.deactivation.set(null); this.clearMemberForm(); this.audit.set(null);
     const prefix = 'tenants/' + id;
     const [business, settings, entitlement, locations, domains] = await Promise.all([
       this.send<Business>('tenant','GET',prefix), this.send<Settings>('tenant','GET',prefix + '/settings'),
@@ -139,12 +149,46 @@ export class BusinessWorkspaceComponent {
     if (!this.error()) this.challenge.set(null);
   }
   loadAudit() { return this.run(async () => { const b = this.current(); if (b && this.canManage) this.audit.set(await this.send<Audit[]>('tenant','GET','tenants/' + b.id + '/audit')); }); }
-  loadTeam() { return this.run(async () => { const b = this.current(); if (b && this.canTeam) this.members.set(await this.send<Membership[]>('identity','GET','tenants/' + b.id + '/memberships')); }); }
-  team(deactivate?: string) { return this.run(async () => {
-    const b = this.current(), user = deactivate || this.userId.trim();
-    if (!b || !this.canTeam || !/^[0-9a-f-]{36}$/i.test(user)) return;
-    const path = 'tenants/' + b.id + '/memberships';
-    await this.send<void>('identity',deactivate ? 'DELETE' : 'PUT',path + '/' + user,deactivate ? undefined : { userId: user, role: this.memberRole });
-    this.members.set(await this.send<Membership[]>('identity','GET',path)); this.message.set('Membership updated.');
+  private membershipPath(tenant: string) { return 'tenants/' + encodeURIComponent(tenant) + '/memberships'; }
+  private async loadDirectory(tenant: string, page: number) {
+    const params = new URLSearchParams({ page: String(page) });
+    if (this.teamSearch.trim()) params.set('search', this.teamSearch.trim());
+    if (this.teamRole) params.set('role', this.teamRole);
+    if (this.teamState) params.set('active', this.teamState);
+    this.directory.set(await this.send<MembershipDirectory>('identity', 'GET', this.membershipPath(tenant) + '/directory?' + params));
+  }
+  loadTeam(page = 1) { return this.run(async () => {
+    const business = this.current();
+    if (business && this.canTeam) {
+      this.deactivation.set(null);
+      await this.loadDirectory(business.id, page);
+    }
+  }); }
+  canEditMember(member: DirectoryMember) { return member.role !== 'Owner' && (member.role !== 'Manager' || this.canManageManagers); }
+  editMember(member: DirectoryMember) {
+    if (!this.canEditMember(member) || this.busy()) return;
+    this.editedMember = member; this.userId = member.userId; this.memberRole = member.role; this.deactivation.set(null);
+  }
+  clearMemberForm() { this.editedMember = null; this.userId = ''; this.memberRole = 'Staff'; }
+  team() { return this.run(async () => {
+    const business = this.current(), user = this.userId.trim();
+    if (!business || !this.canTeam || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(user)) return;
+    await this.send<void>('identity', 'PUT', this.membershipPath(business.id) + '/' + user,
+      { userId: user, role: this.memberRole, version: this.editedMember?.version });
+    this.clearMemberForm();
+    await this.loadDirectory(business.id, this.directory()?.page || 1);
+    this.message.set('Membership saved.');
+  }); }
+  deactivateMember() { return this.run(async () => {
+    const business = this.current(), member = this.deactivation();
+    if (!business || !this.canTeam || !member || !member.isActive || !this.canEditMember(member)) return;
+    const path = this.membershipPath(business.id) + '/' + member.userId + '?version=' + encodeURIComponent(member.version);
+    await this.send<void>('identity', 'DELETE', path);
+    this.deactivation.set(null);
+    if (this.editedMember?.userId === member.userId) this.clearMemberForm();
+    const page = this.directory()?.page || 1;
+    await this.loadDirectory(business.id, page);
+    if (page > 1 && this.directory()?.items.length === 0) await this.loadDirectory(business.id, page - 1);
+    this.message.set('Membership deactivated and its sessions ended.');
   }); }
 }

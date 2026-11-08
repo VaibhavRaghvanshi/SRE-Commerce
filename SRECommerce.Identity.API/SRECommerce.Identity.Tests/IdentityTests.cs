@@ -51,6 +51,48 @@ public sealed class IdentityTests(IdentityFixture fixture) : IClassFixture<Ident
     }
 
     [Fact]
+    public async Task Membership_seats_serialize_concurrent_enrollment_and_allow_reuse_after_deactivation()
+    {
+        var owner = await NewUser();
+        var tenant = await Provision(owner.Id, "Owner");
+        Factory.Stores.Availability[tenant] = StoreAvailability.Available;
+        Factory.Plans.Values[tenant] = new MembershipPlan(true, 2);
+        var first = await NewUser();
+        var second = await NewUser();
+        using var one = (await Protocol.SignIn(Factory, first.Email, first.Password)).Client;
+        using var two = (await Protocol.SignIn(Factory, second.Email, second.Password)).Client;
+        using var merchant = (await Protocol.SignIn(Factory, owner.Email, owner.Password, tenant)).Client;
+        var join = $"/api/v1/me/stores/{tenant}/membership";
+        var responses = await Task.WhenAll(one.PostAsJsonAsync(join, new { }), two.PostAsJsonAsync(join, new { }));
+        Assert.Single(responses, response => response.StatusCode == HttpStatusCode.OK);
+        var rejected = Assert.Single(responses, response => response.StatusCode == HttpStatusCode.Conflict);
+        Assert.Equal("MembershipLimitReached", (await rejected.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("error").GetString());
+        var roster = $"/api/v1/tenants/{tenant}/memberships";
+        var page = await merchant.GetFromJsonAsync<JsonElement>(roster + "/directory?role=Customer&active=true&search=SQL");
+        Assert.Equal(2, page.GetProperty("activeCount").GetInt32());
+        var row = Assert.Single(page.GetProperty("items").EnumerateArray());
+        var memberId = row.GetProperty("userId").GetGuid();
+        var version = row.GetProperty("version").GetString()!;
+        Assert.Equal(HttpStatusCode.Forbidden, (await merchant.GetAsync($"/api/v1/tenants/{Guid.NewGuid()}/memberships/directory")).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await merchant.DeleteAsync(roster + $"/{memberId}?version=stale")).StatusCode);
+        using var admin = (await Protocol.SignIn(Factory, Factory.AdminEmail, Factory.Password)).Client;
+        var otherId = memberId == first.Id ? second.Id : first.Id;
+        Assert.Equal(HttpStatusCode.Conflict, (await admin.PutAsJsonAsync($"/api/v1/platform/tenants/{tenant}/memberships/{otherId}",
+            new { userId = otherId, role = "Customer" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await merchant.PutAsJsonAsync(roster + $"/{otherId}",
+            new { userId = otherId, role = "Staff" })).StatusCode);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await merchant.DeleteAsync(roster + $"/{memberId}?version={Uri.EscapeDataString(version)}")).StatusCode);
+        var blockedClient = memberId == first.Id ? one : two;
+        var retryClient = memberId == first.Id ? two : one;
+        Assert.Equal(HttpStatusCode.Forbidden, (await blockedClient.PostAsJsonAsync(join, new { })).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await retryClient.PostAsJsonAsync(join, new { })).StatusCode);
+        var current = await merchant.GetFromJsonAsync<JsonElement>(roster + "/directory?active=true");
+        Assert.Equal(2, current.GetProperty("activeCount").GetInt32());
+        Assert.Contains(current.GetProperty("items").EnumerateArray(), entry => entry.GetProperty("userId").GetGuid() == otherId);
+    }
+
+    [Fact]
     public async Task Verified_customer_can_join_a_published_store_once_without_choosing_a_role()
     {
         var user = await NewUser();

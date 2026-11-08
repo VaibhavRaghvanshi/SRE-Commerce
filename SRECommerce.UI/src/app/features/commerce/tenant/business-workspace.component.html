@@ -71,13 +71,41 @@
           <button type="button" (click)="verifyDomain()" [disabled]="busy()">Check DNS record</button>
         </div>
       </article>
-      <article *ngIf="canTeam"><h2>Team and buyers</h2><button type="button" (click)="loadTeam()" [disabled]="busy()">Load memberships</button>
-        <ul><li *ngFor="let m of members()">{{m.displayName}} · {{m.role}} {{m.isActive ? '' : '· Inactive'}}
-          <button type="button" *ngIf="m.userId && m.isActive && m.role !== 'Owner' && (m.role !== 'Manager' || canManageManagers)" (click)="team(m.userId)" [disabled]="busy()">Deactivate</button></li></ul>
-        <form #member="ngForm" class="fields" (ngSubmit)="team()"><label>Existing account ID <input name="user" [(ngModel)]="userId" maxlength="36" pattern="[a-fA-F0-9-]{36}" required /></label>
-          <label>Role <select name="role" [(ngModel)]="memberRole"><option *ngIf="canManageManagers">Manager</option><option>Staff</option><option>Customer</option><option>B2BBuyer</option></select></label><button [disabled]="busy() || member.invalid">Assign membership</button>
+      <article *ngIf="canTeam"><h2>Team and buyers</h2>
+        <form class="fields" (ngSubmit)="loadTeam()">
+          <label>Search by name <input name="team-search" [(ngModel)]="teamSearch" maxlength="100" /></label>
+          <label>Filter role <select name="team-role" [(ngModel)]="teamRole"><option value="">All roles</option><option *ngFor="let role of teamRoles">{{role}}</option></select></label>
+          <label>Filter status <select name="team-status" [(ngModel)]="teamState"><option value="">All statuses</option><option value="true">Active</option><option value="false">Inactive</option></select></label>
+          <button [disabled]="busy()">Load memberships</button>
         </form>
-        <p>Owners can appoint or deactivate managers. Ownership changes use the platform ownership workflow.</p>
+        <ng-container *ngIf="directory() as roster">
+          <p role="status"><strong>{{roster.activeCount}}</strong> of {{entitlements()?.maxUsers}} membership seats in use</p>
+          <p *ngIf="roster.activeCount >= (entitlements()?.maxUsers || 0)">The plan has no free seats. Existing active roles can still be updated.</p>
+          <p *ngIf="!roster.items.length">No memberships match these filters.</p>
+          <ul class="member-list">
+            <li *ngFor="let member of roster.items"><strong>{{member.displayName}}</strong> · {{member.role}} · {{member.isActive ? 'Active' : 'Inactive'}}
+              <button type="button" *ngIf="canEditMember(member)" (click)="editMember(member)" [disabled]="busy()">{{member.isActive ? 'Edit role' : 'Review reactivation'}}</button>
+              <button type="button" *ngIf="member.isActive && canEditMember(member) && deactivation()?.userId !== member.userId"
+                (click)="deactivation.set(member)" [disabled]="busy()">Deactivate</button>
+              <div *ngIf="deactivation()?.userId === member.userId">
+                <p>Deactivate {{member.displayName}} and end their sessions in this business?</p>
+                <button type="button" (click)="deactivateMember()" [disabled]="busy()">Confirm deactivation</button>
+                <button type="button" (click)="deactivation.set(null)" [disabled]="busy()">Keep active</button>
+              </div>
+            </li>
+          </ul>
+          <nav aria-label="Membership pages"><button type="button" (click)="loadTeam(roster.page-1)" [disabled]="busy() || roster.page===1">Previous</button>
+            <span>Page {{roster.page}} · {{roster.total}} matching</span>
+            <button type="button" (click)="loadTeam(roster.page+1)" [disabled]="busy() || roster.page*roster.pageSize>=roster.total">Next</button>
+          </nav>
+        </ng-container>
+        <form #member="ngForm" class="fields" (ngSubmit)="team()"><label>Existing account ID
+            <input name="user" [(ngModel)]="userId" maxlength="36" pattern="[a-fA-F0-9]{8}(-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12}" required [readOnly]="!!editedMember" /></label>
+          <label>Role <select name="role" [(ngModel)]="memberRole"><option *ngIf="canManageManagers">Manager</option><option>Staff</option><option>Customer</option><option>B2BBuyer</option></select></label>
+          <button [disabled]="busy() || member.invalid">{{editedMember ? (editedMember.isActive ? 'Save role' : 'Reactivate membership') : 'Assign membership'}}</button>
+          <button type="button" *ngIf="editedMember" (click)="clearMemberForm()" [disabled]="busy()">Cancel edit</button>
+        </form>
+        <p>Owners can appoint or deactivate managers. Platform administrators manage ownership.</p>
       </article>
       <article *ngIf="canManage"><h2>Activity</h2><button type="button" (click)="loadAudit()" [disabled]="busy()">Load audit history</button>
         <ul><li *ngFor="let a of audit()">{{a.createdAt | date:'short'}} · {{a.action}}</li></ul></article>

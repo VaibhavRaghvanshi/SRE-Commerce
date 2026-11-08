@@ -30,6 +30,7 @@ public sealed class IdentityFactory : WebApplicationFactory<Program>
     public int PermitLimit { get; init; } = 1000;
     public string EnvironmentName { get; init; } = "Development";
     public TestStoreDirectory Stores { get; } = new();
+    public TestMembershipPlans Plans { get; } = new();
     public string Connection => $"Server=localhost,1433;Database={DatabaseName};Integrated Security=true;Encrypt=true;TrustServerCertificate=true";
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -48,6 +49,8 @@ public sealed class IdentityFactory : WebApplicationFactory<Program>
             services.AddDbContext<IdentityDbContext>(o => o.UseSqlServer(Connection).UseOpenIddict());
             services.RemoveAll<IStoreDirectory>();
             services.AddSingleton<IStoreDirectory>(Stores);
+            services.RemoveAll<IMembershipPlans>();
+            services.AddSingleton<IMembershipPlans>(Plans);
         });
         builder.ConfigureLogging(o => o.SetMinimumLevel(LogLevel.Error));
     }
@@ -59,6 +62,13 @@ public sealed class TestStoreDirectory : IStoreDirectory
     public System.Collections.Concurrent.ConcurrentDictionary<Guid, StoreAvailability> Availability { get; } = new();
     public Task<StoreAvailability> CheckAsync(Guid tenantId, CancellationToken ct) =>
         Task.FromResult(Availability.GetValueOrDefault(tenantId, StoreAvailability.NotFound));
+}
+
+public sealed class TestMembershipPlans : IMembershipPlans
+{
+    public System.Collections.Concurrent.ConcurrentDictionary<Guid, MembershipPlan> Values { get; } = new();
+    public Task<MembershipPlan?> FindAsync(Guid tenantId, CancellationToken ct) =>
+        Task.FromResult<MembershipPlan?>(Values.GetValueOrDefault(tenantId, new MembershipPlan(true, 100000)));
 }
 
 public sealed class IdentityFixture : IDisposable

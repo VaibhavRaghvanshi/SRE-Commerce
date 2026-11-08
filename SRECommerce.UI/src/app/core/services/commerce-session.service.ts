@@ -1,5 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { HttpBackend, HttpClient } from '@angular/common/http';
+import { HttpBackend, HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { InMemoryWebStorage, User, UserManager, WebStorageStateStore } from 'oidc-client-ts';
 
@@ -54,8 +54,10 @@ export class CommerceSessionService {
       try {
         await firstValueFrom(this.http.post('/commerce/identity/me/stores/' + join.tenant + '/membership', {},
           { headers: { Authorization: 'Bearer ' + user.access_token } }));
-      } catch {
-        this.error.set('This store could not be joined. It may be unavailable or your membership may require the store owner’s help.');
+      } catch (error) {
+        this.error.set(error instanceof HttpErrorResponse && error.error?.error === 'MembershipLimitReached'
+          ? 'This store has reached its membership limit. Contact the store to check whether it can accept new members.'
+          : 'This store could not be joined. It may be unavailable or your membership may require the store owner’s help.');
         throw new Error(this.error());
       }
       // The first verified session has no tenant. Obtain fresh tenant-bound claims

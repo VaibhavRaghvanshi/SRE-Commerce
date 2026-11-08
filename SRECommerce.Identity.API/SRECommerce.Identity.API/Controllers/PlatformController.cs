@@ -11,7 +11,8 @@ namespace SRECommerce.Identity.API;
 
 [ApiController, Authorize(Policy="ActiveSession", Roles="SuperAdmin")]
 [Route("api/v1/platform")]
-public sealed class PlatformController(IdentityDbContext db, IIdentityAccounts accounts, UserManager<ApplicationUser> users) : ControllerBase
+public sealed class PlatformController(IdentityDbContext db, IIdentityAccounts accounts, UserManager<ApplicationUser> users,
+    MembershipCapacity capacity) : ControllerBase
 {
     private Guid UserId => Guid.Parse(User.FindFirstValue("sub")!);
     private async Task<bool> CurrentAdmin() => await users.FindByIdAsync(UserId.ToString()) is { } user && await users.IsInRoleAsync(user, "SuperAdmin");
@@ -26,8 +27,15 @@ public sealed class PlatformController(IdentityDbContext db, IIdentityAccounts a
         if (request.Role == "Owner" && (!targetUser.EmailConfirmed || !await db.Profiles.AnyAsync(p=>p.UserId==userId && p.IsActive,ct)))
             return BadRequest(new { error = "An active, email-confirmed owner is required." });
         await using var transaction=await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable,ct);
+        await capacity.LockAsync(tenantId, ct);
         var member = await db.Memberships.IgnoreQueryFilters().SingleOrDefaultAsync(m => m.TenantId == tenantId && m.UserId == userId, ct);
         var membershipChanged = member is null || !member.IsActive || member.Role != request.Role;
+        if (member is null || !member.IsActive)
+        {
+            var seat = await capacity.CheckAsync(tenantId, ct);
+            if (seat == MembershipSeat.Full) return Conflict(new { error = "MembershipLimitReached" });
+            if (seat == MembershipSeat.PlanInactive) return StatusCode(403, new { error = "MembershipPlanInactive" });
+        }
         if (member is null) db.Memberships.Add(new TenantMembership { TenantId = tenantId, UserId = userId, Role = request.Role });
         else
         {

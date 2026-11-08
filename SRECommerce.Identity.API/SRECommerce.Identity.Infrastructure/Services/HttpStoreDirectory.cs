@@ -12,7 +12,7 @@ public sealed class HttpStoreDirectory(IHttpClientFactory clients) : IStoreDirec
     {
         try
         {
-            using var response = await clients.CreateClient("store-directory")
+            using var response = await clients.CreateClient("tenant")
                 .GetAsync($"api/v1/public/tenants/by-id/{tenantId}", ct);
             if (response.StatusCode == HttpStatusCode.NotFound) return StoreAvailability.NotFound;
             if (!response.IsSuccessStatusCode) return StoreAvailability.Unavailable;

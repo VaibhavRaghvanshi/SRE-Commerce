@@ -3,6 +3,7 @@ WORKDIR /src
 COPY Directory.Build.props global.json ./
 COPY SRECommerce.BuildingBlocks/SRECommerce.BuildingBlocks.Kernel/*.csproj SRECommerce.BuildingBlocks/SRECommerce.BuildingBlocks.Kernel/
 COPY SRECommerce.BuildingBlocks/SRECommerce.BuildingBlocks.Contracts/*.csproj SRECommerce.BuildingBlocks/SRECommerce.BuildingBlocks.Contracts/
+COPY SRECommerce.BuildingBlocks/SRECommerce.BuildingBlocks.Infrastructure/*.csproj SRECommerce.BuildingBlocks/SRECommerce.BuildingBlocks.Infrastructure/
 COPY SRECommerce.Identity.API/SRECommerce.Identity.Domain/*.csproj SRECommerce.Identity.API/SRECommerce.Identity.Domain/
 COPY SRECommerce.Identity.API/SRECommerce.Identity.Application/*.csproj SRECommerce.Identity.API/SRECommerce.Identity.Application/
 COPY SRECommerce.Identity.API/SRECommerce.Identity.Infrastructure/*.csproj SRECommerce.Identity.API/SRECommerce.Identity.Infrastructure/

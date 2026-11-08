@@ -26,6 +26,8 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       Identity__Issuer: http://localhost:5081/
+      Identity__BaseUrl: http://identity:8080/
+      ServiceAuth__ClientSecret: "${IDENTITY_SERVICE_CLIENT_SECRET:-}"
       ConnectionStrings__Identity: ${IDENTITY_SQL_CONNECTION:?Provide the restricted local Identity SQL connection}
       Mailpit__Enabled: "true"
       Mailpit__Host: mailpit

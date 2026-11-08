@@ -12,6 +12,7 @@ public sealed class IdentityContextHandler(IOptionsMonitor<AuthenticationSchemeO
 {
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
+        if (Request.Path.StartsWithSegments("/internal/v1")) return AuthenticateResult.NoResult();
         var authorization=Request.Headers.Authorization.ToString();
         if(string.IsNullOrEmpty(authorization)) return AuthenticateResult.NoResult();
         if(authorization.Length>16384 || !AuthenticationHeaderValue.TryParse(authorization,out var header) || !header.Scheme.Equals("Bearer",StringComparison.OrdinalIgnoreCase) || string.IsNullOrEmpty(header.Parameter)) return AuthenticateResult.Fail("Bearer token required.");
