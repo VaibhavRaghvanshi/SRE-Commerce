@@ -281,6 +281,58 @@ public sealed class OrderApiTests(OrderFixture fixture) : IClassFixture<OrderFix
         return Assert.Single(rows!).Available;
     }
 
+    [Fact]
+    public async Task Gst_external_invoice_records_verified_amounts_once_and_rejects_unmatched_tax()
+    {
+        using var business = await fixture.Business(beforePreparation: async pricing =>
+        {
+            var path = $"/api/v1/tenants/{pricing.Catalog.Id}/pricing";
+            var lookups = await Read<System.Text.Json.JsonElement>(await pricing.Client.GetAsync(path + "/lookups"));
+            var version = lookups.GetProperty("taxes")[0].GetProperty("version").GetString();
+            await Read<System.Text.Json.JsonElement>(await pricing.Client.PutAsJsonAsync(path + $"/tax-policies/{pricing.Tax}",
+                new SRECommerce.Pricing.Application.TaxRequest("NONE", "GST test-only rate", 18, false, Version: version)));
+        });
+        await fixture.Start(business);
+        var checkout = await fixture.Drain(business);
+        Assert.Equal(CheckoutState.Accepted, checkout.State);
+        var order = Assert.IsType<OrderView>(checkout.Order);
+        Assert.Equal(36m, order.Tax);
+        var path = Manage(business.Tenant) + $"/orders/{order.Id}";
+        var draft = new GstWorksheetRequest(order.Version,
+            new("Fixture supplier", "Delhi fixture billing address", "07ZZZZZ0000Z1Z0"),
+            new("Fixture buyer", "Delhi fixture recipient address", null), "07", "Delhi", false,
+            [new(business.Variant, "0904", "PCS")], "996511", "IntraState");
+        var worksheet = await Read<GstWorksheet>(await business.Owner.PostAsJsonAsync(path + "/gst-worksheet", draft));
+        Assert.Equal(new GstTaxAmounts(18, 18, 0, 0), worksheet.TaxComponents);
+        var interstate = await Read<GstWorksheet>(await business.Owner.PostAsJsonAsync(path + "/gst-worksheet",
+            draft with { TaxTreatment = "InterState", PlaceOfSupplyCode = "27", PlaceOfSupplyName = "Maharashtra" }));
+        Assert.Equal(new GstTaxAmounts(0, 0, 0, 36), interstate.TaxComponents);
+        Assert.Equal(HttpStatusCode.BadRequest, (await business.Owner.PostAsJsonAsync(path + "/gst-worksheet",
+            draft with { TaxTreatment = "InterState" })).StatusCode);
+
+        var issuedOn = DateOnly.FromDateTime(order.CreatedAt.ToOffset(TimeSpan.FromMinutes(330)).DateTime);
+        var request = new RecordGstInvoiceRequest(draft, "GST-TEST/01", issuedOn, "Isolated accounting fixture",
+            false, null, worksheet.TaxComponents!, worksheet.Total, true);
+        var invoicePath = path + "/gst-invoice";
+        using var anonymous = fixture.Factory.Client();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.GetAsync(invoicePath)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await business.Owner.GetAsync(invoicePath)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await business.Owner.PostAsJsonAsync(invoicePath,
+            request with { RequiresIrn = true })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await business.Owner.PostAsJsonAsync(invoicePath,
+            request with { TaxComponents = new(0, 0, 0, 36) })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await business.Owner.PostAsJsonAsync(invoicePath,
+            request with { Total = request.Total + 1 })).StatusCode);
+
+        var recorded = await Read<GstInvoice>(await business.Owner.PostAsJsonAsync(invoicePath, request));
+        Assert.Equal("GST_EXTERNAL_INVOICE_RECORD", recorded.DocumentType);
+        Assert.Equal(order.Id, recorded.OrderId);
+        Assert.Equal(issuedOn.Month < 4 ? issuedOn.Year - 1 : issuedOn.Year, recorded.FinancialYearStart);
+        Assert.Equal(ContractJson.Write(recorded), ContractJson.Write(await Read<GstInvoice>(await business.Owner.PostAsJsonAsync(invoicePath, request))));
+        Assert.Equal(ContractJson.Write(recorded), ContractJson.Write(await Read<GstInvoice>(await business.Owner.GetAsync(invoicePath))));
+        Assert.Equal(HttpStatusCode.Conflict, (await business.Owner.PostAsJsonAsync(invoicePath, request with { Number = "GST-TEST/02" })).StatusCode);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

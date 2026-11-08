@@ -1,5 +1,17 @@
 # SRECommerce migration progress
 
+## GST invoice records, order status localization and Docker coverage — 2026-11-08
+
+The GST worksheet can allocate the saved tax into draft CGST, SGST, UTGST or IGST components. An Owner or Manager can reconcile and store an already issued invoice with its number, Indian issue date, evidence reference, actual component amounts and IRN when applicable. Exact replays return the saved record. The workflow preserves the externally issued amounts separately from the draft allocation. [GST workflow](architecture/order-service-design.md#gst-preparation-worksheet)
+
+Three focused Order SQL/API tests passed, including checkout regressions and the invoice record workflow. The Order backup passed checksum verification. Running the additive migration twice produced one history entry, zero invoice records and the same fingerprint across the seven existing orders, including three historical orders. [Reviewed migration](database-migrations/order-gst-invoice-records.sql)
+
+Checkout, order, payment, shipment, return and exchange labels now use the selected English/Hindi language. The customer order page wraps long order numbers on mobile. All 80 Angular tests passed and the optimized build completed with a 503.23 kB initial bundle against the 500 kB warning threshold.
+
+Seven native browser checks passed on the final rerun. They covered real sandbox checkout, exact stock deduction, the loaded mobile order page, Hindi order and payment statuses, GST component preview, and the draft download. The verification order was cancelled through its owning workflow and the original stock was restored. All fourteen native readiness checks and five preserved-data checks passed.
+
+The isolated Manufacturing and Inventory workflow passed. Native Chrome verified the platform overview, audit history and mobile layout with fourteen ready services in the fifteen-service sample. The commerce Compose profile and optional RabbitMQ/Valkey configuration both passed static validation. Docker Client and Server 28.3.3 answered in Linux mode and Order, Payment and Catalog built as separate local review images. The local environment supplies SQL settings for two of fourteen APIs. The remaining runtime settings are covered by the existing credential hold. [Commerce Compose workflow](docker-local-development.md#opt-in-commerce-api-group)
+
 ## Gift cards and counter POS — 2026-11-08
 
 The Payments workspace lets an Owner issue or void an unclaimed gift card. Signed-in shoppers can claim a code and use one card that covers the full checkout total. Payment owns the balance, stores only the code hash and credits refunds to the original card. The Order workspace links to the POS register, where staff can scan a published SKU or barcode, quote a pickup branch, record cash, confirm handover and print the receipt. [Payment and POS contracts](api-contracts/payment-service.md#gift-cards)

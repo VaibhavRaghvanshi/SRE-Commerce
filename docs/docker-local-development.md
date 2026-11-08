@@ -122,3 +122,21 @@ docker compose -f compose.yaml -f compose.tenant.yaml --profile tenant-api ps
 Final Identity/Tenant image builds aur 34 live checks pass hue. Tenant API `http://localhost:5082`; SQL Windows host par hi hai, dedicated approved Tenant login sirf uske data ko access karta hai. Identity ka internal hostname `identity:8080` explicitly allowed hai. Teeno containers healthy hain; no Kafka/cache/broker/SQL replacement add hua. Tenant bearer-only API ke paas persistent protected payloads nahi hain, isliye uska framework key provider ephemeral hai; Identity ke existing named key/certificate volumes preserve hain. Original Identity image rollback tag `srecommerce-identity:identity-checkpoint-7eaf9a8` bhi preserve hai.
 
 Session interruption ke baad Docker temporarily unavailable hua; owner ne Desktop khola, phir Client/Server, Linux mode aur running containers dobara verify hue. Koi reset/prune/unregister nahi hua. Final backend suites: Identity 24/24, Tenant 28/28; Tenant backup/restore/CHECKDB bhi pass. Next module aur GitHub push ke liye separate owner checkpoint remains.
+
+## Opt-in commerce API group
+
+`compose.commerce.yaml` mein fourteen APIs aur Gateway ki local wiring hai. Services Docker network par names se connect karti hain. SQL ke liye Windows par chal raha MSSQL22 use hota hai. Chuni hui API ki restricted connection string mein `host.docker.internal,1433` set karein. OAuth aur SQL values ignored local `.env` mein rakhein. Credential hold ki wajah se broader runtime provisioning pending hai.
+
+```powershell
+$commerceCompose = @('-p','srecommerce-commerce-review','-f','compose.yaml','-f','compose.tenant.yaml','-f','compose.commerce.yaml')
+docker compose @commerceCompose --profile commerce-api config --quiet
+docker compose @commerceCompose --parallel 1 build order payment
+# Run only after the selected SQL and OAuth credentials are ready.
+docker compose @commerceCompose up -d theme storefront catalog inventory pricing cart apigateway
+docker compose @commerceCompose ps
+docker compose @commerceCompose logs --tail 50 cart apigateway
+```
+
+Explicit service names se laptop par chhota group start kar sakte hain. Checkout review ke liye `order payment shipping notification` add karein. Manufacturing aur Discovery ko unki dependencies ke saath alag se select karein. `--profile commerce-api up` saari APIs start karta hai. Overlay Gateway aur Identity ke liye native review wale loopback ports 5180 aur 5181 use karta hai. Docker group se pehle owned native review stop karein. Separate Compose project name se older containers aur volumes preserve rehte hain. [Docker Compose profiles](https://docs.docker.com/compose/how-tos/profiles/) · [Compose overlay merge rules](https://docs.docker.com/reference/compose-file/merge/)
+
+Catalog ka default `catalog-media` volume naye local assets persist karta hai. Existing SQL media references ko review karne ke liye matching media backup directory `CATALOG_MEDIA_STORAGE` se mount karein. RabbitMQ aur Valkey ke liye optional `compose.infra.yaml` same project mein use hoti hai. Event delivery tab enable karein jab service-specific broker permissions aur OAuth scopes verified hon. Normal local app review ka current entry point [native runbook](runbooks/local-review-website.md) mein hai.

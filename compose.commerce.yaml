@@ -1,0 +1,263 @@
+# Opt-in local commerce stack. Load after the base and Tenant files.
+x-commerce-api: &commerce-api
+  profiles: [commerce-api]
+  networks: [identity-local]
+  depends_on:
+    identity:
+      condition: service_healthy
+    tenant:
+      condition: service_healthy
+  restart: "on-failure:3"
+  mem_limit: 384m
+  cpus: 0.75
+
+x-commerce-environment: &commerce-environment
+  ASPNETCORE_ENVIRONMENT: Development
+  Identity__BaseUrl: http://identity:8080/
+  Tenant__BaseUrl: http://tenant:8080/
+  DOTNET_gcServer: "0"
+  DOTNET_GCConserveMemory: "7"
+
+services:
+  mailpit:
+    profiles: [identity-email, identity-api, tenant-api, theme-api, commerce-api]
+  identity:
+    profiles: [identity-api, tenant-api, theme-api, commerce-api]
+    ports: !override ["127.0.0.1:5181:8080"]
+    environment:
+      Identity__Issuer: http://localhost:5181/
+      Cors__Origins__0: http://localhost:4200
+      Cors__Origins__1: http://localhost:4000
+  tenant:
+    profiles: [tenant-api, theme-api, commerce-api]
+    environment:
+      PlatformHealth__Services__Identity: http://identity:8080/
+      PlatformHealth__Services__Tenant: http://tenant:8080/
+      PlatformHealth__Services__Theme: http://theme:8080/
+      PlatformHealth__Services__Storefront: http://storefront:8080/
+      PlatformHealth__Services__Catalog: http://catalog:8080/
+      PlatformHealth__Services__Inventory: http://inventory:8080/
+      PlatformHealth__Services__Pricing: http://pricing:8080/
+      PlatformHealth__Services__Cart: http://cart:8080/
+      PlatformHealth__Services__Order: http://order:8080/
+      PlatformHealth__Services__Payment: http://payment:8080/
+      PlatformHealth__Services__Shipping: http://shipping:8080/
+      PlatformHealth__Services__Notification: http://notification:8080/
+      PlatformHealth__Services__Manufacturing: http://manufacturing:8080/
+      PlatformHealth__Services__Discovery: http://discovery:8080/
+      PlatformHealth__Services__ApiGateway: http://apigateway:8080/
+  theme:
+    <<: *commerce-api
+    image: srecommerce-theme:dev
+    build:
+      context: .
+      dockerfile: SRECommerce.Theme.API/SRECommerce.Theme.API/Dockerfile
+    environment:
+      <<: *commerce-environment
+      ConnectionStrings__Theme: "${THEME_SQL_CONNECTION:-}"
+      ServiceAuth__ClientSecret: "${THEME_SERVICE_CLIENT_SECRET:-}"
+
+  storefront:
+    <<: *commerce-api
+    image: srecommerce-storefront:dev
+    build:
+      context: .
+      dockerfile: SRECommerce.Storefront.API/SRECommerce.Storefront.API/Dockerfile
+    environment:
+      <<: *commerce-environment
+      ConnectionStrings__Storefront: "${STOREFRONT_SQL_CONNECTION:-}"
+      ServiceAuth__ClientSecret: "${STOREFRONT_SERVICE_CLIENT_SECRET:-}"
+
+  catalog:
+    <<: *commerce-api
+    image: srecommerce-catalog:dev
+    build:
+      context: .
+      dockerfile: SRECommerce.Catalog.API/SRECommerce.Catalog.API/Dockerfile
+    environment:
+      <<: *commerce-environment
+      ConnectionStrings__Catalog: "${CATALOG_SQL_CONNECTION:-}"
+      ServiceAuth__ClientSecret: "${CATALOG_SERVICE_CLIENT_SECRET:-}"
+      Messaging__Enabled: "${CATALOG_MESSAGING_ENABLED:-false}"
+      Messaging__Host: rabbitmq
+      Messaging__Username: "${CATALOG_BROKER_USERNAME:-}"
+      Messaging__Password: "${CATALOG_BROKER_PASSWORD:-}"
+      Media__Root: /var/catalog-media
+    volumes:
+      - "${CATALOG_MEDIA_STORAGE:-catalog-media}:/var/catalog-media"
+
+  inventory:
+    <<: *commerce-api
+    image: srecommerce-inventory:dev
+    build:
+      context: .
+      dockerfile: SRECommerce.Inventory.API/SRECommerce.Inventory.API/Dockerfile
+    environment:
+      <<: *commerce-environment
+      ConnectionStrings__Inventory: "${INVENTORY_SQL_CONNECTION:-}"
+      ServiceAuth__ClientSecret: "${INVENTORY_SERVICE_CLIENT_SECRET:-}"
+      Catalog__BaseUrl: http://catalog:8080/
+      Messaging__Enabled: "${INVENTORY_MESSAGING_ENABLED:-false}"
+      Messaging__Host: rabbitmq
+      Messaging__Username: "${INVENTORY_BROKER_USERNAME:-}"
+      Messaging__Password: "${INVENTORY_BROKER_PASSWORD:-}"
+
+  pricing:
+    <<: *commerce-api
+    image: srecommerce-pricing:dev
+    build:
+      context: .
+      dockerfile: SRECommerce.Pricing.API/SRECommerce.Pricing.API/Dockerfile
+    environment:
+      <<: *commerce-environment
+      ConnectionStrings__Pricing: "${PRICING_SQL_CONNECTION:-}"
+      ServiceAuth__ClientSecret: "${PRICING_SERVICE_CLIENT_SECRET:-}"
+      Catalog__BaseUrl: http://catalog:8080/
+
+  cart:
+    <<: *commerce-api
+    image: srecommerce-cart:dev
+    build:
+      context: .
+      dockerfile: SRECommerce.Cart.API/SRECommerce.Cart.API/Dockerfile
+    environment:
+      <<: *commerce-environment
+      ConnectionStrings__Cart: "${CART_SQL_CONNECTION:-}"
+      ServiceAuth__ClientSecret: "${CART_SERVICE_CLIENT_SECRET:-}"
+      Catalog__BaseUrl: http://catalog:8080/
+      Inventory__BaseUrl: http://inventory:8080/
+      Pricing__BaseUrl: http://pricing:8080/
+      Messaging__Enabled: "${CART_MESSAGING_ENABLED:-false}"
+      Messaging__Host: rabbitmq
+      Messaging__Username: "${CART_BROKER_USERNAME:-}"
+      Messaging__Password: "${CART_BROKER_PASSWORD:-}"
+      CartReminders__Enabled: "${CART_REMINDERS_ENABLED:-false}"
+
+  order:
+    <<: *commerce-api
+    image: srecommerce-order:dev
+    build:
+      context: .
+      dockerfile: SRECommerce.Order.API/SRECommerce.Order.API/Dockerfile
+    environment:
+      <<: *commerce-environment
+      ConnectionStrings__Order: "${ORDER_SQL_CONNECTION:-}"
+      ServiceAuth__ClientSecret: "${ORDER_SERVICE_CLIENT_SECRET:-}"
+      Catalog__BaseUrl: http://catalog:8080/
+      Inventory__BaseUrl: http://inventory:8080/
+      Pricing__BaseUrl: http://pricing:8080/
+      Cart__BaseUrl: http://cart:8080/
+      Payment__BaseUrl: http://payment:8080/
+      Shipping__BaseUrl: http://shipping:8080/
+      Notification__BaseUrl: http://notification:8080/
+      Messaging__Enabled: "${ORDER_MESSAGING_ENABLED:-false}"
+      Messaging__Host: rabbitmq
+      Messaging__Username: "${ORDER_BROKER_USERNAME:-}"
+      Messaging__Password: "${ORDER_BROKER_PASSWORD:-}"
+
+  payment:
+    <<: *commerce-api
+    image: srecommerce-payment:dev
+    build:
+      context: .
+      dockerfile: SRECommerce.Payment.API/SRECommerce.Payment.API/Dockerfile
+    environment:
+      <<: *commerce-environment
+      ConnectionStrings__Payment: "${PAYMENT_SQL_CONNECTION:-}"
+      ServiceAuth__ClientSecret: "${PAYMENT_SERVICE_CLIENT_SECRET:-}"
+      Order__BaseUrl: http://order:8080/
+      Sandbox__WebhookSigningKey: "${PAYMENT_SANDBOX_WEBHOOK_SIGNING_KEY:-}"
+
+  shipping:
+    <<: *commerce-api
+    image: srecommerce-shipping:dev
+    build:
+      context: .
+      dockerfile: SRECommerce.Shipping.API/SRECommerce.Shipping.API/Dockerfile
+    environment:
+      <<: *commerce-environment
+      ConnectionStrings__Shipping: "${SHIPPING_SQL_CONNECTION:-}"
+      ServiceAuth__ClientSecret: "${SHIPPING_SERVICE_CLIENT_SECRET:-}"
+      Order__BaseUrl: http://order:8080/
+      Cart__BaseUrl: http://cart:8080/
+      Inventory__BaseUrl: http://inventory:8080/
+
+  notification:
+    <<: *commerce-api
+    image: srecommerce-notification:dev
+    build:
+      context: .
+      dockerfile: SRECommerce.Notification.API/SRECommerce.Notification.API/Dockerfile
+    environment:
+      <<: *commerce-environment
+      ConnectionStrings__Notification: "${NOTIFICATION_SQL_CONNECTION:-}"
+      ServiceAuth__ClientSecret: "${NOTIFICATION_SERVICE_CLIENT_SECRET:-}"
+      Order__BaseUrl: http://order:8080/
+      Cart__BaseUrl: http://cart:8080/
+      Messaging__Enabled: "${NOTIFICATION_MESSAGING_ENABLED:-false}"
+      Messaging__Host: rabbitmq
+      Messaging__Username: "${NOTIFICATION_BROKER_USERNAME:-}"
+      Messaging__Password: "${NOTIFICATION_BROKER_PASSWORD:-}"
+      Notifications__MailpitHost: mailpit
+      Notifications__DeliveryEnabled: "${NOTIFICATION_DELIVERY_ENABLED:-false}"
+      CartReminders__StorefrontOrigin: "${CART_REMINDER_STOREFRONT_ORIGIN:-http://localhost:4000/}"
+
+  manufacturing:
+    <<: *commerce-api
+    image: srecommerce-manufacturing:dev
+    build:
+      context: .
+      dockerfile: SRECommerce.Manufacturing.API/SRECommerce.Manufacturing.API/Dockerfile
+    environment:
+      <<: *commerce-environment
+      ConnectionStrings__Manufacturing: "${MANUFACTURING_SQL_CONNECTION:-}"
+      ServiceAuth__ClientSecret: "${MANUFACTURING_SERVICE_CLIENT_SECRET:-}"
+      Catalog__BaseUrl: http://catalog:8080/
+      Inventory__BaseUrl: http://inventory:8080/
+      Pricing__BaseUrl: http://pricing:8080/
+
+  discovery:
+    <<: *commerce-api
+    image: srecommerce-discovery:dev
+    build:
+      context: .
+      dockerfile: SRECommerce.Discovery.API/SRECommerce.Discovery.API/Dockerfile
+    environment:
+      <<: *commerce-environment
+      ConnectionStrings__Discovery: "${DISCOVERY_SQL_CONNECTION:-}"
+      ServiceAuth__ClientSecret: "${DISCOVERY_SERVICE_CLIENT_SECRET:-}"
+      Catalog__BaseUrl: http://catalog:8080/
+      Order__BaseUrl: http://order:8080/
+      Messaging__Enabled: "${DISCOVERY_MESSAGING_ENABLED:-false}"
+      Messaging__Host: rabbitmq
+      Messaging__Username: "${DISCOVERY_BROKER_USERNAME:-}"
+      Messaging__Password: "${DISCOVERY_BROKER_PASSWORD:-}"
+
+  apigateway:
+    <<: *commerce-api
+    image: srecommerce-apigateway:dev
+    build:
+      context: .
+      dockerfile: SRECommerce.ApiGateway/SRECommerce.ApiGateway/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      Cors__Origins__0: http://localhost:4200
+      Cors__Origins__1: http://localhost:4000
+      Services__Identity: http://identity:8080/
+      Services__Tenant: http://tenant:8080/
+      Services__Theme: http://theme:8080/
+      Services__Storefront: http://storefront:8080/
+      Services__Catalog: http://catalog:8080/
+      Services__Inventory: http://inventory:8080/
+      Services__Pricing: http://pricing:8080/
+      Services__Cart: http://cart:8080/
+      Services__Order: http://order:8080/
+      Services__Payment: http://payment:8080/
+      Services__Shipping: http://shipping:8080/
+      Services__Notification: http://notification:8080/
+      Services__Manufacturing: http://manufacturing:8080/
+      Services__Discovery: http://discovery:8080/
+    ports: ["127.0.0.1:5180:8080"]
+
+volumes:
+  catalog-media:

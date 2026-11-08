@@ -15,6 +15,7 @@ RUN dotnet publish SRECommerce.Catalog.API/SRECommerce.Catalog.API -c Release -o
 FROM mcr.microsoft.com/dotnet/aspnet:10.0.14
 WORKDIR /app
 COPY --from=build /app .
+RUN mkdir -p /var/catalog-media && chown "$APP_UID" /var/catalog-media
 USER $APP_UID
 ENV ASPNETCORE_HTTP_PORTS=8080
 EXPOSE 8080

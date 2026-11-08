@@ -14,6 +14,7 @@ public interface IOrderRepository
  Task<OrderFulfillment?> Fulfillment(Guid id,CancellationToken ct);Task<OrderFulfillment[]> Fulfillments(Guid order,CancellationToken ct);
  Task<OrderReturn?> Return(Guid id,CancellationToken ct);Task<OrderReturn[]> Returns(Guid order,CancellationToken ct);Task<OrderExchange?> Exchange(Guid id,CancellationToken ct);Task<OrderExchange[]> Exchanges(Guid order,CancellationToken ct);
  Task<OrderImport?> Import(Guid id,CancellationToken ct);
+ Task<GstInvoiceRecord?> GstInvoice(Guid order,CancellationToken ct);
  Task<Guid?> NotificationOrder(Guid eventId,string type,CancellationToken ct);
  Task<bool> VerifiedPurchase(Guid user,Guid product,CancellationToken ct);
  void EmitNotice(int kind,Guid order);

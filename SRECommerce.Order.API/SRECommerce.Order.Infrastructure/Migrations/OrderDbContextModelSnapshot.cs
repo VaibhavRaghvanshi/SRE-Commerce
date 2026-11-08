@@ -249,6 +249,60 @@ namespace SRECommerce.Order.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SRECommerce.Order.Domain.GstInvoiceRecord", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Document")
+                        .IsRequired()
+                        .HasMaxLength(65536)
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("FinancialYearStart")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Irn")
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(16)");
+
+                    b.Property<string>("RequestHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<string>("SupplierGstin")
+                        .IsRequired()
+                        .HasMaxLength(15)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(15)");
+
+                    b.HasKey("TenantId", "Id");
+
+                    b.HasIndex("TenantId", "Irn")
+                        .IsUnique()
+                        .HasFilter("[Irn] IS NOT NULL");
+
+                    b.HasIndex("TenantId", "SupplierGstin", "FinancialYearStart", "Number")
+                        .IsUnique();
+
+                    b.ToTable("GstInvoiceRecords", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_GstInvoiceRecords_Document", "ISJSON([Document])=1");
+                        });
+                });
+
             modelBuilder.Entity("SRECommerce.Order.Domain.OrderExchange", b =>
                 {
                     b.Property<Guid>("TenantId")
@@ -864,6 +918,15 @@ namespace SRECommerce.Order.Infrastructure.Migrations
 
                             t.HasCheckConstraint("CK_Orders_Totals", "[Subtotal]>=0 AND [Discount]>=0 AND [Net]>=0 AND [Tax]>=0 AND [ShippingTotal]>=0 AND [ItemsTotal]=[Net]+[Tax] AND [Total]=[ItemsTotal]+[ShippingTotal] AND [Refunded]>=0 AND [Refunded]<=[Total]");
                         });
+                });
+
+            modelBuilder.Entity("SRECommerce.Order.Domain.GstInvoiceRecord", b =>
+                {
+                    b.HasOne("SRECommerce.Order.Domain.SalesOrder", null)
+                        .WithOne()
+                        .HasForeignKey("SRECommerce.Order.Domain.GstInvoiceRecord", "TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("SRECommerce.Order.Domain.OrderExchange", b =>

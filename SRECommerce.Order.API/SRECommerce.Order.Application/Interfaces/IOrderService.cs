@@ -12,6 +12,8 @@ public interface IOrderService
  Task<ExchangeView> RequestExchange(Guid tenant,Guid id,ExchangeOrderRequest request,bool guest,string? capability,CancellationToken ct);Task<ExchangeView[]> Exchanges(Guid tenant,Guid id,bool guest,string? capability,bool admin,CancellationToken ct);Task<ExchangeView> ChangeExchange(Guid tenant,Guid id,ExchangeStateRequest request,CancellationToken ct);
  Task<OrderView> Invoice(Guid tenant,Guid id,InvoiceRequest request,CancellationToken ct);Task<Guid[]> ImportHistory(Guid tenant,HistoricalOrderImport request,CancellationToken ct);
  Task<GstWorksheet> PreviewGstWorksheet(Guid tenant,Guid id,GstWorksheetRequest request,CancellationToken ct);
+ Task<GstInvoice> ReadGstInvoice(Guid tenant,Guid id,CancellationToken ct);
+ Task<GstInvoice> RecordGstInvoice(Guid tenant,Guid id,RecordGstInvoiceRequest request,CancellationToken ct);
  Task<OrderView> CounterHandover(Guid tenant,Guid id,CounterHandoverRequest request,CancellationToken ct);
  Task<MachineOrderContext> Context(Guid tenant,Guid id,CancellationToken ct);Task<object> ShipmentContext(Guid tenant,Guid id,CancellationToken ct);Task<object> ReturnContext(Guid tenant,Guid id,CancellationToken ct);
  Task<object> NotificationContext(Guid tenant,Guid id,Guid eventId,int kind,CancellationToken ct);

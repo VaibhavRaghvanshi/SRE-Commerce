@@ -71,8 +71,14 @@ try {
   assert(!order.historical && order.paymentMethod === 'COD' && order.shippingTotal === 99 && order.items.length === 1 && order.items[0].variantId === target.variant.id && order.items[0].quantity === 1, 'OrderSnapshotMismatch');
   const after = await availability(target.variant.id); assert(after.available === before.available - 1, 'StockWasNotCommittedExactlyOnce'); record('server order snapshot and exactly-one-unit stock commit reconcile');
   await link.click(); await page.getByRole('heading', { name: 'Order details', exact: true }).waitFor();
+  await page.getByRole('heading', { name: order.number, exact: true }).waitFor();
   await page.setViewportSize({ width: 390, height: 844 }); assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'MobileOrderOverflow');
   await page.screenshot({ path: join(directory, 'order-mobile.png'), fullPage: true }); record('guest order history and tracking remain accessible on mobile');
+  const language = page.getByLabel('Store language');
+  await language.selectOption('hi');
+  await page.getByRole('heading', { name: 'ऑर्डर की जानकारी', exact: true }).waitFor();
+  await page.getByText('पुष्टि हो गई · डिलीवरी पर नकद भुगतान', { exact: true }).waitFor();
+  record('mobile guest order status and payment state switch to Hindi');
   if (verifyGst) {
     step = 'merchant GST worksheet';
     page = await browser.newPage({ viewport: { width: 1365, height: 900 }, acceptDownloads: true });
@@ -86,10 +92,13 @@ try {
     await page.locator('tr').filter({ hasText: order.number }).getByRole('button', { name: 'View order', exact: true }).click();
     const worksheet = page.locator('app-gst-worksheet');
     await worksheet.getByText('GST preparation worksheet', { exact: true }).click();
+    await worksheet.getByRole('button', { name: 'Load saved GST invoice record', exact: true }).click();
+    await worksheet.getByText('No GST invoice record has been saved for this order.', { exact: true }).waitFor();
     const fields = { 'supplier-name': 'Synthetic worksheet supplier', 'supplier-address': 'Local worksheet verification address',
       'supplier-gstin': '07ZZZZZ0000Z1Z0', 'place-name': 'Maharashtra', 'place-code': '27' };
     if (order.shippingTotal > 0) fields['shipping-sac'] = '996511';
     for (const [name, value] of Object.entries(fields)) await worksheet.locator(`[name="${name}"]`).fill(value);
+    await worksheet.locator('select[name="tax-treatment"]').selectOption({ label: 'Interstate · IGST' });
     for (let index = 0; index < order.items.length; index++) {
       const item = worksheet.locator('.item').nth(index);
       await item.getByLabel('HSN', { exact: true }).fill('0904');
@@ -103,7 +112,8 @@ try {
     assert(preview.ok(), 'WorksheetPreviewRejected');
     const result = await preview.json();
     assert(result.documentType === 'GST_WORKSHEET_DRAFT' && result.orderNumber === order.number && result.total === order.total
-      && result.lines.length === order.items.length, 'WorksheetSnapshotMismatch');
+      && result.lines.length === order.items.length && result.taxComponents.igst === result.recordedTax, 'WorksheetSnapshotMismatch');
+    if (result.recordedTax > 0) await worksheet.getByRole('button', { name: 'Save issued invoice record', exact: true }).waitFor();
     const download = page.waitForEvent('download');
     void download.catch(() => {});
     await worksheet.getByRole('button', { name: 'Download draft JSON', exact: true }).click();
@@ -111,7 +121,7 @@ try {
     const exported = JSON.parse(readFileSync(file, 'utf8'));
     assert(exported.documentType === 'GST_WORKSHEET_DRAFT' && exported.total === order.total, 'WorksheetDownloadMismatch');
     await page.screenshot({ path: join(directory, 'worksheet-preview.png'), fullPage: true });
-    record('merchant worksheet previews and downloads the recorded order amounts using synthetic GST fields');
+    record('merchant GST worksheet reconciles the IGST preview and download, and confirms the order has no issued invoice record');
   }
 } catch (error) {
   process.exitCode = 1; if (page) try { await page.screenshot({ path: join(directory, 'failure.png'), fullPage: true }); } catch {}

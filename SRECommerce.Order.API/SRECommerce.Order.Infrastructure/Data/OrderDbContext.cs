@@ -14,6 +14,18 @@ public sealed class OrderDbContext(DbContextOptions<OrderDbContext> options,Modu
   Tenant<SalesOrder>("Orders",e=>{e.Property(x=>x.Number).HasMaxLength(80);e.Property(x=>x.PaymentMethod).HasMaxLength(20);e.Property(x=>x.Currency).HasMaxLength(3);e.Property(x=>x.ContactDocument).HasMaxLength(4000);e.Property(x=>x.PriceSnapshot).HasMaxLength(131072);e.Property(x=>x.ShippingSnapshot).HasMaxLength(65536);e.Property(x=>x.InvoiceReference).HasMaxLength(80);e.Property(x=>x.SourceReference).HasMaxLength(120);e.HasIndex(x=>new{x.TenantId,x.Number}).IsUnique();e.HasIndex(x=>new{x.TenantId,x.CartId,x.CartRevision}).IsUnique().HasFilter("[CartId] IS NOT NULL");e.HasIndex(x=>new{x.TenantId,x.InvoiceReference}).IsUnique().HasFilter("[InvoiceReference] IS NOT NULL");e.HasIndex(x=>new{x.TenantId,x.SourceReference}).IsUnique().HasFilter("[SourceReference] IS NOT NULL");e.HasIndex(x=>new{x.TenantId,x.UserId,x.CreatedAt});e.HasIndex(x=>new{x.TenantId,x.Status,x.CreatedAt});e.ToTable(t=>{t.HasCheckConstraint("CK_Orders_Totals","[Subtotal]>=0 AND [Discount]>=0 AND [Net]>=0 AND [Tax]>=0 AND [ShippingTotal]>=0 AND [ItemsTotal]=[Net]+[Tax] AND [Total]=[ItemsTotal]+[ShippingTotal] AND [Refunded]>=0 AND [Refunded]<=[Total]");t.HasCheckConstraint("CK_Orders_Precision","[DecimalPlaces] BETWEEN 0 AND 3");t.HasCheckConstraint("CK_Orders_Documents","ISJSON([ContactDocument])=1 AND ISJSON([PriceSnapshot])=1 AND ISJSON([ShippingSnapshot])=1");});});
   model.Entity<OrderItem>(e=>{e.ToTable("OrderItems",t=>t.HasCheckConstraint("CK_OrderItems_Quantities","[Quantity]>0 AND [ShipmentRequested]>=0 AND [ShipmentRequested]<=[Quantity] AND [Fulfilled]>=0 AND [Fulfilled]<=[ShipmentRequested] AND [Delivered]>=0 AND [Delivered]<=[Fulfilled] AND [ReturnRequested]>=0 AND [ReturnRequested]<=[Delivered] AND [Returned]>=0 AND [Returned]<=[ReturnRequested] AND [RefundAllocated]>=0 AND [RefundAllocated]<=[Total]"));e.HasKey(x=>new{x.TenantId,x.OrderId,x.VariantId});e.Property(x=>x.Sku).HasMaxLength(64);e.Property(x=>x.Name).HasMaxLength(160);e.HasOne<SalesOrder>().WithMany(x=>x.Items).HasForeignKey(x=>new{x.TenantId,Id=x.OrderId}).OnDelete(DeleteBehavior.Restrict);e.TenantEntity(x=>x.TenantId==CurrentTenant);});
   model.Entity<SalesOrder>().HasIndex(x=>new{x.TenantId,x.CreatedAt}).IncludeProperties(x=>new{x.Currency,x.Historical,x.Status,x.PaymentState,x.Total,x.Refunded});
+  Tenant<GstInvoiceRecord>("GstInvoiceRecords", e =>
+  {
+   e.Property(x=>x.SupplierGstin).HasMaxLength(15).IsUnicode(false);
+   e.Property(x=>x.Number).HasMaxLength(16).IsUnicode(false);
+   e.Property(x=>x.Irn).HasMaxLength(64).IsUnicode(false);
+   e.Property(x=>x.RequestHash).HasMaxLength(64).IsUnicode(false);
+   e.Property(x=>x.Document).HasMaxLength(65536);
+   e.HasIndex(x=>new{x.TenantId,x.SupplierGstin,x.FinancialYearStart,x.Number}).IsUnique();
+   e.HasIndex(x=>new{x.TenantId,x.Irn}).IsUnique().HasFilter("[Irn] IS NOT NULL");
+   e.HasOne<SalesOrder>().WithOne().HasForeignKey<GstInvoiceRecord>(x=>new{x.TenantId,x.Id}).OnDelete(DeleteBehavior.Restrict);
+   e.ToTable(t=>t.HasCheckConstraint("CK_GstInvoiceRecords_Document","ISJSON([Document])=1"));
+  });
   Tenant<OrderReservation>("OrderReservations",e=>{e.Property(x=>x.Items).HasMaxLength(10000);e.Property(x=>x.RemoteVersion).HasMaxLength(30);e.HasIndex(x=>new{x.TenantId,x.OrderId,x.WarehouseId}).IsUnique();e.HasOne<SalesOrder>().WithMany().HasForeignKey(x=>new{x.TenantId,Id=x.OrderId}).OnDelete(DeleteBehavior.Restrict);e.ToTable(t=>t.HasCheckConstraint("CK_OrderReservations_Items","ISJSON([Items])=1"));});
   Tenant<OrderStatusHistory>("OrderStatusHistory",e=>{e.Property(x=>x.Reason).HasMaxLength(300);e.HasIndex(x=>new{x.TenantId,x.OrderId,x.CreatedAt});e.HasOne<SalesOrder>().WithMany().HasForeignKey(x=>new{x.TenantId,Id=x.OrderId}).OnDelete(DeleteBehavior.Restrict);});
   Tenant<OrderOperation>("OrderOperations",e=>{e.Property(x=>x.Hash).HasMaxLength(64);e.Property(x=>x.Action).HasMaxLength(80);e.Property(x=>x.Result).HasMaxLength(131072);e.HasOne<SalesOrder>().WithMany().HasForeignKey(x=>new{x.TenantId,Id=x.OrderId}).OnDelete(DeleteBehavior.Restrict);e.ToTable(t=>t.HasCheckConstraint("CK_OrderOperations_Result","ISJSON([Result])=1"));});
@@ -28,7 +40,7 @@ public sealed class OrderDbContext(DbContextOptions<OrderDbContext> options,Modu
  private void Guard()
  {
   this.GuardWrites(scope);
-  if(ChangeTracker.Entries().Any(e=>e.Entity is OrderStatusHistory or OrderOperation or OrderImport&&e.State is EntityState.Modified or EntityState.Deleted))throw new BusinessFault("OrderHistoryImmutable",403);
+  if(ChangeTracker.Entries().Any(e=>e.Entity is OrderStatusHistory or OrderOperation or OrderImport or GstInvoiceRecord&&e.State is EntityState.Modified or EntityState.Deleted))throw new BusinessFault("OrderHistoryImmutable",403);
   // Checkout financial and customer snapshots are permanent. Workflow fields may advance independently.
   string[] orderWorkflow=[nameof(SalesOrder.Status),nameof(SalesOrder.PaymentState),nameof(SalesOrder.Refunded),nameof(SalesOrder.DeliveredAt),nameof(SalesOrder.UpdatedAt),nameof(SalesOrder.Revision),nameof(SalesOrder.InvoiceReference)];
   string[] itemWorkflow=[nameof(OrderItem.ShipmentRequested),nameof(OrderItem.Fulfilled),nameof(OrderItem.Delivered),nameof(OrderItem.ReturnRequested),nameof(OrderItem.Returned),nameof(OrderItem.RefundAllocated)];

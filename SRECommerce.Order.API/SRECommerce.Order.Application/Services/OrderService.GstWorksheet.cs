@@ -32,6 +32,14 @@ public sealed partial class OrderService
         if (!Regex.IsMatch(placeCode, "\\A[0-9]{2}\\z") || placeCode == "00")
             throw new BusinessFault("InvalidPlaceOfSupply", 400);
         var placeName = OrderRules.Text(request.PlaceOfSupplyName, 80);
+        var treatment = request.TaxTreatment;
+        if (treatment is not null)
+        {
+            var interstate = !supplier.Gstin!.StartsWith(placeCode, StringComparison.Ordinal);
+            if (request.ReverseCharge || treatment is not ("InterState" or "IntraState" or "IntraTerritory") ||
+                interstate != (treatment == "InterState"))
+                throw new BusinessFault("GstTaxTreatmentMismatch", 400);
+        }
 
         if (request.Items is null || request.Items.Length != order.Items.Count || request.Items.Any(item => item is null)
             || request.Items.Select(item => item.VariantId).Distinct().Count() != request.Items.Length)
@@ -51,7 +59,8 @@ public sealed partial class OrderService
             if (!recordedLines.TryGetValue(item.VariantId, out var recorded) || recorded.Net != item.Net
                 || recorded.Quantity != item.Quantity || recorded.Tax != item.Tax || recorded.Total != item.Total)
                 throw new BusinessFault("GstWorksheetSnapshotMismatch");
-            lines.Add(new(item.Sku, item.Name, hsn, unit, item.Quantity, item.Discount, item.Net, recorded.TaxRate, item.Tax, item.Total));
+            lines.Add(new(item.Sku, item.Name, hsn, unit, item.Quantity, item.Discount, item.Net, recorded.TaxRate, item.Tax, item.Total,
+                DraftComponents(treatment, item.Tax)));
         }
 
         var shipping = ContractJson.Read<ShippingQuoteSnapshot>(order.ShippingSnapshot);
@@ -66,9 +75,31 @@ public sealed partial class OrderService
 
         var deliveryAddress = string.Join(", ", new[] { contact.AddressLine1, contact.AddressLine2, contact.City, contact.PostalCode, contact.CountryCode }
             .Where(value => !string.IsNullOrWhiteSpace(value)));
+        var shippingComponents = DraftComponents(treatment, shipping.Tax);
+        var totalComponents = shippingComponents is null ? null : new GstTaxAmounts(
+            lines.Sum(line => line.TaxComponents!.Cgst) + shippingComponents.Cgst,
+            lines.Sum(line => line.TaxComponents!.Sgst) + shippingComponents.Sgst,
+            lines.Sum(line => line.TaxComponents!.Utgst) + shippingComponents.Utgst,
+            lines.Sum(line => line.TaxComponents!.Igst) + shippingComponents.Igst);
         return new("GST_WORKSHEET_DRAFT", order.Number, order.CreatedAt, order.InvoiceReference, order.Currency, supplier, recipient,
             deliveryAddress, placeCode, placeName, request.ReverseCharge, lines.ToArray(),
-            new(shipping.MethodName, shippingSac, shipping.Net, shipping.Tax, shipping.Total), itemTax + shipping.Tax, order.Total);
+            new(shipping.MethodName, shippingSac, shipping.Net, shipping.Tax, shipping.Total, shippingComponents),
+            itemTax + shipping.Tax, order.Total, treatment, totalComponents);
+    }
+
+    private static GstTaxAmounts? DraftComponents(string? treatment, decimal tax)
+    {
+        if (treatment is null) return null;
+        if (tax != decimal.Round(tax, 2)) throw new BusinessFault("GstTaxPrecisionMismatch");
+        // Allocate an odd paisa to the local component so the saved line still reconciles.
+        var central = decimal.Floor(tax * 50) / 100;
+        var local = tax - central;
+        return treatment switch
+        {
+            "IntraState" => new(central, local, 0, 0),
+            "IntraTerritory" => new(central, 0, local, 0),
+            _ => new(0, 0, 0, tax)
+        };
     }
 
     private static GstParty NormalizeGstParty(GstParty party, bool required)
