@@ -6,7 +6,7 @@ Identity enforces the tenant plan's active seat limit for customer enrollment, m
 
 The Identity copy-only backup passed checksum verification. Running the additive migration twice created one index and one migration history record. The count, active count and fingerprint of all five existing memberships matched before and after migration. [Reviewed SQL migration](database-migrations/identity-membership-directory.sql)
 
-All 35 Identity tests, two focused Tenant integration tests and 80 Angular tests passed. The optimized Angular build completed at 503.40 kB against a 500 kB warning threshold. Native Chrome verified real registration and email confirmation, customer enrollment, role changes and session revocation, then deactivated the labelled test membership. The Owner Team page passed the role and status filters, empty search results, seat count and 390px layout checks. All 14 native readiness and five preserved-data checks passed. Compose configuration passed static validation.
+All 35 Identity tests, 32 Tenant tests and 80 Angular tests passed. The Identity suite also confirms that a customer without write permission receives 403 while another transaction holds the membership lock. The optimized Angular build completed at 503.40 kB against a 500 kB warning threshold. Native Chrome verified real registration and email confirmation, customer enrollment, role changes and session revocation, then deactivated the labelled test membership. The Owner Team page passed the role and status filters, empty search results, seat count and 390px layout checks. All 14 native readiness and five preserved-data checks passed. Compose configuration passed static validation.
 
 ## GST invoice records, order status localization and Docker coverage — 2026-11-08
 
